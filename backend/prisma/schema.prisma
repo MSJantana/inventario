@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums para Equipamento
+enum TipoEquipamento {
+  COMPUTADOR
+  NOTEBOOK
+  IMPRESSORA
+  PROJETOR
+  TABLET
+  MONITOR
+  ROTEADOR
+  SWITCH
+  OUTRO
+}
+
+enum StatusEquipamento {
+  DISPONIVEL
+  EM_USO
+  EM_MANUTENCAO
+  DESCARTADO
+  RESERVADO
+}
+
+// Enum para Movimentação
+enum TipoMovimento {
+  ENTRADA
+  SAIDA
+  TRANSFERENCIA
+  MANUTENCAO
+  DESCARTE
+}
+
+// Enum para Roles de Usuário
+enum Role {
+  ADMIN
+  GESTOR
+  TECNICO
+  USUARIO
+}
+
+model Equipamento {
+  id            String            @id @default(uuid())
+  nome          String
+  tipo          TipoEquipamento
+  modelo        String
+  serial        String            @unique
+  status        StatusEquipamento @default(DISPONIVEL)
+  localizacao   String?
+  fabricante    String?
+  dataAquisicao DateTime  
+  processador   String?
+  memoria       String?
+  observacoes   String?
+  escolaId      String?
+  escola        Escola?           @relation(fields: [escolaId], references: [id])
+  movimentacoes Movimentacao[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model Usuario {
+  id              String    @id @default(uuid())
+  nome            String
+  email           String    @unique
+  senha           String
+  role            Role      @default(USUARIO)
+  cargo           String?
+  resetToken      String?   @db.VarChar(255)
+  resetTokenExpiry DateTime?
+  escolaId        String?
+  escola          Escola?   @relation(fields: [escolaId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Movimentacao {
+  id            String        @id @default(uuid())
+  equipamentoId String
+  equipamento   Equipamento   @relation(fields: [equipamentoId], references: [id])
+  responsavel   String
+  tipoMovimento TipoMovimento
+  origem        String?
+  destino       String?
+  escolaId      String?
+  escola        Escola?       @relation(fields: [escolaId], references: [id])
+  dataMovimento DateTime      @default(now())
+  observacoes   String?
+}
+
+model Escola {
+  id           String         @id @default(uuid())
+  nome         String
+  sigla        String
+  endereco     String
+  cidade       String
+  estado       String
+  cep          String
+  telefone     String?
+  email        String?
+  diretor      String?
+  observacoes  String?
+  equipamentos Equipamento[]
+  usuarios     Usuario[]
+  movimentacoes Movimentacao[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}

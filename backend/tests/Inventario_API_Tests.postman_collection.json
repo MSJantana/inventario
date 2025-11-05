@@ -1,0 +1,1515 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Sistema de Inventário API",
+		"description": "Coleção de testes para a API do Sistema de Inventário",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Autenticação",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"",
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Resposta contém token JWT\", function () {",
+									"    pm.expect(jsonData.token).to.exist;",
+									"    pm.environment.set(\"authToken\", jsonData.token);",
+									"});",
+									"",
+									"pm.test(\"Resposta contém informações do usuário\", function () {",
+									"    pm.expect(jsonData.usuario).to.exist;",
+									"    pm.expect(jsonData.usuario.id).to.exist;",
+									"    pm.expect(jsonData.usuario.nome).to.exist;",
+									"    pm.expect(jsonData.usuario.email).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"senha\": \"senha123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios",
+								"login"
+							]
+						},
+						"description": "Autenticação de usuário para obter token JWT"
+					},
+					"response": []
+				}
+				,
+				{
+					"name": "Solicitar Recuperação de Senha",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const jsonData = pm.response.json();",
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Resposta contém mensagem de envio\", function () {",
+									"    pm.expect(jsonData.message).to.exist;",
+									"});",
+									"// Em dev, o endpoint retorna o token para testes",
+									"if (jsonData.token) {",
+									"  pm.environment.set('resetToken', jsonData.token);",
+									"}",
+									"pm.test(\"Token de recuperação salvo no ambiente (se fornecido)\", function () {",
+									"    pm.expect(pm.environment.get('resetToken')).to.be.ok;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{recoveryEmail}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios/recuperar-senha",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios",
+								"recuperar-senha"
+							]
+						},
+						"description": "Solicita recuperação de senha para o email informado; em desenvolvimento retorna o token de redefinição"
+					},
+					"response": []
+				}
+				,
+				{
+					"name": "Redefinir Senha",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const jsonData = pm.response.json();",
+									"pm.test(\"Status code é 200\", function () {",
+									"  pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Mensagem de sucesso presente\", function () {",
+									"  pm.expect(jsonData.message).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"novaSenha\": \"{{novaSenha}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios/redefinir-senha",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios",
+								"redefinir-senha"
+							]
+						},
+						"description": "Redefine a senha usando o token obtido na recuperação"
+					},
+					"response": []
+				}
+				,
+				{
+					"name": "Login com Nova Senha",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const jsonData = pm.response.json();",
+									"pm.test(\"Status code é 200\", function () {",
+									"  pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Login com nova senha retorna token\", function () {",
+									"  pm.expect(jsonData.token).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{recoveryEmail}}\",\n  \"senha\": \"{{novaSenha}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios",
+								"login"
+							]
+						},
+						"description": "Valida que a nova senha está funcionando"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Usuários",
+			"item": [
+				{
+					"name": "Listar Usuários",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Resposta é um array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(Array.isArray(jsonData)).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Usuários têm propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.length > 0) {",
+									"        pm.expect(jsonData[0].id).to.exist;",
+									"        pm.expect(jsonData[0].nome).to.exist;",
+									"        pm.expect(jsonData[0].email).to.exist;",
+									"        pm.expect(jsonData[0].cargo).to.exist;",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios"
+							]
+						},
+						"description": "Listar todos os usuários"
+					},
+					"response": []
+				},
+				{
+					"name": "Obter Usuário por ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Usuário tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.exist;",
+									"    pm.expect(jsonData.email).to.exist;",
+									"    pm.expect(jsonData.cargo).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios",
+								"{{usuarioId}}"
+							]
+						},
+						"description": "Obter um usuário específico pelo ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Criar Usuário",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Usuário criado tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.exist;",
+									"    pm.expect(jsonData.email).to.exist;",
+									"    pm.expect(jsonData.cargo).to.exist;",
+									"    ",
+									"    // Salvar ID para uso em outros testes",
+									"    pm.environment.set(\"usuarioId\", jsonData.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nome\": \"Novo Usuário\",\n    \"email\": \"novo@example.com\",\n    \"senha\": \"senha123\",\n    \"cargo\": \"Técnico\",\n    \"escolaId\": \"{{escolaId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios"
+							]
+						},
+						"description": "Criar um novo usuário"
+					},
+					"response": []
+				},
+				{
+					"name": "Atualizar Usuário",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Usuário atualizado tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.equal(\"Usuário Atualizado\");",
+									"    pm.expect(jsonData.email).to.exist;",
+									"    pm.expect(jsonData.cargo).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nome\": \"Usuário Atualizado\",\n    \"email\": \"atualizado@example.com\",\n    \"cargo\": \"Coordenador\",\n    \"escolaId\": \"{{escolaId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios",
+								"{{usuarioId}}"
+							]
+						},
+						"description": "Atualizar um usuário existente"
+					},
+					"response": []
+				},
+				{
+					"name": "Excluir Usuário",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Mensagem de sucesso na resposta\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include(\"excluído\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"usuarios",
+								"{{usuarioId}}"
+							]
+						},
+						"description": "Excluir um usuário"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Equipamentos",
+			"item": [
+				{
+					"name": "Listar Equipamentos",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Resposta é um array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(Array.isArray(jsonData)).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Equipamentos têm propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.length > 0) {",
+									"        pm.expect(jsonData[0].id).to.exist;",
+									"        pm.expect(jsonData[0].nome).to.exist;",
+									"        pm.expect(jsonData[0].tipo).to.exist;",
+									"        pm.expect(jsonData[0].numeroSerie).to.exist;",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/equipamentos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"equipamentos"
+							]
+						},
+						"description": "Listar todos os equipamentos"
+					},
+					"response": []
+				},
+				{
+					"name": "Obter Equipamento por ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Equipamento tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.exist;",
+									"    pm.expect(jsonData.tipo).to.exist;",
+									"    pm.expect(jsonData.numeroSerie).to.exist;",
+									"    pm.expect(jsonData.status).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/equipamentos/{{equipamentoId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"equipamentos",
+								"{{equipamentoId}}"
+							]
+						},
+						"description": "Obter um equipamento específico pelo ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Criar Equipamento",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Equipamento criado tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.exist;",
+									"    pm.expect(jsonData.tipo).to.exist;",
+									"    pm.expect(jsonData.numeroSerie).to.exist;",
+									"    pm.expect(jsonData.status).to.exist;",
+									"    ",
+									"    // Salvar ID para uso em outros testes",
+									"    pm.environment.set(\"equipamentoId\", jsonData.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nome\": \"Novo Equipamento\",\n    \"tipo\": \"COMPUTADOR\",\n    \"numeroSerie\": \"SN12345678\",\n    \"modelo\": \"Modelo XYZ\",\n    \"fabricante\": \"Fabricante ABC\",\n    \"dataAquisicao\": \"2023-01-15\",\n    \"status\": \"DISPONIVEL\",\n    \"escolaId\": \"{{escolaId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/equipamentos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"equipamentos"
+							]
+						},
+						"description": "Criar um novo equipamento"
+					},
+					"response": []
+				},
+				{
+					"name": "Atualizar Equipamento",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Equipamento atualizado tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.equal(\"Equipamento Atualizado\");",
+									"    pm.expect(jsonData.tipo).to.exist;",
+									"    pm.expect(jsonData.numeroSerie).to.exist;",
+									"    pm.expect(jsonData.status).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nome\": \"Equipamento Atualizado\",\n    \"tipo\": \"NOTEBOOK\",\n    \"numeroSerie\": \"SN12345678\",\n    \"modelo\": \"Modelo Atualizado\",\n    \"fabricante\": \"Fabricante Atualizado\",\n    \"status\": \"EM_USO\",\n    \"escolaId\": \"{{escolaId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/equipamentos/{{equipamentoId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"equipamentos",
+								"{{equipamentoId}}"
+							]
+						},
+						"description": "Atualizar um equipamento existente"
+					},
+					"response": []
+				},
+                {
+                    "name": "Excluir Equipamento",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code é 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Mensagem de sucesso na resposta\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.message).to.include(\"excluído\");",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{authToken}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/equipamentos/{{equipamentoId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "equipamentos",
+                                "{{equipamentoId}}"
+                            ]
+                        },
+                        "description": "Excluir um equipamento"
+                    },
+                    "response": []
+                }
+                ,
+                {
+                    "name": "Exportar Equipamentos CSV",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "const text = pm.response.text();",
+                                    "pm.test(\"Status code é 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.test(\"Content-Type é text/csv\", function () {",
+                                    "    const ct = pm.response.headers.get('Content-Type');",
+                                    "    pm.expect(ct).to.include('text/csv');",
+                                    "});",
+                                    "pm.test(\"Content-Disposition contém filename equipamentos.csv\", function () {",
+                                    "    const cd = pm.response.headers.get('Content-Disposition');",
+                                    "    pm.expect(cd).to.include('equipamentos.csv');",
+                                    "});",
+                                    "const lines = text.split(/\\r?\\n/);",
+                                    "const expectedHeader = 'id,nome,tipo,modelo,serial,macadress,status,localizacao,fabricante,processador,memoria,dataAquisicao,observacoes,escolaId,escolaNome';",
+                                    "pm.test(\"Cabeçalho CSV correto\", function () {",
+                                    "    pm.expect(lines[0]).to.equal(expectedHeader);",
+                                    "});",
+                                    "pm.test(\"Arquivo contém pelo menos cabeçalho\", function () {",
+                                    "    pm.expect(lines.length).to.be.at.least(1);",
+                                    "});",
+                                    "pm.test(\"Se há linha de dados, número de colunas confere\", function () {",
+                                    "    if (lines.length > 1 && lines[1].trim().length > 0) {",
+                                    "        const cols = lines[1].split(',');",
+                                    "        pm.expect(cols.length).to.equal(expectedHeader.split(',').length);",
+                                    "    }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{authToken}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "text/csv"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/equipamentos/export/csv",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "equipamentos",
+                                "export",
+                                "csv"
+                            ]
+                        },
+                        "description": "Exporta CSV de equipamentos; ADMIN exporta todos, outros apenas da própria escola."
+                    },
+                    "response": []
+                }
+			]
+		},
+		{
+			"name": "Movimentações",
+			"item": [
+				{
+					"name": "Listar Movimentações",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Resposta é um array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(Array.isArray(jsonData)).to.be.true;",
+									"});",
+									"",
+                                    "pm.test(\"Movimentações têm propriedades corretas\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    if (jsonData.length > 0) {",
+                                    "        pm.expect(jsonData[0].id).to.exist;",
+                                    "        pm.expect(jsonData[0].tipo).to.exist;",
+                                    "        pm.expect(jsonData[0].data).to.exist;",
+                                    "        // Também validar nomes do schema",
+                                    "        pm.expect(jsonData[0].tipoMovimento).to.exist;",
+                                    "        pm.expect(jsonData[0].dataMovimento).to.exist;",
+                                    "        pm.expect(jsonData[0].equipamentoId).to.exist;",
+                                    "    }",
+                                    "});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/movimentacoes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"movimentacoes"
+							]
+						},
+						"description": "Listar todas as movimentações"
+					},
+					"response": []
+				},
+				{
+					"name": "Obter Movimentação por ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Movimentação tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.id).to.exist;",
+                                    "    pm.expect(jsonData.tipo).to.exist;",
+                                    "    pm.expect(jsonData.data).to.exist;",
+                                    "    // Também validar nomes do schema",
+                                    "    pm.expect(jsonData.tipoMovimento).to.exist;",
+                                    "    pm.expect(jsonData.dataMovimento).to.exist;",
+                                    "    pm.expect(jsonData.observacoes).to.exist;",
+                                    "    pm.expect(jsonData.equipamentoId).to.exist;",
+                                    "    pm.expect(jsonData.usuarioId).to.exist;",
+                                    "});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/movimentacoes/{{movimentacaoId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"movimentacoes",
+								"{{movimentacaoId}}"
+							]
+						},
+						"description": "Obter uma movimentação específica pelo ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Criar Movimentação",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Movimentação criada tem propriedades corretas\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.id).to.exist;",
+                                    "    pm.expect(jsonData.tipo).to.exist;",
+                                    "    pm.expect(jsonData.data).to.exist;",
+                                    "    // Também validar nomes do schema",
+                                    "    pm.expect(jsonData.tipoMovimento).to.exist;",
+                                    "    pm.expect(jsonData.dataMovimento).to.exist;",
+                                    "    pm.expect(jsonData.observacoes).to.exist;",
+                                    "    pm.expect(jsonData.equipamentoId).to.exist;",
+                                    "    pm.expect(jsonData.usuarioId).to.exist;",
+                                    "    ",
+                                    "    // Salvar ID para uso em outros testes",
+                                    "    pm.environment.set(\"movimentacaoId\", jsonData.id);",
+                                    "});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+"raw": "{\n    \"tipo\": \"SAIDA\",\n    \"data\": \"2023-05-15T10:00:00Z\",\n    \"equipamentoId\": \"{{equipamentoId}}\",\n    \"usuarioId\": \"{{usuarioId}}\",\n    \"descricao\": \"Empréstimo para sala de aula\",\n    \"escolaId\": \"{{escolaId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/movimentacoes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"movimentacoes"
+							]
+						},
+						"description": "Criar uma nova movimentação"
+					},
+					"response": []
+				},
+				{
+					"name": "Atualizar Movimentação",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Movimentação atualizada tem propriedades corretas\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.id).to.exist;",
+"    pm.expect(jsonData.tipo).to.equal(\"ENTRADA\");",
+                                    "    pm.expect(jsonData.descricao).to.include(\"Devolução\");",
+                                    "    pm.expect(jsonData.data).to.exist;",
+                                    "    // Também validar nomes do schema",
+"    pm.expect(jsonData.tipoMovimento).to.equal(\"ENTRADA\");",
+                                    "    pm.expect(jsonData.observacoes).to.include(\"Devolução\");",
+                                    "    pm.expect(jsonData.dataMovimento).to.exist;",
+                                    "    pm.expect(jsonData.equipamentoId).to.exist;",
+                                    "});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+"raw": "{\n    \"tipo\": \"ENTRADA\",\n    \"data\": \"2023-05-16T14:30:00Z\",\n    \"equipamentoId\": \"{{equipamentoId}}\",\n    \"usuarioId\": \"{{usuarioId}}\",\n    \"descricao\": \"Devolução do equipamento após uso\",\n    \"escolaId\": \"{{escolaId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/movimentacoes/{{movimentacaoId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"movimentacoes",
+								"{{movimentacaoId}}"
+							]
+						},
+						"description": "Atualizar uma movimentação existente"
+					},
+					"response": []
+				},
+				{
+					"name": "Excluir Movimentação",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Mensagem de sucesso na resposta\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include(\"excluída\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/movimentacoes/{{movimentacaoId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"movimentacoes",
+								"{{movimentacaoId}}"
+							]
+						},
+						"description": "Excluir uma movimentação"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Escolas",
+			"item": [
+				{
+					"name": "Listar Escolas",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Resposta é um array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(Array.isArray(jsonData)).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Escolas têm propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.length > 0) {",
+									"        pm.expect(jsonData[0].id).to.exist;",
+									"        pm.expect(jsonData[0].nome).to.exist;",
+									"        pm.expect(jsonData[0].endereco).to.exist;",
+									"        pm.expect(jsonData[0].cidade).to.exist;",
+									"        pm.expect(jsonData[0].estado).to.exist;",
+									"        pm.expect(jsonData[0].cep).to.exist;",
+									"        ",
+									"        // Salvar ID para uso em outros testes",
+									"        pm.environment.set(\"escolaId\", jsonData[0].id);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/escolas",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"escolas"
+							]
+						},
+						"description": "Listar todas as escolas"
+					},
+					"response": []
+				},
+				{
+					"name": "Obter Escola por ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Escola tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.exist;",
+									"    pm.expect(jsonData.endereco).to.exist;",
+									"    pm.expect(jsonData.cidade).to.exist;",
+									"    pm.expect(jsonData.estado).to.exist;",
+									"    pm.expect(jsonData.cep).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/escolas/{{escolaId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"escolas",
+								"{{escolaId}}"
+							]
+						},
+						"description": "Obter uma escola específica pelo ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Criar Escola",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Escola criada tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.exist;",
+									"    pm.expect(jsonData.endereco).to.exist;",
+									"    pm.expect(jsonData.cidade).to.exist;",
+									"    pm.expect(jsonData.estado).to.exist;",
+									"    pm.expect(jsonData.cep).to.exist;",
+									"    ",
+									"    // Salvar ID para uso em outros testes",
+									"    pm.environment.set(\"novaEscolaId\", jsonData.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nome\": \"Nova Escola Teste\",\n    \"endereco\": \"Rua dos Testes, 123\",\n    \"cidade\": \"Cidade Teste\",\n    \"estado\": \"TS\",\n    \"cep\": \"12345-678\",\n    \"telefone\": \"(11) 1234-5678\",\n    \"email\": \"escola.teste@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/escolas",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"escolas"
+							]
+						},
+						"description": "Criar uma nova escola"
+					},
+					"response": []
+				},
+				{
+					"name": "Atualizar Escola",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Escola atualizada tem propriedades corretas\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.id).to.exist;",
+									"    pm.expect(jsonData.nome).to.equal(\"Escola Atualizada\");",
+									"    pm.expect(jsonData.endereco).to.exist;",
+									"    pm.expect(jsonData.cidade).to.exist;",
+									"    pm.expect(jsonData.estado).to.exist;",
+									"    pm.expect(jsonData.cep).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nome\": \"Escola Atualizada\",\n    \"endereco\": \"Rua Atualizada, 456\",\n    \"cidade\": \"Cidade Atualizada\",\n    \"estado\": \"AT\",\n    \"cep\": \"87654-321\",\n    \"telefone\": \"(11) 8765-4321\",\n    \"email\": \"escola.atualizada@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/escolas/{{novaEscolaId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"escolas",
+								"{{novaEscolaId}}"
+							]
+						},
+						"description": "Atualizar uma escola existente"
+					},
+					"response": []
+				},
+				{
+					"name": "Excluir Escola",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Mensagem de sucesso na resposta\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include(\"excluída\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{authToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/escolas/{{novaEscolaId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"escolas",
+								"{{novaEscolaId}}"
+							]
+						},
+						"description": "Excluir uma escola"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Injeta automaticamente X-CSRF-Token para métodos não-idempotentes",
+					"(function () {",
+					"  try {",
+					"    const method = pm.request.method;",
+					"    const unsafe = ['POST','PUT','PATCH','DELETE'].includes(method);",
+					"    if (!unsafe) { return; }",
+					"    const baseUrl = pm.variables.replaceIn('{{baseUrl}}');",
+					"    const authToken = pm.environment.get('authToken');",
+					"    if (!authToken) { return; }",
+					"    pm.sendRequest({",
+					"      url: baseUrl + '/api/csrf-token',",
+					"      method: 'GET',",
+					"      header: { Authorization: 'Bearer ' + authToken }",
+					"    }, function (err, resp) {",
+					"      if (err) {",
+					"        console.warn('Falha ao obter CSRF token:', err);",
+					"        return;",
+					"      }",
+					"      try {",
+					"        const data = resp.json();",
+					"        const csrfToken = data && data.csrfToken;",
+					"        if (csrfToken) {",
+					"          pm.environment.set('csrfToken', csrfToken);",
+					"          pm.request.headers.upsert({ key: 'X-CSRF-Token', value: csrfToken });",
+					"        }",
+					"      } catch (e) {",
+					"        console.warn('Erro ao processar resposta CSRF:', e);",
+					"      }",
+					"    });",
+					"  } catch (e) {",
+					"    console.warn('Pre-request CSRF erro:', e);",
+					"  }",
+					"})();"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		}
+	]
+}

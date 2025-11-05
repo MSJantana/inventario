@@ -1,0 +1,97 @@
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Configuração do caminho para ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configuração - deve ser a primeira coisa
+const envPath = path.resolve(__dirname, '../.env');
+dotenv.config({ path: envPath });
+
+import express from 'express';
+import cors from 'cors';
+import { PrismaClient } from '@prisma/client';
+import pinoHttp from 'pino-http';
+import { logger } from './utils/logger.js';
+import crypto from 'crypto';
+import auth from './middlewares/auth.js';
+import { issueCsrfToken } from './middlewares/csrf.js';
+
+// Importando rotas
+import equipamentosRoutes from './routes/equipamentos.js';
+import usuariosRoutes from './routes/usuarios.js';
+import movimentacoesRoutes from './routes/movimentacoes.js';
+import escolasRoutes from './routes/escolas.js';
+import relatoriosRoutes from './routes/relatorios.js';
+import errorHandler from './middlewares/errorHandler.js';
+const app = express();
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV !== 'production'
+    ? ['query', 'warn']
+    : ['warn']
+});
+const PORT = process.env.PORT || 3002;
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+app.use(pinoHttp({
+  logger,
+  genReqId: (req, res) => {
+    const incomingId = req.headers['x-request-id'];
+    const id = typeof incomingId === 'string' && incomingId.trim().length > 0
+      ? incomingId
+      : (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+    res.setHeader('X-Request-Id', id);
+    return id;
+  },
+  customLogLevel: (res, err) => {
+    if (err || res.statusCode >= 500) return 'error';
+    if (res.statusCode >= 400) return 'warn';
+    return 'info';
+  },
+}));
+
+// Rotas
+app.use('/api/equipamentos', equipamentosRoutes);
+app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/movimentacoes', movimentacoesRoutes);
+app.use('/api/escolas', escolasRoutes);
+app.use('/api/relatorios', relatoriosRoutes);
+
+// Endpoint para emissão de CSRF token (requer autenticação)
+app.get('/api/csrf-token', auth, issueCsrfToken);
+
+// Middleware de tratamento de erros
+app.use(errorHandler);
+
+// Rota raiz
+app.get('/', (req, res) => {
+  res.json({ message: 'API do Sistema de Inventário de Equipamentos' });
+});
+
+// Iniciar servidor
+app.listen(PORT, () => {
+  logger.info({ port: PORT }, 'Servidor rodando');
+});
+
+// Tratamento de erros do Prisma
+const SLOW_MS = parseInt(process.env.LOG_QUERY_SLOW_MS || '0', 10);
+
+if (process.env.NODE_ENV !== 'production') {
+  prisma.$on('query', (e) => {
+    logger.info({ duration: e.duration, query: e.query, params: e.params || undefined }, 'Prisma query');
+  });
+} else if (SLOW_MS > 0) {
+  // Em produção, logar apenas consultas lentas se habilitado via LOG_QUERY_SLOW_MS
+  prisma.$on('query', (e) => {
+    if (e.duration >= SLOW_MS) {
+      logger.warn({ duration: e.duration, query: e.query }, 'Prisma slow query');
+    }
+  });
+}
+
+// Exportar o cliente Prisma
+export { prisma };
