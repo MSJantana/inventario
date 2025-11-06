@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Reset básico guiado pelo Tailwind */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: #f9fafb; /* bg-gray-50 */
+  color: #111827; /* text-gray-900 */
+}
+
+/* Fallback de cores para área de impressão/PDF
+   Evita erro "oklch" em html2canvas/html2pdf ao converter cores modernas */
+.print-area, .print-area * {
+  color: #000 !important;
+  background-color: #fff !important;
+  border-color: #ccc !important;
+}

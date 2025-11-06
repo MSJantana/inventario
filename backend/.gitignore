@@ -35,12 +35,13 @@ dist/
 build/
 out/
 
-# Temporary files
+# Temporary files    
 .tmp/
 .temp/
 temp/
 *.tmp
 *.temp
+tests/
 
 # IDE and Editor files
 .idea/
