@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: inventario-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_USER: ${DATABASE_USER}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "${MYSQL_PORT}:3306" # opcional para acessar via host
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: inventario-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: ${BACKEND_PORT}
+      DATABASE_URL: mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@db:3306/${DATABASE_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      CSRF_SECRET: ${CSRF_SECRET}
+      NODE_ENV: production
+      # Opcional: caminhos de logos de relatório, se usados
+      # REPORT_LOGO_PATH: /app/assets/logo.png
+      # REPORT_LOGO_FOOTER_PATH: /app/assets/logo-footer.png
+    # Não expõe a porta do backend; acessível via proxy do frontend
+    volumes:
+      - ./backend/assets:/app/assets:ro
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # O frontend acessa o backend via reverse proxy interno
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    container_name: inventario-frontend
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT}:80"
+    restart: unless-stopped
+
+volumes:
+  mysql_data:

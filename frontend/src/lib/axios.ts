@@ -9,7 +9,12 @@ const WRITE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 
 api.interceptors.request.use(async (config) => {
   const base = getApiBaseUrl();
-  config.baseURL = base;
+  // Normaliza base e URL para evitar duplicação de "/api"
+  const baseNorm = (base || '').replace(/\/+$/, '');
+  config.baseURL = baseNorm;
+  if (typeof config.url === 'string' && baseNorm.endsWith('/api') && config.url.startsWith('/api/')) {
+    config.url = config.url.replace(/^\/api\//, '/');
+  }
   config.headers = config.headers || {};
 
   const token = getAuthToken();
@@ -20,7 +25,8 @@ api.interceptors.request.use(async (config) => {
   const method = (config.method || 'get').toLowerCase();
   if (WRITE_METHODS.has(method)) {
     try {
-      const csrfResp = await axios.get(`${base}/api/csrf-token`, {
+      const csrfPath = baseNorm.endsWith('/api') ? `${baseNorm}/csrf-token` : `${baseNorm}/api/csrf-token`;
+      const csrfResp = await axios.get(csrfPath, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       const csrfToken = csrfResp.data?.csrfToken || csrfResp.data;

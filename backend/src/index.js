@@ -64,6 +64,16 @@ app.use('/api/relatorios', relatoriosRoutes);
 // Endpoint para emissão de CSRF token (requer autenticação)
 app.get('/api/csrf-token', auth, issueCsrfToken);
 
+// Healthcheck (inclui verificação de banco com Prisma)
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', db: 'ok' });
+  } catch (err) {
+    res.status(503).json({ status: 'degraded', db: 'error' });
+  }
+});
+
 // Middleware de tratamento de erros
 app.use(errorHandler);
 
