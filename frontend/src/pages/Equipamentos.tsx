@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
 import api from '../lib/axios'
 import toast from 'react-hot-toast'
 
@@ -18,6 +19,7 @@ export default function EquipamentosPage() {
   const [lista, setLista] = useState<Equipamento[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
 
   // Filtros e paginação
   const [filterText, setFilterText] = useState('')
@@ -225,7 +227,17 @@ export default function EquipamentosPage() {
       <section className="rounded-lg border bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-medium">Equipamentos</h2>
-          {loading && <span className="text-sm text-gray-500">Carregando...</span>}
+          <div className="flex items-center gap-2">
+            {loading && <span className="text-sm text-gray-500">Carregando...</span>}
+            {!showCreate ? (
+              <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
+                <Plus size={16} />
+                <span>Criar equipamento</span>
+              </button>
+            ) : (
+              <button className="rounded border px-3 py-1.5 hover:bg-gray-50" onClick={() => setShowCreate(false)}>Fechar</button>
+            )}
+          </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
@@ -265,8 +277,14 @@ export default function EquipamentosPage() {
                   <td className="border px-3 py-2">{e.escola?.nome || '-'}</td>
                   <td className="border px-3 py-2">
                     <div className="flex gap-2">
-                      <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700" onClick={() => startEdit(e)}>Editar</button>
-                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700" onClick={() => setDeleteId(e.id)}>Excluir</button>
+                      <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(e)}>
+                        <Pencil size={16} />
+                        <span>Editar</span>
+                      </button>
+                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => setDeleteId(e.id)}>
+                        <Trash2 size={16} />
+                        <span>Excluir</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -292,8 +310,14 @@ export default function EquipamentosPage() {
                 <span className="text-xs text-gray-500">{e.escola?.nome || '-'}</span>
               </div>
               <div className="flex gap-2 pt-2">
-                <button className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700" onClick={() => startEdit(e)}>Editar</button>
-                <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700" onClick={() => setDeleteId(e.id)}>Excluir</button>
+                <button className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => startEdit(e)}>
+                  <Pencil size={14} />
+                  <span>Editar</span>
+                </button>
+                <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => setDeleteId(e.id)}>
+                  <Trash2 size={14} />
+                  <span>Excluir</span>
+                </button>
               </div>
             </div>
           ))}
@@ -324,6 +348,7 @@ export default function EquipamentosPage() {
         </div>
       </section>
 
+      {showCreate && (
       <section className="rounded-lg border bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-medium">Criar Equipamento</h2>
         <form onSubmit={criarEquipamento} className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -391,11 +416,18 @@ export default function EquipamentosPage() {
             <input className="w-full rounded border px-3 py-2" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
           </div>
           <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
-            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar</button>
-            <button type="button" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Recarregar</button>
+            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
+              <Save size={16} />
+              <span>Salvar</span>
+            </button>
+            <button type="button" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2">
+              <RotateCcw size={16} />
+              <span>Recarregar</span>
+            </button>
           </div>
         </form>
       </section>
+      )}
 
       {editingId && (
         <section className="rounded-lg border bg-white p-4 shadow-sm">
@@ -444,7 +476,10 @@ export default function EquipamentosPage() {
               <input className="w-full rounded border px-3 py-2" value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
             </div>
             <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
-              <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar alterações</button>
+              <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
+                <Save size={16} />
+                <span>Salvar alterações</span>
+              </button>
               <button type="button" onClick={cancelEdit} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
             </div>
           </form>
@@ -458,7 +493,10 @@ export default function EquipamentosPage() {
             <p className="mb-4 text-sm text-gray-700">Esta ação é permanente. Tem certeza que deseja excluir o equipamento?</p>
             <div className="flex justify-end gap-2">
               <button className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700" onClick={() => setDeleteId(null)}>Cancelar</button>
-              <button className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700" onClick={() => deleteId && excluirEquipamento(deleteId)}>Excluir</button>
+              <button className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 flex items-center gap-2" onClick={() => deleteId && excluirEquipamento(deleteId)}>
+                <Trash2 size={16} />
+                <span>Excluir</span>
+              </button>
             </div>
           </div>
         </div>

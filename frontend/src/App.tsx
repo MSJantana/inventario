@@ -27,6 +27,7 @@ function App() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
   const userName = localStorage.getItem('userName') || ''
+  const userEmail = localStorage.getItem('userEmail') || ''
   useEffect(() => { /* rolagem ao topo em troca de rota */ window.scrollTo({ top: 0 }) }, [location.pathname])
 
   // Fechar menu ao clicar fora
@@ -104,7 +105,7 @@ function App() {
                           {/* Cabeçalho do menu com informações do usuário */}
                           <div className="px-4 py-3 border-b border-gray-100">
                             <p className="text-sm font-medium text-gray-900">{userName || 'Usuário'}</p>
-                            <p className="text-xs text-gray-500">{userName ? `${userName}@exemplo.com` : 'email@exemplo.com'}</p>
+                            <p className="text-xs text-gray-500">{userEmail || 'email@exemplo.com'}</p>
                           </div>
 
                           {/* Opções do menu */}
@@ -127,6 +128,7 @@ function App() {
                             onClick={() => {
                               localStorage.removeItem('authToken')
                               localStorage.removeItem('userName')
+                              localStorage.removeItem('userEmail')
                               setAuthTokenState('')
                               navigate('/login')
                               setUserMenuOpen(false)
@@ -189,7 +191,7 @@ function App() {
                   {authToken ? (
                     <button
                       className="w-full flex items-center gap-2 rounded bg-white px-3 py-2 text-black hover:opacity-90 text-sm"
-                      onClick={() => { localStorage.removeItem('authToken'); localStorage.removeItem('userName'); setAuthTokenState(''); navigate('/login') }}
+                      onClick={() => { localStorage.removeItem('authToken'); localStorage.removeItem('userName'); localStorage.removeItem('userEmail'); setAuthTokenState(''); navigate('/login') }}
                     >
                       <LogOut className="h-4 w-4" strokeWidth={1.75} />
                       <span>Sair</span>

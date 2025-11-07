@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Plus, Pencil, Trash2, Save, RotateCcw, X } from 'lucide-react'
 import api from '../lib/axios'
 import toast from 'react-hot-toast'
 
@@ -24,6 +25,7 @@ export default function MovimentacoesPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([])
+  const [showCreate, setShowCreate] = useState(false)
 
   const [equipamentoId, setEquipamentoId] = useState('')
   const [tipo, setTipo] = useState<string>('ENTRADA')
@@ -180,7 +182,20 @@ export default function MovimentacoesPage() {
       <section className="rounded-lg border bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-medium">Movimentações</h2>
-          {loading && <span className="text-sm text-gray-500">Carregando...</span>}
+          <div className="flex items-center gap-2">
+            {loading && <span className="text-sm text-gray-500">Carregando...</span>}
+            {!showCreate ? (
+              <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
+                <Plus size={16} />
+                <span>Registrar movimentação</span>
+              </button>
+            ) : (
+              <button className="rounded border px-3 py-1.5 hover:bg-gray-50 flex items-center gap-1" onClick={() => setShowCreate(false)}>
+                <X size={16} />
+                <span>Fechar</span>
+              </button>
+            )}
+          </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
@@ -226,8 +241,14 @@ export default function MovimentacoesPage() {
                   <td className="border px-3 py-2">{m.descricao || '-'}</td>
                   <td className="border px-3 py-2">
                     <div className="flex gap-2">
-                      <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700" onClick={() => startEdit(m)}>Editar</button>
-                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700" onClick={() => setDeleteId(m.id)}>Excluir</button>
+                      <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)}>
+                        <Pencil size={16} />
+                        <span>Editar</span>
+                      </button>
+                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => setDeleteId(m.id)}>
+                        <Trash2 size={16} />
+                        <span>Excluir</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -285,8 +306,14 @@ export default function MovimentacoesPage() {
                   </div>
                 )}
                 <div className="flex gap-2 pt-2">
-                  <button className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 text-xs" onClick={() => startEdit(m)}>Editar</button>
-                  <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs" onClick={() => setDeleteId(m.id)}>Excluir</button>
+                  <button className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 text-xs flex items-center justify-center gap-1" onClick={() => startEdit(m)}>
+                    <Pencil size={14} />
+                    <span>Editar</span>
+                  </button>
+                  <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => setDeleteId(m.id)}>
+                    <Trash2 size={14} />
+                    <span>Excluir</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -318,6 +345,7 @@ export default function MovimentacoesPage() {
         </div>
       </section>
 
+      {showCreate && (
       <section className="rounded-lg border bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-medium">Registrar Movimentação</h2>
         <form onSubmit={criar} className="grid gap-3 grid-cols-1 md:grid-cols-2">
@@ -353,11 +381,18 @@ export default function MovimentacoesPage() {
             <input className="w-full rounded border px-3 py-2" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
-            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar</button>
-            <button type="button" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Recarregar</button>
+            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
+              <Save size={16} />
+              <span>Salvar</span>
+            </button>
+            <button type="button" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2">
+              <RotateCcw size={16} />
+              <span>Recarregar</span>
+            </button>
           </div>
         </form>
       </section>
+      )}
 
       {editingId && (
         <section className="rounded-lg border bg-white p-4 shadow-sm">
@@ -395,7 +430,10 @@ export default function MovimentacoesPage() {
               <input className="w-full rounded border px-3 py-2" value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} />
             </div>
             <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
-              <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar alterações</button>
+              <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
+                <Save size={16} />
+                <span>Salvar alterações</span>
+              </button>
               <button type="button" onClick={cancelEdit} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
             </div>
           </form>
