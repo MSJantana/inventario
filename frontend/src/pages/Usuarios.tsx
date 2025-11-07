@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Pencil, Trash2, Save, RotateCcw, X, Plus } from 'lucide-react'
 import api from '../lib/axios'
 import toast from 'react-hot-toast'
 
@@ -184,12 +185,23 @@ export default function UsuariosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Usuários</h1>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          + Adicionar Usuário
-        </button>
+        {!showCreate ? (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Plus size={16} />
+            <span>Adicionar Usuário</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowCreate(false)}
+            className="rounded border px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <X size={16} />
+            <span>Fechar</span>
+          </button>
+        )}
       </div>
 
       {error && (
@@ -284,14 +296,23 @@ export default function UsuariosPage() {
             <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
               <button
                 type="submit"
-                className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+                className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 flex items-center gap-2"
               >
-                Salvar
+                <Save size={16} />
+                <span>Salvar</span>
+              </button>
+              <button
+                type="button"
+                onClick={carregarDados}
+                className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2"
+              >
+                <RotateCcw size={16} />
+                <span>Recarregar</span>
               </button>
               <button
                 type="button"
                 onClick={cancelarCriacao}
-                className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
+                className="rounded border px-4 py-2 hover:bg-gray-50"
               >
                 Cancelar
               </button>
@@ -369,15 +390,17 @@ export default function UsuariosPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => iniciarEdicao(usuario)}
-                        className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700"
+                        className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1"
                       >
-                        Editar
+                        <Pencil size={16} />
+                        <span>Editar</span>
                       </button>
                       <button
                         onClick={() => excluirUsuario(usuario.id)}
-                        className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700"
+                        className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1"
                       >
-                        Excluir
+                        <Trash2 size={16} />
+                        <span>Excluir</span>
                       </button>
                     </div>
                   </td>
@@ -428,15 +451,17 @@ export default function UsuariosPage() {
               <div className="flex space-x-2">
                 <button
                   onClick={() => iniciarEdicao(usuario)}
-                  className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-1"
                 >
-                  Editar
+                  <Pencil size={14} />
+                  <span>Editar</span>
                 </button>
                 <button
                   onClick={() => excluirUsuario(usuario.id)}
-                  className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1"
                 >
-                  Excluir
+                  <Trash2 size={14} />
+                  <span>Excluir</span>
                 </button>
               </div>
             </div>

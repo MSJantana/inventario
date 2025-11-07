@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Pencil, Trash2, Save, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../lib/axios'
 
@@ -25,7 +26,7 @@ export default function EscolasPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   // filtros e paginação
   const [filterText, setFilterText] = useState('')
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(5)
   const [currentPage, setCurrentPage] = useState(1)
 
   // criação
@@ -182,9 +183,9 @@ export default function EscolasPage() {
           <span className="text-sm text-gray-600">{totalItems} resultado(s)</span>
           <button
             type="button"
-            className="ml-2 rounded bg-green-600 px-3 py-2 text-white hover:bg-green-700"
+            className="ml-2 rounded bg-green-600 px-3 py-2 text-white hover:bg-green-700 flex items-center gap-1"
             onClick={() => setShowCreate((v) => !v)}
-          >{showCreate ? 'Fechar' : '+ Adicionar Escola'}</button>
+          >{showCreate ? (<><X size={16} /><span>Fechar</span></>) : '+ Adicionar Escola'}</button>
         </div>
       </div>
       {/* Tabela para desktop */}
@@ -208,8 +209,14 @@ export default function EscolasPage() {
                 <td className="border px-3 py-2">{e.estado}</td>
                 <td className="border px-3 py-2">
                   <div className="flex gap-2">
-                    <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700" onClick={() => startEdit(e)}>Editar</button>
-                    <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700" onClick={() => setDeleteId(e.id)}>Excluir</button>
+                    <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(e)}>
+                      <Pencil size={16} />
+                      <span>Editar</span>
+                    </button>
+                    <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => setDeleteId(e.id)}>
+                      <Trash2 size={16} />
+                      <span>Excluir</span>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -245,16 +252,18 @@ export default function EscolasPage() {
             </div>
             <div className="flex space-x-2">
               <button 
-                className="flex-1 bg-yellow-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500" 
+                className="flex-1 bg-yellow-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 flex items-center justify-center gap-1" 
                 onClick={() => startEdit(e)}
               >
-                Editar
+                <Pencil size={14} />
+                <span>Editar</span>
               </button>
               <button 
-                className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500" 
+                className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1" 
                 onClick={() => setDeleteId(e.id)}
               >
-                Excluir
+                <Trash2 size={14} />
+                <span>Excluir</span>
               </button>
             </div>
           </div>
@@ -336,7 +345,10 @@ export default function EscolasPage() {
             <textarea className="w-full rounded border px-3 py-2" rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
-            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar</button>
+            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
+              <Save size={16} />
+              <span>Salvar</span>
+            </button>
             <button type="button" onClick={cancelCreate} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
           </div>
         </form>
@@ -398,7 +410,10 @@ export default function EscolasPage() {
             <textarea className="w-full rounded border px-3 py-2" rows={3} value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
-            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar</button>
+            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
+              <Save size={16} />
+              <span>Salvar</span>
+            </button>
             <button type="button" onClick={cancelEdit} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
           </div>
         </form>
@@ -412,7 +427,10 @@ export default function EscolasPage() {
             <p className="mb-4 text-sm text-gray-700">Esta ação é permanente. Tem certeza que deseja excluir a escola?</p>
             <div className="flex justify-end gap-2">
               <button className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700" onClick={() => setDeleteId(null)}>Cancelar</button>
-              <button className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700" onClick={() => deleteId && excluirEscola(deleteId)}>Excluir</button>
+              <button className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 flex items-center gap-2" onClick={() => deleteId && excluirEscola(deleteId)}>
+                <Trash2 size={16} />
+                <span>Excluir</span>
+              </button>
             </div>
           </div>
         </div>
