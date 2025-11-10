@@ -16,6 +16,7 @@ type Equipamento = {
   processador?: string
   memoria?: string
   observacoes?: string
+  macaddress?: string
   escola?: { nome: string }
 }
 
@@ -28,6 +29,7 @@ export default function RelatoriosEquipamentosPage() {
   const [filterTipo, setFilterTipo] = useState<'ALL' | string>('ALL')
   const [filterEscola, setFilterEscola] = useState<'ALL' | string>('ALL')
   const [escolas, setEscolas] = useState<{ id: string; nome: string }[]>([])
+  const [showPreview, setShowPreview] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
   const tipos = ['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO']
@@ -217,6 +219,13 @@ export default function RelatoriosEquipamentosPage() {
           <span className="hidden sm:inline">Gerar PDF</span>
         </button>
         <button
+          onClick={() => setShowPreview((v) => !v)}
+          className="rounded bg-gray-200 px-4 py-2 text-black hover:bg-gray-300 flex items-center gap-2"
+        >
+          <span>👁️</span>
+          <span className="hidden sm:inline">{showPreview ? 'Ocultar Preview' : 'Visualizar Impressão'}</span>
+        </button>
+        <button
           onClick={carregarDados}
           className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2"
         >
@@ -229,10 +238,15 @@ export default function RelatoriosEquipamentosPage() {
       </div>
 
       {/* Tabela para impressão */}
-      <div ref={printRef} className="print-area">
+      <div ref={printRef} className={`print-area ${showPreview ? 'print-preview' : ''}`}>
+        {showPreview && (
+          <div className="mb-2 rounded border border-dashed p-2 text-xs text-gray-600">
+            Preview de impressão com cabeçalho e rodapé visíveis
+          </div>
+        )}
         
         {/* Cabeçalho do relatório */}
-        <div className="mb-4 hidden print:block">
+        <div className="print-only mb-4 hidden print:block">
           <h1 className="text-2xl font-bold text-center mb-2">Relatório de Equipamentos</h1>
           <p className="text-center text-sm text-gray-600 mb-4">
             Emitido em: {new Date().toLocaleDateString('pt-BR', {
@@ -277,12 +291,8 @@ export default function RelatoriosEquipamentosPage() {
                     <div><strong>Aquisição:</strong> {formatDate(eq.dataAquisicao)}</div>
                     <div><strong>Processador:</strong> {eq.processador || '-'}</div>
                     <div><strong>Memória:</strong> {eq.memoria || '-'}</div>
+                     <div><strong>MAC Address:</strong> {eq.macaddress || '-'}</div>
                   </div>
-                  {eq.observacoes && (
-                    <div className="mt-2 text-sm">
-                      <strong>Observações:</strong> {eq.observacoes}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -306,7 +316,7 @@ export default function RelatoriosEquipamentosPage() {
                   <th className="border border-gray-300 px-3 py-2 text-left font-medium">Aquisição</th>
                   <th className="border border-gray-300 px-3 py-2 text-left font-medium">Processador</th>
                   <th className="border border-gray-300 px-3 py-2 text-left font-medium">Memória</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Observações</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">MAC Address</th>
                 </tr>
               </thead>
               <tbody>
@@ -323,7 +333,7 @@ export default function RelatoriosEquipamentosPage() {
                     <td className="border border-gray-300 px-3 py-2">{formatDate(eq.dataAquisicao)}</td>
                     <td className="border border-gray-300 px-3 py-2">{eq.processador || '-'}</td>
                     <td className="border border-gray-300 px-3 py-2">{eq.memoria || '-'}</td>
-                    <td className="border border-gray-300 px-3 py-2 max-w-xs">{eq.observacoes || '-'}</td>
+                     <td className="border border-gray-300 px-3 py-2 max-w-xs">{eq.macaddress || '-'}</td>
                   </tr>
                 ))}
                 {filtrados.length === 0 && (
@@ -339,7 +349,7 @@ export default function RelatoriosEquipamentosPage() {
         </div>
 
         {/* Rodapé do relatório */}
-        <div className="mt-4 hidden print:block text-sm text-gray-600">
+        <div className="print-only mt-4 hidden print:block text-sm text-gray-600">
           <p>Total de equipamentos: {filtrados.length}</p>
           <p>Relatório gerado pelo Sistema de Inventário</p>
         </div>

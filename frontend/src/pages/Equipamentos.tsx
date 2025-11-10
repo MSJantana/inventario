@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showInfoToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
+
+// Formata MAC: mantém apenas hex, agrupa em pares e insere ':'
+function formatMac(raw: string): string {
+  const hex = raw.replace(/[^0-9a-fA-F]/g, '').toUpperCase()
+  const pairs = hex.match(/.{1,2}/g) || []
+  return pairs.join(':').slice(0, 17)
+}
 
 type Equipamento = {
   id: string
@@ -84,10 +91,11 @@ export default function EquipamentosPage() {
   async function criarEquipamento(ev: React.FormEvent) {
     ev.preventDefault()
     if (!nome.trim() || !modelo.trim() || !serial.trim() || !dataAquisicao) {
-      showErrorToast('Preencha Nome, Modelo, Serial e Data de Aquisição')
+      showWarningToast('Preencha Nome, Modelo, Serial e Data de Aquisição')
       return
     }
     try {
+      const macFmt = formatMac(macAddress)
       const payload: Record<string, unknown> = {
         nome,
         tipo,
@@ -99,7 +107,7 @@ export default function EquipamentosPage() {
         processador: processador || undefined,
         memoria: memoria || undefined,
         observacoes: observacoes || undefined,
-        macAddress: macAddress || undefined,
+        macaddress: macFmt || undefined,
         escolaId: escolaId || undefined,
       }
       const resp = await api.post('/api/equipamentos', payload)
@@ -155,7 +163,7 @@ export default function EquipamentosPage() {
     ev.preventDefault()
     if (!editingId) return
     if (!editNome.trim()) {
-      showErrorToast('Preencha Nome')
+      showWarningToast('Preencha Nome')
       return
     }
     try {
@@ -406,8 +414,7 @@ export default function EquipamentosPage() {
               placeholder="AA:BB:CC:DD:EE:FF"
               value={macAddress}
               onChange={(e) => {
-                const v = e.target.value.toUpperCase()
-                setMacAddress(v)
+                setMacAddress(formatMac(e.target.value))
               }}
             />
           </div>

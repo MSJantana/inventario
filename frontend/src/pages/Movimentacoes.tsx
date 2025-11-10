@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Save, RotateCcw, X } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showInfoToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
 
 type Mov = {
   id: string
@@ -77,11 +77,11 @@ export default function MovimentacoesPage() {
   async function criar(ev: React.FormEvent) {
     ev.preventDefault()
     if (!equipamentoId.trim()) {
-      showErrorToast('Informe o ID do equipamento')
+      showWarningToast('Informe o ID do equipamento')
       return
     }
     if (!TIPOS.includes(tipo as (typeof TIPOS)[number])) {
-      showErrorToast('Tipo inválido')
+      showWarningToast('Tipo inválido')
       return
     }
     const payload: Record<string, unknown> = { equipamentoId, tipo, origem: origem || undefined, destino: destino || undefined, descricao: descricao || undefined }
@@ -127,11 +127,11 @@ export default function MovimentacoesPage() {
     ev.preventDefault()
     if (!editingId) return
     if (!editEquipamentoId.trim()) {
-      showErrorToast('Informe o ID do equipamento')
+      showWarningToast('Informe o ID do equipamento')
       return
     }
     if (!TIPOS.includes(editTipo as (typeof TIPOS)[number])) {
-      showErrorToast('Tipo inválido')
+      showWarningToast('Tipo inválido')
       return
     }
     const payload: Record<string, unknown> = {

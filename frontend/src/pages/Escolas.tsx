@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Trash2, Save, X } from 'lucide-react'
-import { showSuccessToast, showErrorToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
 import api from '../lib/axios'
 
 type Escola = {
@@ -441,23 +441,23 @@ export default function EscolasPage() {
   async function criarEscola(ev: React.FormEvent) {
     ev.preventDefault()
     if (!nome.trim() || !sigla.trim() || !endereco.trim() || !cidade.trim() || !estado.trim() || !cep.trim()) {
-          showErrorToast('Preencha Nome, Sigla, Endereço, Cidade, Estado e CEP')
+          showWarningToast('Preencha Nome, Sigla, Endereço, Cidade, Estado e CEP')
       return
     }
     if (estado.trim().length !== 2) {
-          showErrorToast('Estado deve ter 2 letras (UF)')
+          showWarningToast('Estado deve ter 2 letras (UF)')
       return
     }
     if (!isCepValido(cep)) {
-          showErrorToast('CEP inválido. Use 00000-000')
+          showWarningToast('CEP inválido. Use 00000-000')
       return
     }
     if (telefone && !isTelefoneValido(telefone)) {
-          showErrorToast('Telefone inválido. Use DDD + número (10 ou 11 dígitos)')
+          showWarningToast('Telefone inválido. Use DDD + número (10 ou 11 dígitos)')
       return
     }
     if (!isEmailValido(email)) {
-          showErrorToast('Email em formato inválido')
+          showWarningToast('Email em formato inválido')
       return
     }
     try {
@@ -503,23 +503,23 @@ export default function EscolasPage() {
     ev.preventDefault()
     if (!editingId) return
     if (!editNome.trim() || !editSigla.trim() || !editEndereco.trim() || !editCidade.trim() || !editEstado.trim() || !editCep.trim()) {
-          showErrorToast('Preencha Nome, Sigla, Endereço, Cidade, Estado e CEP')
+          showWarningToast('Preencha Nome, Sigla, Endereço, Cidade, Estado e CEP')
       return
     }
     if (editEstado.trim().length !== 2) {
-          showErrorToast('Estado deve ter 2 letras (UF)')
+          showWarningToast('Estado deve ter 2 letras (UF)')
       return
     }
     if (!isCepValido(editCep)) {
-          showErrorToast('CEP inválido. Use 00000-000')
+          showWarningToast('CEP inválido. Use 00000-000')
       return
     }
     if (editTelefone && !isTelefoneValido(editTelefone)) {
-          showErrorToast('Telefone inválido. Use DDD + número (10 ou 11 dígitos)')
+          showWarningToast('Telefone inválido. Use DDD + número (10 ou 11 dígitos)')
       return
     }
     if (!isEmailValido(editEmail)) {
-          showErrorToast('Email em formato inválido')
+          showWarningToast('Email em formato inválido')
       return
     }
     try {

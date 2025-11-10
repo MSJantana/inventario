@@ -60,6 +60,7 @@ model Equipamento {
   dataAquisicao DateTime  
   processador   String?
   memoria       String?
+  macaddress    String?
   observacoes   String?
   escolaId      String?
   escola        Escola?           @relation(fields: [escolaId], references: [id])

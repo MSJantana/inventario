@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
 import { setAuthToken } from '../services/auth'
 import { useAppStore } from '../store/useAppStore'
 import { User } from 'lucide-react'
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const onLogin = async (ev: React.FormEvent) => {
     ev.preventDefault()
     if (!email.trim() || !senha.trim()) {
-      showErrorToast('Informe email e senha')
+      showWarningToast('Informe email e senha')
       return
     }
     setLoading(true)
@@ -50,12 +50,12 @@ export default function LoginPage() {
 
   const onForgot = async () => {
     if (!email.trim()) {
-      showErrorToast('Informe seu email para recuperar a senha')
+      showWarningToast('Informe seu email para recuperar a senha')
       return
     }
     try {
       await api.post('/api/usuarios/recuperar-senha', { email })
-      showSuccessToast('Instruções enviadas para o seu email')
+      showInfoToast('Instruções enviadas para o seu email')
     } catch (e: unknown) {
       showErrorToast(
         (e as { response?: { data?: { error?: string } } }).response?.data?.error ||

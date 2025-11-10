@@ -59,7 +59,7 @@ function App() {
           <header className="bg-black text-white px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-6">
-                <h1 className="text-xl font-semibold">Inventário</h1>
+                <h1 className="text-xl font-semibold font-advent">7Inventory</h1>
                 <nav className="hidden md:flex items-center gap-4">
                   <NavLink to="/equipamentos" className={({isActive}) => `flex items-center gap-2 rounded px-3 py-2 ${isActive ? 'bg-white text-black' : 'text-gray-200 hover:text-white hover:bg-white/10'}`}>
                     <Monitor className="h-4 w-4" strokeWidth={1.75} />
@@ -158,7 +158,7 @@ function App() {
               <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setMobileOpen(false)} />
               <aside className="fixed left-0 top-0 bottom-0 z-50 w-64 bg-black text-white">
                 <div className="flex items-center justify-between px-4 py-4 text-sm font-semibold">
-                  <span>Inventário</span>
+                  <span className="font-advent">Inventário</span>
                   <button className="rounded bg-white/10 px-2 py-1" onClick={() => setMobileOpen(false)}>Fechar</button>
                 </div>
                 <nav className="space-y-1 px-2">
