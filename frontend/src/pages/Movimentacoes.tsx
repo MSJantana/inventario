@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Save, RotateCcw, X } from 'lucide-react'
 import api from '../lib/axios'
-import toast from 'react-hot-toast'
+import { showSuccessToast, showErrorToast, showInfoToast } from '../utils/toast'
 
 type Mov = {
   id: string
@@ -77,11 +77,11 @@ export default function MovimentacoesPage() {
   async function criar(ev: React.FormEvent) {
     ev.preventDefault()
     if (!equipamentoId.trim()) {
-      toast.error('Informe o ID do equipamento')
+      showErrorToast('Informe o ID do equipamento')
       return
     }
     if (!TIPOS.includes(tipo as (typeof TIPOS)[number])) {
-      toast.error('Tipo inválido')
+      showErrorToast('Tipo inválido')
       return
     }
     const payload: Record<string, unknown> = { equipamentoId, tipo, origem: origem || undefined, destino: destino || undefined, descricao: descricao || undefined }
@@ -90,7 +90,7 @@ export default function MovimentacoesPage() {
     }
     try {
       const resp = await api.post('/api/movimentacoes', payload)
-      toast.success('Movimentação registrada')
+      showSuccessToast('Movimentação registrada')
       setEquipamentoId('')
       setOrigem('')
       setDestino('')
@@ -98,7 +98,7 @@ export default function MovimentacoesPage() {
       setDescricao('')
       setLista((prev) => [resp.data, ...prev])
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao registrar movimentação')
+      showErrorToast((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao registrar movimentação')
     }
   }
 
@@ -110,7 +110,7 @@ export default function MovimentacoesPage() {
     setEditDestino(m.destino || '')
     setEditData(m.data ? new Date(m.data).toISOString().slice(0, 16) : '')
     setEditDescricao(m.descricao || '')
-    toast('Editando movimentação', { icon: '✏️' })
+    showInfoToast('Editando movimentação')
   }
 
   function cancelEdit() {
@@ -127,11 +127,11 @@ export default function MovimentacoesPage() {
     ev.preventDefault()
     if (!editingId) return
     if (!editEquipamentoId.trim()) {
-      toast.error('Informe o ID do equipamento')
+      showErrorToast('Informe o ID do equipamento')
       return
     }
     if (!TIPOS.includes(editTipo as (typeof TIPOS)[number])) {
-      toast.error('Tipo inválido')
+      showErrorToast('Tipo inválido')
       return
     }
     const payload: Record<string, unknown> = {
@@ -144,21 +144,21 @@ export default function MovimentacoesPage() {
     if (editData) payload.data = new Date(editData).toISOString()
     try {
       const resp = await api.put(`/api/movimentacoes/${editingId}`, payload)
-      toast.success('Movimentação atualizada')
+      showSuccessToast('Movimentação atualizada')
       setLista((prev) => prev.map((it) => (it.id === editingId ? { ...it, ...resp.data } : it)))
       cancelEdit()
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao atualizar movimentação')
+      showErrorToast((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao atualizar movimentação')
     }
   }
 
   async function excluirMov(id: string) {
     try {
       await api.delete(`/api/movimentacoes/${id}`)
-      toast.success('Movimentação excluída')
+      showSuccessToast('Movimentação excluída')
       setLista((prev) => prev.filter((m) => m.id !== id))
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao excluir movimentação')
+      showErrorToast((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao excluir movimentação')
     }
     setDeleteId(null)
   }

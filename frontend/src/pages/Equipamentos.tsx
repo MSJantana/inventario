@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
 import api from '../lib/axios'
-import toast from 'react-hot-toast'
+import { showSuccessToast, showErrorToast, showInfoToast } from '../utils/toast'
 
 type Equipamento = {
   id: string
@@ -84,7 +84,7 @@ export default function EquipamentosPage() {
   async function criarEquipamento(ev: React.FormEvent) {
     ev.preventDefault()
     if (!nome.trim() || !modelo.trim() || !serial.trim() || !dataAquisicao) {
-      toast.error('Preencha Nome, Modelo, Serial e Data de Aquisição')
+      showErrorToast('Preencha Nome, Modelo, Serial e Data de Aquisição')
       return
     }
     try {
@@ -103,7 +103,7 @@ export default function EquipamentosPage() {
         escolaId: escolaId || undefined,
       }
       const resp = await api.post('/api/equipamentos', payload)
-      toast.success('Equipamento criado')
+      showSuccessToast('Equipamento criado')
       setNome('')
       setTipo('OUTRO')
       setModelo('')
@@ -118,7 +118,7 @@ export default function EquipamentosPage() {
       setEscolaId('')
       setLista((prev) => [resp.data, ...prev])
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar equipamento')
+      showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar equipamento')
     }
   }
 
@@ -134,7 +134,7 @@ export default function EquipamentosPage() {
     setEditProcessador('')
     setEditMemoria('')
     setEditObservacoes('')
-    toast('Editando equipamento', { icon: '✏️' })
+    showInfoToast('Editando equipamento')
   }
 
   function cancelEdit() {
@@ -155,7 +155,7 @@ export default function EquipamentosPage() {
     ev.preventDefault()
     if (!editingId) return
     if (!editNome.trim()) {
-      toast.error('Preencha Nome')
+      showErrorToast('Preencha Nome')
       return
     }
     try {
@@ -172,21 +172,21 @@ export default function EquipamentosPage() {
         observacoes: editObservacoes || undefined,
       }
       const resp = await api.put(`/api/equipamentos/${editingId}`, payload)
-      toast.success('Equipamento atualizado')
+      showSuccessToast('Equipamento atualizado')
       setLista((prev) => prev.map((it) => (it.id === editingId ? { ...it, ...resp.data } : it)))
       cancelEdit()
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao atualizar equipamento')
+      showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao atualizar equipamento')
     }
   }
 
   async function excluirEquipamento(id: string) {
     try {
       await api.delete(`/api/equipamentos/${id}`)
-      toast.success('Equipamento excluído')
+      showSuccessToast('Equipamento excluído')
       setLista((prev) => prev.filter((e) => e.id !== id))
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir equipamento')
+      showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir equipamento')
     } finally {
       setDeleteId(null)
     }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import api from '../lib/axios'
-import toast from 'react-hot-toast'
+import { showSuccessToast, showErrorToast } from '../utils/toast'
 import { generatePdf } from '../utils/html2pdfLoader'
 
 type Equipamento = {
@@ -84,10 +84,10 @@ export default function RelatoriosEquipamentosPage() {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      toast.success('CSV baixado com sucesso!')
+      showSuccessToast('CSV baixado com sucesso!')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'
-      toast.error(`Erro ao baixar CSV: ${msg}`)
+      showErrorToast(`Erro ao baixar CSV: ${msg}`)
     }
   }
 
@@ -96,19 +96,31 @@ export default function RelatoriosEquipamentosPage() {
       const element = printRef.current
       if (!element) return
       
+      // Logos podem ser configurados via .env ou usar paths padrões em /assets
+      const logoTopRight = (import.meta.env.VITE_REPORT_LOGO_URL as string) || '/assets/logo-header.png'
+      const logoBottomLeft = (import.meta.env.VITE_REPORT_LOGO_FOOTER_URL as string) || logoTopRight
+
       const options = {
         filename: `relatorio_equipamentos_${new Date().toISOString().split('T')[0]}.pdf`,
         margin: 10,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, backgroundColor: '#ffffff' },
-        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'landscape' as const }
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'landscape' as const },
+        headerLogoUrl: logoTopRight,
+        footerLogoUrl: logoBottomLeft,
+        schoolName: filterEscola !== 'ALL' ? filterEscola : 'Sistema de Inventário',
+        footerTextColor: '#000000',
+        headerLogoWidthMm: 40,
+        headerLogoHeightMm: 16,
+        footerLogoWidthMm: 28,
+        footerLogoHeightMm: 12
       }
       
       await generatePdf(element, options)
-      toast.success('PDF gerado com sucesso!')
+      showSuccessToast('PDF gerado com sucesso!')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'
-      toast.error(`Erro ao gerar PDF: ${msg}`)
+      showErrorToast(`Erro ao gerar PDF: ${msg}`)
     }
   }
 
@@ -277,30 +289,30 @@ export default function RelatoriosEquipamentosPage() {
           )}
         </div>
 
-        {/* Tabela para Desktop e Impressão */}
+        {/* Tabela para Desktop e Impressão (layout modernizado) */}
         <div className="hidden lg:block">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300 text-sm">
+          <div className="overflow-x-auto rounded-lg border border-gray-300">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 px-3 py-2 text-left">Nome</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Tipo</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Modelo</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Serial</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Status</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Escola</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Localização</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Fabricante</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Aquisição</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Processador</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Memória</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left">Observações</th>
+                <tr className="">
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Nome</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Tipo</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Modelo</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Serial</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Status</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Escola</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Localização</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Fabricante</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Aquisição</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Processador</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Memória</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left font-medium">Observações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtrados.map((eq) => (
-                  <tr key={eq.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-3 py-2">{eq.nome}</td>
+                  <tr key={eq.id}>
+                    <td className="border border-gray-300 px-3 py-2 font-medium">{eq.nome}</td>
                     <td className="border border-gray-300 px-3 py-2">{eq.tipo}</td>
                     <td className="border border-gray-300 px-3 py-2">{eq.modelo}</td>
                     <td className="border border-gray-300 px-3 py-2">{eq.serial}</td>
@@ -311,7 +323,7 @@ export default function RelatoriosEquipamentosPage() {
                     <td className="border border-gray-300 px-3 py-2">{formatDate(eq.dataAquisicao)}</td>
                     <td className="border border-gray-300 px-3 py-2">{eq.processador || '-'}</td>
                     <td className="border border-gray-300 px-3 py-2">{eq.memoria || '-'}</td>
-                    <td className="border border-gray-300 px-3 py-2 max-w-xs truncate">{eq.observacoes || '-'}</td>
+                    <td className="border border-gray-300 px-3 py-2 max-w-xs">{eq.observacoes || '-'}</td>
                   </tr>
                 ))}
                 {filtrados.length === 0 && (

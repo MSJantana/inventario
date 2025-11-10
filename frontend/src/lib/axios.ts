@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getAuthToken, getApiBaseUrl } from '../services/auth';
 import { useAppStore } from '../store/useAppStore';
-import toast from 'react-hot-toast';
+import { showErrorToast } from '../utils/toast';
 
 const api = axios.create();
 
@@ -55,7 +55,7 @@ api.interceptors.response.use(
         // Atualiza store (Zustand)
         useAppStore.getState().setAuthTokenState('');
         // Feedback ao usuário
-        toast.error('Sessão expirada. Faça login novamente.');
+        showErrorToast('Sessão expirada. Faça login novamente.');
       } catch (err) {
         // Log mínimo para evitar bloco vazio e facilitar diagnóstico
         console.warn('Erro ao processar expiração de sessão', err);
