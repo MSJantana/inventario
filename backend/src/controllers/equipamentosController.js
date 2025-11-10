@@ -1,13 +1,23 @@
 import { prisma } from '../index.js';
 // Helper simples para formatar data em YYYY-MM-DD sem dependências externas
-const formatDateYYYYMMDD = (dateLike) => {
-  if (!dateLike) return '';
-  const d = new Date(dateLike);
-  if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+ const formatDateYYYYMMDD = (dateLike) => {
+   if (!dateLike) return '';
+   const d = new Date(dateLike);
+   if (Number.isNaN(d.getTime())) return '';
+   const y = d.getFullYear();
+   const m = String(d.getMonth() + 1).padStart(2, '0');
+   const day = String(d.getDate()).padStart(2, '0');
+   return `${y}-${m}-${day}`;
+ };
+
+// Normaliza e formata MAC address: mantém apenas hex, agrupa em pares e junta com ':'
+const normalizeMacAddress = (input) => {
+  if (!input) return null;
+  const hex = String(input).replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+  if (!hex) return null;
+  const pairs = hex.match(/.{1,2}/g) || [];
+  // Garante tamanho máximo de 17 caracteres (12 hex + 5 ':')
+  return pairs.join(':').slice(0, 17);
 };
 
 // Listar todos os equipamentos
@@ -58,7 +68,8 @@ export const obterEquipamento = async (req, res, next) => {
 // Criar um novo equipamento
 export const criarEquipamento = async (req, res, next) => {
   try {
-    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macadress, dataAquisicao, status, observacoes } = req.body;
+    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes } = req.body;
+    const macFmt = normalizeMacAddress(macaddress);
 
     // TECNICO não pode criar
     if (req.usuario?.role === 'TECNICO') {
@@ -78,7 +89,7 @@ export const criarEquipamento = async (req, res, next) => {
         processador,
         memoria,
         serial,
-        macadress,
+        macaddress: macFmt,
         dataAquisicao: new Date(dataAquisicao),
         status,
         observacoes,
@@ -96,7 +107,8 @@ export const criarEquipamento = async (req, res, next) => {
 export const atualizarEquipamento = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macadress, dataAquisicao, status, observacoes } = req.body;
+    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes } = req.body;
+    const macFmt = normalizeMacAddress(macaddress);
 
     // Verificar se o equipamento existe
     const equipamentoExistente = await prisma.equipamento.findUnique({
@@ -132,7 +144,7 @@ export const atualizarEquipamento = async (req, res, next) => {
         memoria,
         observacoes,
         serial,
-        macadress,
+        macaddress: macFmt,
         dataAquisicao: dataAquisicao ? new Date(dataAquisicao) : undefined,
         status,
         escolaId: req.usuario?.escolaId,
@@ -149,7 +161,7 @@ export const atualizarEquipamento = async (req, res, next) => {
         memoria,
         observacoes,
         serial,
-        macadress,
+        macaddress: macFmt,
         dataAquisicao: dataAquisicao ? new Date(dataAquisicao) : undefined,
         status,
         // escolaId só é alterado pelo ADMIN se vier no body
@@ -221,7 +233,7 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
 
     // Cabeçalho CSV
     const headers = [
-      'id','nome','tipo','modelo','serial','macadress','status','localizacao','fabricante','processador','memoria','dataAquisicao','observacoes','escolaId','escolaNome'
+      'id','nome','tipo','modelo','serial','macaddress','status','localizacao','fabricante','processador','memoria','dataAquisicao','observacoes','escolaId','escolaNome'
     ];
 
     const escapeCsv = (value) => {
@@ -240,7 +252,7 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
       e.tipo,
       e.modelo,
       e.serial,
-      e.macadress ?? '',
+      e.macaddress ?? '',
       e.status,
       e.localizacao ?? '',
       e.fabricante ?? '',

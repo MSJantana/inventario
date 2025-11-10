@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Trash2, Save, RotateCcw, X, Plus } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
 
 type Usuario = {
   id: string
@@ -65,26 +65,26 @@ export default function UsuariosPage() {
     
     // Validações comuns
     if (!nome.trim() || !email.trim()) {
-      showErrorToast('Preencha nome e email')
+      showWarningToast('Preencha nome e email')
       return
     }
 
     // Validação de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
-      showErrorToast('Email inválido')
+      showWarningToast('Email inválido')
       return
     }
 
     // Se for criação, senha é obrigatória
     if (!editingId && !senha.trim()) {
-      showErrorToast('Preencha a senha')
+      showWarningToast('Preencha a senha')
       return
     }
 
     // Se for criação ou edição com senha preenchida, validar tamanho
     if (senha && senha.length < 6) {
-      showErrorToast('Senha deve ter no mínimo 6 caracteres')
+      showWarningToast('Senha deve ter no mínimo 6 caracteres')
       return
     }
 
