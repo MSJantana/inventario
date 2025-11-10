@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Trash2, Save, X } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { showSuccessToast, showErrorToast } from '../utils/toast'
 import api from '../lib/axios'
 
 type Escola = {
@@ -441,33 +441,33 @@ export default function EscolasPage() {
   async function criarEscola(ev: React.FormEvent) {
     ev.preventDefault()
     if (!nome.trim() || !sigla.trim() || !endereco.trim() || !cidade.trim() || !estado.trim() || !cep.trim()) {
-      toast.error('Preencha Nome, Sigla, Endereço, Cidade, Estado e CEP')
+          showErrorToast('Preencha Nome, Sigla, Endereço, Cidade, Estado e CEP')
       return
     }
     if (estado.trim().length !== 2) {
-      toast.error('Estado deve ter 2 letras (UF)')
+          showErrorToast('Estado deve ter 2 letras (UF)')
       return
     }
     if (!isCepValido(cep)) {
-      toast.error('CEP inválido. Use 00000-000')
+          showErrorToast('CEP inválido. Use 00000-000')
       return
     }
     if (telefone && !isTelefoneValido(telefone)) {
-      toast.error('Telefone inválido. Use DDD + número (10 ou 11 dígitos)')
+          showErrorToast('Telefone inválido. Use DDD + número (10 ou 11 dígitos)')
       return
     }
     if (!isEmailValido(email)) {
-      toast.error('Email em formato inválido')
+          showErrorToast('Email em formato inválido')
       return
     }
     try {
       await api.post('/api/escolas', { nome, sigla, endereco, cidade, estado, cep, telefone, email, diretor, observacoes })
-      toast.success('Escola criada')
+          showSuccessToast('Escola criada')
       setNome(''); setSigla(''); setEndereco(''); setCidade(''); setEstado(''); setCep(''); setTelefone(''); setEmail(''); setDiretor(''); setObservacoes('')
       setShowCreate(false)
       await carregar()
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar escola')
+          showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar escola')
     }
   }
 
@@ -503,42 +503,42 @@ export default function EscolasPage() {
     ev.preventDefault()
     if (!editingId) return
     if (!editNome.trim() || !editSigla.trim() || !editEndereco.trim() || !editCidade.trim() || !editEstado.trim() || !editCep.trim()) {
-      toast.error('Preencha Nome, Sigla, Endereço, Cidade, Estado e CEP')
+          showErrorToast('Preencha Nome, Sigla, Endereço, Cidade, Estado e CEP')
       return
     }
     if (editEstado.trim().length !== 2) {
-      toast.error('Estado deve ter 2 letras (UF)')
+          showErrorToast('Estado deve ter 2 letras (UF)')
       return
     }
     if (!isCepValido(editCep)) {
-      toast.error('CEP inválido. Use 00000-000')
+          showErrorToast('CEP inválido. Use 00000-000')
       return
     }
     if (editTelefone && !isTelefoneValido(editTelefone)) {
-      toast.error('Telefone inválido. Use DDD + número (10 ou 11 dígitos)')
+          showErrorToast('Telefone inválido. Use DDD + número (10 ou 11 dígitos)')
       return
     }
     if (!isEmailValido(editEmail)) {
-      toast.error('Email em formato inválido')
+          showErrorToast('Email em formato inválido')
       return
     }
     try {
       await api.put(`/api/escolas/${editingId}`, { nome: editNome, sigla: editSigla, endereco: editEndereco, cidade: editCidade, estado: editEstado, cep: editCep, telefone: editTelefone, email: editEmail, diretor: editDiretor, observacoes: editObservacoes })
-      toast.success('Escola atualizada')
+          showSuccessToast('Escola atualizada')
       cancelEdit()
       await carregar()
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao atualizar escola')
+          showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao atualizar escola')
     }
   }
 
   async function excluirEscola(id: string) {
     try {
       await api.delete(`/api/escolas/${id}`)
-      toast.success('Escola excluída')
+          showSuccessToast('Escola excluída')
       await carregar()
     } catch (e: unknown) {
-      toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir escola')
+          showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir escola')
     } finally {
       setDeleteId(null)
     }

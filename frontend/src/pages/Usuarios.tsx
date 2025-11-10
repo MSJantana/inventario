@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Trash2, Save, RotateCcw, X, Plus } from 'lucide-react'
 import api from '../lib/axios'
-import toast from 'react-hot-toast'
+import { showSuccessToast, showErrorToast } from '../utils/toast'
 
 type Usuario = {
   id: string
@@ -65,26 +65,26 @@ export default function UsuariosPage() {
     
     // Validações comuns
     if (!nome.trim() || !email.trim()) {
-      toast.error('Preencha nome e email')
+      showErrorToast('Preencha nome e email')
       return
     }
 
     // Validação de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
-      toast.error('Email inválido')
+      showErrorToast('Email inválido')
       return
     }
 
     // Se for criação, senha é obrigatória
     if (!editingId && !senha.trim()) {
-      toast.error('Preencha a senha')
+      showErrorToast('Preencha a senha')
       return
     }
 
     // Se for criação ou edição com senha preenchida, validar tamanho
     if (senha && senha.length < 6) {
-      toast.error('Senha deve ter no mínimo 6 caracteres')
+      showErrorToast('Senha deve ter no mínimo 6 caracteres')
       return
     }
 
@@ -103,7 +103,7 @@ export default function UsuariosPage() {
         }
         
         resp = await api.put(`/api/usuarios/${editingId}`, payload)
-        toast.success('Usuário atualizado com sucesso!')
+        showSuccessToast('Usuário atualizado com sucesso!')
         
         // Atualizar usuário na lista
         setUsuarios(prev => prev.map(u => u.id === editingId ? resp.data : u))
@@ -120,7 +120,7 @@ export default function UsuariosPage() {
         }
         
         resp = await api.post('/api/usuarios', payload)
-        toast.success('Usuário criado com sucesso!')
+        showSuccessToast('Usuário criado com sucesso!')
         
         // Adicionar usuário na lista
         setUsuarios(prev => [resp.data, ...prev])
@@ -138,7 +138,7 @@ export default function UsuariosPage() {
       
     } catch (e: unknown) {
       const errorMsg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-      toast.error(errorMsg || 'Erro ao salvar usuário')
+      showErrorToast(errorMsg || 'Erro ao salvar usuário')
     }
   }
 
@@ -149,10 +149,10 @@ export default function UsuariosPage() {
     
     try {
       await api.delete(`/api/usuarios/${id}`)
-      toast.success('Usuário excluído com sucesso!')
+      showSuccessToast('Usuário excluído com sucesso!')
       setUsuarios(prev => prev.filter(u => u.id !== id))
     } catch {
-      toast.error('Erro ao excluir usuário')
+      showErrorToast('Erro ao excluir usuário')
     }
   }
 

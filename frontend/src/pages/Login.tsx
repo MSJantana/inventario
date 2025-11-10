@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
-import toast from 'react-hot-toast'
+import { showSuccessToast, showErrorToast } from '../utils/toast'
 import { setAuthToken } from '../services/auth'
 import { useAppStore } from '../store/useAppStore'
 import { User } from 'lucide-react'
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const onLogin = async (ev: React.FormEvent) => {
     ev.preventDefault()
     if (!email.trim() || !senha.trim()) {
-      toast.error('Informe email e senha')
+      showErrorToast('Informe email e senha')
       return
     }
     setLoading(true)
@@ -35,10 +35,10 @@ export default function LoginPage() {
       if (emailUsuario) {
         localStorage.setItem('userEmail', emailUsuario)
       }
-      toast.success('Login realizado')
+      showSuccessToast('Login realizado')
       navigate('/equipamentos')
     } catch (e: unknown) {
-      toast.error(
+      showErrorToast(
         (e as { response?: { data?: { error?: string } } }).response?.data?.error ||
         (e as Error).message ||
         'Falha no login'
@@ -50,14 +50,14 @@ export default function LoginPage() {
 
   const onForgot = async () => {
     if (!email.trim()) {
-      toast.error('Informe seu email para recuperar a senha')
+      showErrorToast('Informe seu email para recuperar a senha')
       return
     }
     try {
       await api.post('/api/usuarios/recuperar-senha', { email })
-      toast.success('Instruções enviadas para o seu email')
+      showSuccessToast('Instruções enviadas para o seu email')
     } catch (e: unknown) {
-      toast.error(
+      showErrorToast(
         (e as { response?: { data?: { error?: string } } }).response?.data?.error ||
         'Erro ao enviar instruções'
       )
