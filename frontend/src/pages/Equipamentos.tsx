@@ -14,10 +14,19 @@ type Equipamento = {
   id: string
   nome?: string
   nomeEquipamento?: string
+  tipo?: string
+  modelo?: string
+  serial?: string
   status?: string
+  localizacao?: string
+  fabricante?: string
+  dataAquisicao?: string
+  processador?: string
+  memoria?: string
+  observacoes?: string
+  macaddress?: string
   escolaId?: string
   escola?: { nome?: string }
-  macAddress?: string
 }
 
 type Escola = { id: string; nome: string }
@@ -63,6 +72,7 @@ export default function EquipamentosPage() {
   const [editProcessador, setEditProcessador] = useState('')
   const [editMemoria, setEditMemoria] = useState('')
   const [editObservacoes, setEditObservacoes] = useState('')
+  const [editMacAddress, setEditMacAddress] = useState('')
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -133,15 +143,16 @@ export default function EquipamentosPage() {
   function startEdit(e: Equipamento) {
     setEditingId(e.id)
     setEditNome(e.nome || e.nomeEquipamento || '')
-    setEditTipo('OUTRO')
-    setEditModelo('')
-    setEditSerial('')
-    setEditDataAquisicao('')
-    setEditLocalizacao('')
-    setEditFabricante('')
-    setEditProcessador('')
-    setEditMemoria('')
-    setEditObservacoes('')
+    setEditTipo(e.tipo || 'OUTRO')
+    setEditModelo(e.modelo || '')
+    setEditSerial(e.serial || '')
+    setEditDataAquisicao(e.dataAquisicao ? new Date(e.dataAquisicao).toISOString().split('T')[0] : '')
+    setEditLocalizacao(e.localizacao || '')
+    setEditFabricante(e.fabricante || '')
+    setEditProcessador(e.processador || '')
+    setEditMemoria(e.memoria || '')
+    setEditObservacoes(e.observacoes || '')
+    setEditMacAddress(e.macaddress || '')
     showInfoToast('Editando equipamento')
   }
 
@@ -157,6 +168,7 @@ export default function EquipamentosPage() {
     setEditProcessador('')
     setEditMemoria('')
     setEditObservacoes('')
+    setEditMacAddress('')
   }
 
   async function salvarEdicao(ev: React.FormEvent) {
@@ -167,6 +179,7 @@ export default function EquipamentosPage() {
       return
     }
     try {
+      const macFmt = formatMac(editMacAddress)
       const payload: Record<string, unknown> = {
         nome: editNome,
         tipo: editTipo,
@@ -178,6 +191,7 @@ export default function EquipamentosPage() {
         processador: editProcessador || undefined,
         memoria: editMemoria || undefined,
         observacoes: editObservacoes || undefined,
+        macaddress: macFmt || undefined,
       }
       const resp = await api.put(`/api/equipamentos/${editingId}`, payload)
       showSuccessToast('Equipamento atualizado')
@@ -457,6 +471,16 @@ export default function EquipamentosPage() {
             <div>
               <label className="mb-1 block text-sm font-medium">Serial</label>
               <input className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">MAC Address</label>
+              <input
+                className="w-full rounded border px-3 py-2"
+                placeholder="AA:BB:CC:DD:EE:FF"
+                value={editMacAddress}
+                onChange={(e) => setEditMacAddress(e.target.value.toUpperCase())}
+                onBlur={() => setEditMacAddress(formatMac(editMacAddress))}
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Data de Aquisição</label>

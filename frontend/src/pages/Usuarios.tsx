@@ -7,7 +7,7 @@ type Usuario = {
   id: string
   nome: string
   email: string
-  role: 'ADMIN' | 'USER'
+  role: 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO'
   cargo?: string
   escolaId?: string
   escola?: { nome: string }
@@ -162,7 +162,7 @@ export default function UsuariosPage() {
     setNome(usuario.nome)
     setEmail(usuario.email)
     setSenha('') // Senha não é preenchida por segurança
-    setRole(usuario.role)
+    setRole(usuario.role === 'ADMIN' ? 'ADMIN' : 'USER')
     setCargo(usuario.cargo || '')
     setEscolaId(usuario.escolaId || '')
     setEditingId(usuario.id) // Guardar o ID para saber que é edição
@@ -264,7 +264,9 @@ export default function UsuariosPage() {
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'ADMIN' | 'USER')}
               >
-                <option value="USER">Usuário</option>
+                <option value="USUARIO">Usuário</option>
+                <option value="TECNICO">Técnico</option>
+                <option value="GESTOR">Gestor</option>
                 <option value="ADMIN">Administrador</option>
               </select>
             </div>
@@ -274,7 +276,7 @@ export default function UsuariosPage() {
                 type="text"
                 className="w-full rounded border px-3 py-2"
                 value={cargo}
-                onChange={(e) => setCargo(e.target.value)}
+                onChange={(e) => setCargo(e.target.value.toUpperCase())}
                 placeholder="Ex: Técnico, Professor, Coordenador..."
               />
             </div>
@@ -364,11 +366,14 @@ export default function UsuariosPage() {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                      usuario.role === 'ADMIN' 
+                      usuario.role === 'ADMIN' || usuario.role === 'GESTOR'
                         ? 'bg-red-100 text-red-800' 
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {usuario.role === 'ADMIN' ? 'Administrador' : 'Usuário'}
+                      {usuario.role === 'ADMIN' ? 'Administrador' : 
+                       usuario.role === 'GESTOR' ? 'Gestor' :
+                       usuario.role === 'TECNICO' ? 'Técnico' :
+                       'Usuário'}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
@@ -427,11 +432,14 @@ export default function UsuariosPage() {
                   <p className="text-xs text-gray-500">{usuario.email}</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                  usuario.role === 'ADMIN' 
+                  usuario.role === 'ADMIN' || usuario.role === 'GESTOR'
                     ? 'bg-red-100 text-red-800' 
                     : 'bg-green-100 text-green-800'
                 }`}>
-                  {usuario.role === 'ADMIN' ? 'Administrador' : 'Usuário'}
+                  {usuario.role === 'ADMIN' ? 'Administrador' : 
+                   usuario.role === 'GESTOR' ? 'Gestor' :
+                   usuario.role === 'TECNICO' ? 'Técnico' :
+                   'Usuário'}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-3">
