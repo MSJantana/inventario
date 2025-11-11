@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Trash2, Save, RotateCcw, X, Plus } from 'lucide-react'
+import { Pencil, Trash2, Save, RotateCcw, X, Plus, Eye, EyeOff } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
 
@@ -31,7 +31,8 @@ export default function UsuariosPage() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [role, setRole] = useState<'ADMIN' | 'USER'>('USER')
+  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO'>('USUARIO');
   const [cargo, setCargo] = useState('')
   const [escolaId, setEscolaId] = useState('')
 
@@ -130,7 +131,7 @@ export default function UsuariosPage() {
       setNome('')
       setEmail('')
       setSenha('')
-      setRole('USER')
+      setRole('USUARIO')
       setCargo('')
       setEscolaId('')
       setEditingId(null)
@@ -162,7 +163,7 @@ export default function UsuariosPage() {
     setNome(usuario.nome)
     setEmail(usuario.email)
     setSenha('') // Senha não é preenchida por segurança
-    setRole(usuario.role === 'ADMIN' ? 'ADMIN' : 'USER')
+    setRole(usuario.role)
     setCargo(usuario.cargo || '')
     setEscolaId(usuario.escolaId || '')
     setEditingId(usuario.id) // Guardar o ID para saber que é edição
@@ -175,7 +176,7 @@ export default function UsuariosPage() {
     setNome('')
     setEmail('')
     setSenha('')
-    setRole('USER')
+    setRole('USUARIO')
     setCargo('')
     setEscolaId('')
     setEditingId(null) // Limpar ID de edição ao cancelar
@@ -241,16 +242,25 @@ export default function UsuariosPage() {
               <label className="mb-1 block text-sm font-medium">
                 Senha {editingId ? '(opcional - deixe vazio para manter atual)' : '*'}
               </label>
-              <input
-                type="password"
-                className="w-full rounded border px-3 py-2"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                required={!editingId}
-                minLength={6}
-                placeholder={editingId ? '•••••••• (digite apenas se quiser alterar)' : 'Mínimo 6 caracteres'}
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="w-full rounded border px-3 py-2 pr-10"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  required={!editingId}
+                  minLength={6}
+                  placeholder={editingId ? '•••••••• (digite apenas se quiser alterar)' : 'Mínimo 6 caracteres'}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               {editingId && (
                 <p className="mt-1 text-xs text-gray-500">
                   Para manter a senha atual, deixe este campo vazio
@@ -262,7 +272,7 @@ export default function UsuariosPage() {
               <select
                 className="w-full rounded border px-3 py-2"
                 value={role}
-                onChange={(e) => setRole(e.target.value as 'ADMIN' | 'USER')}
+                onChange={(e) => setRole(e.target.value as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO')}
               >
                 <option value="USUARIO">Usuário</option>
                 <option value="TECNICO">Técnico</option>

@@ -306,10 +306,10 @@ export default function RelatoriosEquipamentosPage() {
         </div>
 
         {/* Tabela para Desktop e Impressão (layout modernizado) */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block mt-8">
           <div className="overflow-x-auto rounded-lg border border-gray-300">
             <table className="w-full border-collapse text-sm">
-              <thead>
+              <thead className="sticky top-0 bg-white z-10">
                 <tr className="">
                   <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[10%] text-xs">Nome</th>
                   <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[7%] text-xs">Tipo</th>

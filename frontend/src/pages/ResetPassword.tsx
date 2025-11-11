@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/axios';
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast';
@@ -10,6 +11,8 @@ export default function ResetPassword() {
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showNovaSenha, setShowNovaSenha] = useState(false);
+  const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
 
   useEffect(() => {
     const urlToken = searchParams.get('token');
@@ -85,13 +88,20 @@ export default function ResetPassword() {
               <div className="flex items-center gap-2">
                 <span className="text-black">▸</span>
                 <input
-                  type="password"
+                  type={showNovaSenha ? 'text' : 'password'}
                   className="w-full border-b border-black bg-transparent px-2 py-2 focus:outline-none"
                   value={novaSenha}
                   onChange={(e) => setNovaSenha(e.target.value)}
                   required
                   minLength={8}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowNovaSenha(!showNovaSenha)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 transform text-gray-500"
+                >
+                  {showNovaSenha ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
             <div>
@@ -99,13 +109,20 @@ export default function ResetPassword() {
               <div className="flex items-center gap-2">
                 <span className="text-black">▸</span>
                 <input
-                  type="password"
+                  type={showConfirmarSenha ? 'text' : 'password'}
                   className="w-full border-b border-black bg-transparent px-2 py-2 focus:outline-none"
                   value={confirmarSenha}
                   onChange={(e) => setConfirmarSenha(e.target.value)}
                   required
                   minLength={8}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 transform text-gray-500"
+                >
+                  {showConfirmarSenha ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 
@@ -148,24 +165,38 @@ export default function ResetPassword() {
               <div>
                 <label className="mb-1 block text-xs font-medium">Nova Senha</label>
                 <input
-                  type="password"
+                  type={showNovaSenha ? 'text' : 'password'}
                   className="w-full rounded-lg border px-3 py-2"
                   value={novaSenha}
                   onChange={(e) => setNovaSenha(e.target.value)}
                   required
                   minLength={8}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowNovaSenha(!showNovaSenha)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-500"
+                >
+                  {showNovaSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium">Confirmar Nova Senha</label>
                 <input
-                  type="password"
+                  type={showConfirmarSenha ? 'text' : 'password'}
                   className="w-full rounded-lg border px-3 py-2"
                   value={confirmarSenha}
                   onChange={(e) => setConfirmarSenha(e.target.value)}
                   required
                   minLength={8}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-500"
+                >
+                  {showConfirmarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
               <button
                 type="submit"
