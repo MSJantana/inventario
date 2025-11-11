@@ -21,7 +21,7 @@ export const enviarEmailRecuperacaoSenha = async (email, token, baseUrl) => {
     const transporter = createTransporter();
     
     // URL para redefinição de senha
-    const resetUrl = `${baseUrl}/redefinir-senha?token=${token}`;
+    const resetUrl = `http://localhost:5174/reset-password?token=${token}`;
     
     // Configuração do email
     const mailOptions = {

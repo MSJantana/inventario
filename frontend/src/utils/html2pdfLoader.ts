@@ -4,7 +4,7 @@
  */
 
 interface Html2PdfOptions {
-  margin?: number;
+  margin?: number | [number, number, number, number];
   filename?: string;
   image?: { type?: 'jpeg' | 'png' | 'webp'; quality?: number };
   html2canvas?: { scale?: number };
@@ -37,9 +37,13 @@ interface PdfInstance {
   };
   setPage: (pageNumber: number) => void;
   addImage: (dataUrl: string, type: 'PNG' | 'JPEG', x: number, y: number, width: number, height: number) => void;
+  addSvgAsImage: (svg: string, x: number, y: number, width: number, height: number) => void;
   setFontSize: (size: number) => void;
   setTextColor: (color: string) => void;
   text: (text: string, x: number, y: number, options?: { align?: 'left' | 'center' | 'right' }) => void;
+  setLineWidth: (width: number) => void;
+  setDrawColor: (color: string) => void;
+  line: (x1: number, y1: number, x2: number, y2: number) => void;
 }
 
 interface Html2PdfStatic {
@@ -87,7 +91,7 @@ export async function generatePdf(element: HTMLElement, options: Html2PdfOptions
   const html2pdf = await loadHtml2pdf();
   
   const defaultOptions: Html2PdfOptions = {
-    margin: 10,
+    margin: [40, 5, 20, 5], // Aumentando margem superior para 40mm para evitar sobreposição com o cabeçalho e logo
     filename: 'relatorio.pdf',
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2 },
@@ -103,6 +107,34 @@ export async function generatePdf(element: HTMLElement, options: Html2PdfOptions
     if (!url) return null;
     try {
       const resp = await fetch(url);
+      const contentType = resp.headers.get('content-type') || '';
+      if (contentType.includes('svg')) {
+        // Converter SVG em PNG para compatibilidade com jsPDF.addImage
+        const svgText = await resp.text();
+        const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        const imgLoaded = new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+        });
+        img.src = svgUrl;
+        await imgLoaded;
+        const canvas = document.createElement('canvas');
+        const targetWidth = 800; // resolução alta para manter qualidade
+        const aspect = img.naturalWidth && img.naturalHeight ? img.naturalHeight / img.naturalWidth : 0.3;
+        const targetHeight = Math.max(1, Math.round(targetWidth * aspect));
+        canvas.width = targetWidth;
+        canvas.height = targetHeight || 240;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        }
+        const dataUrl = canvas.toDataURL('image/png');
+        URL.revokeObjectURL(svgUrl);
+        return { dataUrl, type: 'PNG' };
+      }
+      // PNG/JPEG
       const blob = await resp.blob();
       const reader = new FileReader();
       const dataUrlPromise = new Promise<string>((resolve, reject) => {
@@ -112,7 +144,7 @@ export async function generatePdf(element: HTMLElement, options: Html2PdfOptions
       reader.readAsDataURL(blob);
       const dataUrl = await dataUrlPromise;
       const mime = blob.type || '';
-      const type = mime.includes('png') ? 'PNG' : 'JPEG';
+      const type: 'PNG' | 'JPEG' = mime.includes('png') ? 'PNG' : 'JPEG';
       return { dataUrl, type };
     } catch (e) {
       console.warn('Não foi possível carregar logo para PDF:', e);
@@ -128,27 +160,47 @@ export async function generatePdf(element: HTMLElement, options: Html2PdfOptions
     const total = pdf.internal.getNumberOfPages();
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = Number(finalOptions.margin || 10);
+    const margin = Array.isArray(finalOptions.margin) ? finalOptions.margin : [finalOptions.margin || 10, finalOptions.margin || 10, finalOptions.margin || 10, finalOptions.margin || 10];
+    
+    const rightMargin = margin[1];
+    const bottomMargin = margin[2];
+    const leftMargin = margin[3];
     const color = finalOptions.footerTextColor || '#000000';
     const headerW = finalOptions.headerLogoWidthMm ?? 35;
     const headerH = finalOptions.headerLogoHeightMm ?? 14;
     const footerW = finalOptions.footerLogoWidthMm ?? 24;
     const footerH = finalOptions.footerLogoHeightMm ?? 10;
+    
 
     for (let i = 1; i <= total; i++) {
       pdf.setPage(i);
-      // Header logo at top-right
+      // Header: Título e data dentro da margem superior
+      pdf.setFontSize(14);
+      pdf.setTextColor('#000000');
+      pdf.setFontSize(16);
+      pdf.text('Relatório de Equipamentos', pageWidth / 2, 10, { align: 'center' });
+      pdf.setFontSize(10);
+      const emissionDate = new Date().toLocaleDateString('pt-BR');
+      pdf.text(`Data de Emissão: ${emissionDate}`, pageWidth / 2, 20, { align: 'center' });
+
+      // Header logo at top-right, ajustado para caber na margem superior
       if (headerLogo) {
         try {
-          pdf.addImage(headerLogo.dataUrl, headerLogo.type, pageWidth - margin - headerW, margin, headerW, headerH);
+          pdf.addImage(headerLogo.dataUrl, headerLogo.type, pageWidth - rightMargin - headerW, 5, headerW, headerH);
         } catch (e) {
           console.warn('Falha ao adicionar logo no cabeçalho:', e);
         }
       }
+      // Linha separadora no início do rodapé
+      const footerLineY = pageHeight - bottomMargin - footerH - 5; // Posição da linha acima do rodapé
+      pdf.setLineWidth(0.5);
+      pdf.setDrawColor('#000000');
+      pdf.line(leftMargin, footerLineY, pageWidth - rightMargin, footerLineY);
+
       // Footer logo bottom-left
       if (footerLogo) {
         try {
-          pdf.addImage(footerLogo.dataUrl, footerLogo.type, margin, pageHeight - margin - footerH, footerW, footerH);
+          pdf.addImage(footerLogo.dataUrl, footerLogo.type, leftMargin, pageHeight - bottomMargin - footerH, footerW, footerH);
         } catch (e) {
           console.warn('Falha ao adicionar logo no rodapé:', e);
         }
@@ -157,11 +209,11 @@ export async function generatePdf(element: HTMLElement, options: Html2PdfOptions
       try {
         pdf.setFontSize(10);
         pdf.setTextColor(color);
-        const footerY = pageHeight - margin - 3; // slightly above bottom
+        const footerY = pageHeight - bottomMargin + 5; // Ajustado para ficar abaixo do logo do rodapé
         if (finalOptions.schoolName) {
           pdf.text(String(finalOptions.schoolName), pageWidth / 2, footerY, { align: 'center' });
         }
-        pdf.text(`Página ${i} de ${total}`, pageWidth - margin, footerY, { align: 'right' });
+        pdf.text(`Página ${i} de ${total}`, pageWidth - rightMargin, footerY, { align: 'right' });
       } catch (e) {
         console.warn('Falha ao adicionar textos de rodapé:', e);
       }

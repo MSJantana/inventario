@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, NavLink } from 'react-router-dom'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
 import { setAuthToken } from '../services/auth'
 import { useAppStore } from '../store/useAppStore'
 import { User } from 'lucide-react'
@@ -29,12 +29,15 @@ export default function LoginPage() {
       // Guardar nome do usuário para saudação
       const nome = resp.data?.usuario?.nome || ''
       const emailUsuario = resp.data?.usuario?.email || ''
+      const role = (resp.data?.usuario?.role as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
+            
       if (nome) {
         localStorage.setItem('userName', nome)
       }
       if (emailUsuario) {
         localStorage.setItem('userEmail', emailUsuario)
       }
+      localStorage.setItem('userRole', role)
       showSuccessToast('Login realizado')
       navigate('/equipamentos')
     } catch (e: unknown) {
@@ -48,21 +51,7 @@ export default function LoginPage() {
     }
   }
 
-  const onForgot = async () => {
-    if (!email.trim()) {
-      showWarningToast('Informe seu email para recuperar a senha')
-      return
-    }
-    try {
-      await api.post('/api/usuarios/recuperar-senha', { email })
-      showInfoToast('Instruções enviadas para o seu email')
-    } catch (e: unknown) {
-      showErrorToast(
-        (e as { response?: { data?: { error?: string } } }).response?.data?.error ||
-        'Erro ao enviar instruções'
-      )
-    }
-  }
+  
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -97,7 +86,7 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Password</label>
+                <label className="mb-1 block text-sm font-medium">Senha</label>
                 <input
                   type="password"
                   className="w-full rounded-lg border px-3 py-2"
@@ -105,7 +94,7 @@ export default function LoginPage() {
                   onChange={(e) => setSenha(e.target.value)}
                 />
                 <div className="mt-1 text-right text-xs text-gray-500">
-                  <button type="button" onClick={onForgot} className="hover:underline">Forgot Password?</button>
+                  <NavLink to="/forgot-password" className="hover:underline">Esqueci minha senha</NavLink>
                 </div>
               </div>
               <button
@@ -113,9 +102,9 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full rounded-full bg-black px-4 py-2 text-white transition hover:opacity-90 disabled:opacity-60"
               >
-                Login
+                Entrar
               </button>
-              <p className="text-center text-xs text-gray-600">Don’t have any account? <span className="font-semibold">Sign Up</span></p>
+              <p className="text-center text-xs text-gray-600"></p>
             </form>
           </div>
         </div>
@@ -158,20 +147,19 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full bg-black px-4 py-2 text-white transition hover:opacity-90 disabled:opacity-60"
               >
-                LOGIN
+                ENTRAR
               </button>
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span className="flex-1 border-t" />
                 <span>OR</span>
                 <span className="flex-1 border-t" />
               </div>
-              <button
-                type="button"
-                className="w-full border border-black px-4 py-2 text-black transition hover:bg-black hover:text-white"
-                onClick={onForgot}
+              <NavLink
+                to="/forgot-password"
+                className="w-full block border border-black px-4 py-2 text-black transition hover:bg-black hover:text-white text-center"
               >
-                Forgot password?
-              </button>
+                Esqueci minha senha
+              </NavLink>
             </div>
           </form>
         </div>

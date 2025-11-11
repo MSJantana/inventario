@@ -10,16 +10,7 @@ export const listarUsuarios = async (req, res, next) => {
     if (req.usuario?.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Acesso restrito ao ADMIN' });
     }
-    const usuarios = await prisma.usuario.findMany({
-      include: {
-        escola: {
-          select: {
-            id: true,
-            nome: true
-          }
-        }
-      }
-    });
+    const usuarios = await prisma.usuario.findMany({ include: { escola: true } });
     res.json(usuarios);
   } catch (error) {
     next(error);
