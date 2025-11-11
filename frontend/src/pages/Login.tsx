@@ -4,7 +4,7 @@ import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
 import { setAuthToken } from '../services/auth'
 import { useAppStore } from '../store/useAppStore'
-import { User } from 'lucide-react'
+import { User, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const setAuthTokenState = useAppStore((s) => s.setAuthTokenState)
+  const [showPassword, setShowPassword] = useState(false)
 
   const onLogin = async (ev: React.FormEvent) => {
     ev.preventDefault()
@@ -87,12 +88,21 @@ export default function LoginPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">Senha</label>
-                <input
-                  type="password"
-                  className="w-full rounded-lg border px-3 py-2"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="w-full rounded-lg border px-3 py-2 pr-10"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
                 <div className="mt-1 text-right text-xs text-gray-500">
                   <NavLink to="/forgot-password" className="hover:underline">Esqueci minha senha</NavLink>
                 </div>
@@ -129,14 +139,21 @@ export default function LoginPage() {
             </div>
             <div>
               <label className="mb-1 block text-sm">Senha</label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 relative">
                 <span className="text-black">▸</span>
                 <input
-                  type="password"
-                  className="w-full border-b border-black bg-transparent px-2 py-2 focus:outline-none"
+                  type={showPassword ? 'text' : 'password'}
+                  className="w-full border-b border-black bg-transparent px-2 py-2 focus:outline-none pr-10"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
             {/* Removido texto REGISTER */}
