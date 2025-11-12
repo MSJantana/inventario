@@ -2,7 +2,7 @@ pipeline {
   agent any
   options {
     timestamps()
-    ansiColor('xterm')
+    wrap([$class: 'AnsiColorBuildWrapper', colorMapName: 'xterm'])
   }
 
   parameters {
@@ -19,9 +19,7 @@ pipeline {
 
   stages {
     stage('Checkout') {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
     stage('Compute Metadata') {
@@ -52,6 +50,18 @@ pipeline {
       }
     }
 
+    stage('Setup buildx') {
+      when { expression { return params.USE_BUILDX } }
+      steps {
+        sh """
+          docker buildx version || true
+          docker buildx create --name jx || true
+          docker buildx use jx
+          docker buildx inspect --bootstrap || true
+        """
+      }
+    }
+
     stage('Build & Push Images') {
       parallel {
         stage('Backend') {
@@ -65,8 +75,7 @@ pipeline {
               if (env.IS_MAIN == 'true') { tags << 'latest' }
 
               if (params.USE_BUILDX) {
-                sh "docker buildx version || true"
-                sh "docker buildx create --use --name jx || true"
+                sh "docker buildx use jx"
                 sh "docker buildx inspect --bootstrap || true"
 
                 def tagArgs = tags.collect { "-t ${imageBase}:${it}" }.join(' ')
@@ -98,8 +107,7 @@ pipeline {
               if (env.IS_MAIN == 'true') { tags << 'latest' }
 
               if (params.USE_BUILDX) {
-                sh "docker buildx version || true"
-                sh "docker buildx create --use --name jx || true"
+                sh "docker buildx use jx"
                 sh "docker buildx inspect --bootstrap || true"
 
                 def tagArgs = tags.collect { "-t ${imageBase}:${it}" }.join(' ')
