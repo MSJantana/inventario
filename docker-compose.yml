@@ -34,8 +34,8 @@ services:
       CSRF_SECRET: ${CSRF_SECRET}
       NODE_ENV: production
       # Opcional: caminhos de logos de relatório, se usados
-      # REPORT_LOGO_PATH: /app/assets/logo.png
-      # REPORT_LOGO_FOOTER_PATH: /app/assets/logo-footer.png
+      REPORT_LOGO_PATH: /app/assets/Logo_ASRS.svg
+      REPORT_LOGO_FOOTER_PATH: /app/assets/Logo_EA.svg
     # Não expõe a porta do backend; acessível via proxy do frontend
     volumes:
       - ./backend/assets:/app/assets:ro
