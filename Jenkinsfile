@@ -6,8 +6,8 @@ pipeline {
   }
 
   parameters {
-    string(name: 'DOCKER_REGISTRY', defaultValue: '', description: 'Registry (ex.: docker.io/<usuario> ou ghcr.io/<org>)')
-    string(name: 'REGISTRY_CREDENTIALS_ID', defaultValue: '', description: 'ID das credenciais no Jenkins para o registry')
+    string(name: 'DOCKER_REGISTRY', defaultValue: 'docker.io/msofsantana', description: 'Registry (ex.: docker.io/<usuario> ou ghcr.io/<org>)')
+    string(name: 'REGISTRY_CREDENTIALS_ID', defaultValue: '', description: 'ID das credenciais no Jenkins para o registry (opcional)')
     string(name: 'IMAGE_NAMESPACE', defaultValue: 'inventario', description: 'Namespace/base do nome da imagem (ex.: org/app)')
     booleanParam(name: 'PUSH_IMAGE', defaultValue: true, description: 'Fazer push das imagens')
     booleanParam(name: 'USE_BUILDX', defaultValue: true, description: 'Usar docker buildx com cache no registry')
@@ -48,11 +48,14 @@ pipeline {
     }
 
     stage('Login to Registry') {
-      when { expression { return params.PUSH_IMAGE && (params.DOCKER_REGISTRY?.trim()) && (params.REGISTRY_CREDENTIALS_ID?.trim()) } }
+      when { expression { return params.PUSH_IMAGE &amp;&amp; (params.DOCKER_REGISTRY?.trim()) } }
       steps {
         ansiColor('xterm') {
-          withCredentials([usernamePassword(credentialsId: params.REGISTRY_CREDENTIALS_ID, usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-            sh "echo $REG_PASS | docker login -u $REG_USER --password-stdin ${params.DOCKER_REGISTRY}"
+          script {
+            def envVars = readProperties file: '.env'
+            env.DOCKERHUB_USERNAME = envVars.DOCKERHUB_USERNAME
+            env.DOCKERHUB_TOKEN = envVars.DOCKERHUB_TOKEN
+            sh "echo \${DOCKERHUB_TOKEN} | docker login docker.io -u \${DOCKERHUB_USERNAME} --password-stdin"
           }
         }
       }
