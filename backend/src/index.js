@@ -83,8 +83,8 @@ app.get('/', (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, () => {
-  logger.info({ port: PORT }, 'Servidor rodando');
+app.listen(PORT, '0.0.0.0', () => {
+  logger.info({ port: PORT, host: '0.0.0.0' }, '[server] listening');
 });
 
 // Tratamento de erros do Prisma
