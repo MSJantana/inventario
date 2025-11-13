@@ -135,6 +135,56 @@ export const showCustomToast = (
   });
 };
 
+export const showConfirmToast = (
+  message: string,
+  onConfirm: () => void,
+  onCancel?: () => void,
+  options?: { confirmText?: string; cancelText?: string; duration?: number }
+) => {
+  return toast.custom(
+    (t) => (
+      React.createElement(
+        'div',
+        { className: 'rounded-lg border bg-white p-4 shadow-sm' },
+        [
+          React.createElement('div', { key: 'msg', className: 'mb-3 text-sm text-gray-800' }, message),
+          React.createElement(
+            'div',
+            { key: 'actions', className: 'flex items-center gap-2' },
+            [
+              React.createElement(
+                'button',
+                {
+                  key: 'confirm',
+                  className: 'rounded bg-red-600 px-3 py-1.5 text-white hover:bg-red-700',
+                  onClick: () => {
+                    toast.dismiss(t.id);
+                    onConfirm();
+                  },
+                },
+                options?.confirmText || 'Confirmar'
+              ),
+              React.createElement(
+                'button',
+                {
+                  key: 'cancel',
+                  className: 'rounded border px-3 py-1.5 hover:bg-gray-50',
+                  onClick: () => {
+                    toast.dismiss(t.id);
+                    onCancel?.();
+                  },
+                },
+                options?.cancelText || 'Cancelar'
+              ),
+            ]
+          ),
+        ]
+      )
+    ),
+    { position: 'top-right', duration: options?.duration ?? 10000 }
+  );
+};
+
 // Dismiss all toasts
 export const dismissAllToasts = () => {
   toast.dismiss();
@@ -152,6 +202,7 @@ export default {
   showInfoToast,
   showLoadingToast,
   showCustomToast,
+  showConfirmToast,
   toastPromise,
   dismissAllToasts,
   dismissToast,

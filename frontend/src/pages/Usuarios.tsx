@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Trash2, Save, RotateCcw, X, Plus, Eye, EyeOff } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
 
 type Usuario = {
   id: string
@@ -145,16 +145,17 @@ export default function UsuariosPage() {
 
 
 
-  async function excluirUsuario(id: string) {
-    if (!confirm('Tem certeza que deseja excluir este usuário?')) return
-    
-    try {
-      await api.delete(`/api/usuarios/${id}`)
-      showSuccessToast('Usuário excluído com sucesso!')
-      setUsuarios(prev => prev.filter(u => u.id !== id))
-    } catch {
-      showErrorToast('Erro ao excluir usuário')
-    }
+  function excluirUsuario(id: string) {
+    showConfirmToast('Tem certeza que deseja excluir este usuário?', async () => {
+      try {
+        await api.delete(`/api/usuarios/${id}`)
+        showSuccessToast('Usuário excluído com sucesso!')
+        setUsuarios(prev => prev.filter(u => u.id !== id))
+      } catch (e: unknown) {
+        const errorMsg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+        showErrorToast(errorMsg || 'Erro ao excluir usuário')
+      }
+    })
   }
 
   function iniciarEdicao(usuario: Usuario) {

@@ -116,9 +116,7 @@ export const obterUsuario = async (req, res, next) => {
     const { id } = req.params;
     const usuario = await prisma.usuario.findUnique({
       where: { id },
-      include: {
-        movimentacoes: true,
-      },
+      include: { escola: true },
     });
 
     if (!usuario) {
@@ -226,20 +224,18 @@ export const excluirUsuario = async (req, res, next) => {
     // Verificar se o usuário existe
     const usuario = await prisma.usuario.findUnique({
       where: { id },
-      include: {
-        movimentacoes: true,
-      },
+      include: { escola: true },
     });
 
     if (!usuario) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
 
-    // Verificar se o usuário tem movimentações associadas
-    if (usuario.movimentacoes.length > 0) {
-      return res.status(400).json({
-        error: 'Não é possível excluir o usuário pois existem movimentações associadas',
-      });
+    const movCount = await prisma.movimentacao.count({
+      where: { responsavel: usuario.nome },
+    });
+    if (movCount > 0) {
+      return res.status(400).json({ error: 'Não é possível excluir o usuário pois existem movimentações associadas' });
     }
 
     // Excluir o usuário
