@@ -32,7 +32,7 @@ const prisma = new PrismaClient({
     ? ['query', 'warn']
     : ['warn']
 });
-const PORT = process.env.PORT || 3002;
+//const PORT = process.env.PORT || 3002;
 
 // Middlewares
 app.use(cors());
@@ -83,9 +83,11 @@ app.get('/', (req, res) => {
 });
 
 // Iniciar servidor
+const PORT = Number(process.env.PORT ?? 3002);
 app.listen(PORT, '0.0.0.0', () => {
   logger.info({ port: PORT, host: '0.0.0.0' }, '[server] listening');
 });
+
 
 // Tratamento de erros do Prisma
 const SLOW_MS = parseInt(process.env.LOG_QUERY_SLOW_MS || '0', 10);
