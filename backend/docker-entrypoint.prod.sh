@@ -13,8 +13,13 @@ if [ -z "$DATABASE_URL" ]; then
   echo "[entrypoint:prod] DATABASE_URL construída: mysql://${DATABASE_USER}:***@${DB_HOST}:${DB_PORT}/${DATABASE_NAME}"
 fi
 
-echo "[entrypoint:prod] Aplicando migrations do Prisma (migrate deploy)..."
-npx prisma migrate deploy
+# Migrações (pode pular com SKIP_MIGRATIONS=true)
+if [ "$SKIP_MIGRATIONS" = "true" ]; then
+  echo "[entrypoint:prod] SKIP_MIGRATIONS=true -> pulando 'prisma migrate deploy'."
+else
+  echo "[entrypoint:prod] Aplicando migrations do Prisma (migrate deploy)..."
+  npx -y prisma migrate deploy
+fi
 
 echo "[entrypoint:prod] Iniciando servidor Node..."
 exec node src/index.js

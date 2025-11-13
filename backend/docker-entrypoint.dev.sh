@@ -14,8 +14,13 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 echo "[entrypoint:dev] Prisma Client foi gerado no build."
-echo "[entrypoint:dev] Sincronizando schema com o banco (prisma db push)..."
-npx prisma db push
+
+if [ "$SKIP_DB_PUSH" = "true" ]; then
+  echo "[entrypoint:dev] SKIP_DB_PUSH=true -> pulando 'prisma db push'."
+else
+  echo "[entrypoint:dev] Sincronizando schema com o banco (prisma db push)..."
+  npx -y prisma db push
+fi
 
 echo "[entrypoint:dev] Iniciando servidor Node..."
 exec node src/index.js
