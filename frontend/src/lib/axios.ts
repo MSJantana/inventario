@@ -47,23 +47,23 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401 || status === 403) {
+    if (status === 401) {
       try {
-        // Limpa dados de autenticação
         localStorage.removeItem('authToken');
         localStorage.removeItem('userName');
-        // Atualiza store (Zustand)
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userRole');
         useAppStore.getState().setAuthTokenState('');
-        // Feedback ao usuário
         showErrorToast('Sessão expirada. Faça login novamente.');
       } catch (err) {
-        // Log mínimo para evitar bloco vazio e facilitar diagnóstico
         console.warn('Erro ao processar expiração de sessão', err);
       }
-      // Redireciona para login
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
+    } else if (status === 403) {
+      // Não desloga em 403; apenas informa falta de permissão
+      showErrorToast('Sem permissão para executar esta ação.');
     }
     return Promise.reject(error);
   }

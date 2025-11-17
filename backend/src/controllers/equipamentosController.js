@@ -14,7 +14,7 @@ const formatDateYYYYMMDD = (dateLike) => {
 export const listarEquipamentos = async (req, res, next) => {
   try {
     const isAdmin = req.usuario?.role === 'ADMIN';
-    const where = !isAdmin ? { escolaId: req.usuario?.escolaId || undefined } : {};
+    const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
     const equipamentos = await prisma.equipamento.findMany({
       where,
       include: {
@@ -60,13 +60,10 @@ export const criarEquipamento = async (req, res, next) => {
   try {
     const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes } = req.body;
 
-    // TECNICO não pode criar
-    if (req.usuario?.role === 'TECNICO') {
-      return res.status(403).json({ error: 'TECNICO não pode criar equipamentos' });
-    }
-
-    // GESTOR só cria na própria escola
-    const escolaId = req.usuario?.role === 'GESTOR' ? req.usuario?.escolaId : req.body.escolaId;
+    // GESTOR/TECNICO criam sempre na própria escola
+    const escolaId = (req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO')
+      ? req.usuario?.escolaId
+      : req.body.escolaId;
 
     const equipamento = await prisma.equipamento.create({
       data: {
@@ -213,7 +210,7 @@ export const excluirEquipamento = async (req, res, next) => {
 export const exportarEquipamentosCsv = async (req, res, next) => {
   try {
     const isAdmin = req.usuario?.role === 'ADMIN';
-    const where = !isAdmin ? { escolaId: req.usuario?.escolaId || undefined } : {};
+    const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
     const equipamentos = await prisma.equipamento.findMany({
       where,
       include: { escola: true }
@@ -229,7 +226,7 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
       const str = String(value);
       // Se contém vírgula, aspas ou quebra de linha, encapsula em aspas e escapa aspas
       if (/[,"\n\r]/.test(str)) {
-        return '"' + str.replace(/"/g, '""') + '"';
+        return '"' + str.replaceAll('"', '""') + '"';
       }
       return str;
     };
