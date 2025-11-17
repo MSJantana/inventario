@@ -58,8 +58,8 @@ api.interceptors.response.use(
       } catch (err) {
         console.warn('Erro ao processar expiração de sessão', err);
       }
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (globalThis.window !== undefined && globalThis.window.location.pathname !== '/login') {
+        globalThis.location.href = '/login';
       }
     } else if (status === 403) {
       // Não desloga em 403; apenas informa falta de permissão
