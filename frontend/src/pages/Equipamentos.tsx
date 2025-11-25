@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
 
 // Formata MAC: mantém apenas hex, agrupa em pares e insere ':'
 function formatMac(raw: string): string {
-  const hex = raw.replace(/[^0-9a-fA-F]/g, '').toUpperCase()
+  const hex = raw.replaceAll(/[^0-9a-fA-F]/g, '').toUpperCase()
   const pairs = hex.match(/.{1,2}/g) || []
   return pairs.join(':').slice(0, 17)
 }
@@ -39,7 +39,7 @@ export default function EquipamentosPage() {
 
   // Filtros e paginação
   const [filterText, setFilterText] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'ALL' | string>('ALL')
+  const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -56,6 +56,7 @@ export default function EquipamentosPage() {
   const [macAddress, setMacAddress] = useState('')
   const [escolas, setEscolas] = useState<Escola[]>([])
   const [escolaId, setEscolaId] = useState<string>('')
+  const nomeInputRef = useRef<HTMLInputElement | null>(null)
 
   // Modal de confirmação de exclusão
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -73,6 +74,9 @@ export default function EquipamentosPage() {
   const [editMemoria, setEditMemoria] = useState('')
   const [editObservacoes, setEditObservacoes] = useState('')
   const [editMacAddress, setEditMacAddress] = useState('')
+  const [editEscolaId, setEditEscolaId] = useState('')
+  const [editStatus, setEditStatus] = useState<string>('DISPONIVEL')
+  const editNomeInputRef = useRef<HTMLInputElement | null>(null)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -120,7 +124,7 @@ export default function EquipamentosPage() {
         macaddress: macFmt || undefined,
         escolaId: escolaId || undefined,
       }
-      const resp = await api.post('/api/equipamentos', payload)
+      await api.post('/api/equipamentos', payload)
       showSuccessToast('Equipamento criado')
       setNome('')
       setTipo('OUTRO')
@@ -134,7 +138,7 @@ export default function EquipamentosPage() {
       setObservacoes('')
       setMacAddress('')
       setEscolaId('')
-      setLista((prev) => [resp.data, ...prev])
+      await carregar()
     } catch (e: unknown) {
       showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar equipamento')
     }
@@ -153,6 +157,8 @@ export default function EquipamentosPage() {
     setEditMemoria(e.memoria || '')
     setEditObservacoes(e.observacoes || '')
     setEditMacAddress(e.macaddress || '')
+    setEditEscolaId(e.escolaId || '')
+    setEditStatus(e.status || 'DISPONIVEL')
     showInfoToast('Editando equipamento')
   }
 
@@ -192,10 +198,12 @@ export default function EquipamentosPage() {
         memoria: editMemoria || undefined,
         observacoes: editObservacoes || undefined,
         macaddress: macFmt || undefined,
+        status: editStatus || undefined,
+        escolaId: editEscolaId || undefined,
       }
-      const resp = await api.put(`/api/equipamentos/${editingId}`, payload)
+      await api.put(`/api/equipamentos/${editingId}`, payload)
       showSuccessToast('Equipamento atualizado')
-      setLista((prev) => prev.map((it) => (it.id === editingId ? { ...it, ...resp.data } : it)))
+      await carregar()
       cancelEdit()
     } catch (e: unknown) {
       showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao atualizar equipamento')
@@ -244,6 +252,18 @@ export default function EquipamentosPage() {
     )
   }, [escolas])
 
+  useEffect(() => {
+    if (showCreate) {
+      setTimeout(() => nomeInputRef.current?.focus(), 0)
+    }
+  }, [showCreate])
+
+  useEffect(() => {
+    if (editingId) {
+      setTimeout(() => editNomeInputRef.current?.focus(), 0)
+    }
+  }, [editingId])
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border bg-white p-4 shadow-sm">
@@ -256,25 +276,23 @@ export default function EquipamentosPage() {
                 <Plus size={16} />
                 <span>Criar equipamento</span>
               </button>
-            ) : (
-              <button className="rounded border px-3 py-1.5 hover:bg-gray-50" onClick={() => setShowCreate(false)}>Fechar</button>
-            )}
+            ) : null}
           </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block text-sm font-medium">Filtrar por nome</label>
+            <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome</label>
             <input className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Status</label>
-            <select className="w-full rounded border px-3 py-2" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value as 'ALL' | string); setCurrentPage(1) }}>
+            <label htmlFor="filterStatus" className="mb-1 block text-sm font-medium">Status</label>
+            <select className="w-full rounded border px-3 py-2" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1) }}>
               {['ALL','DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO'].map(s => <option key={s} value={s}>{s === 'ALL' ? 'Todos' : s}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Itens por página</label>
+            <label htmlFor="pageSize" className="mb-1 block text-sm font-medium">Itens por página</label>
             <select className="w-full rounded border px-3 py-2" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
               {[5,10,20,50].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
@@ -375,11 +393,11 @@ export default function EquipamentosPage() {
         <h2 className="mb-3 text-lg font-medium">Criar Equipamento</h2>
         <form onSubmit={criarEquipamento} className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome</label>
-            <input className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <label htmlFor="nome" className="mb-1 block text-sm font-medium">Nome</label>
+            <input ref={nomeInputRef} className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Escola</label>
+            <label htmlFor="escolaId" className="mb-1 block text-sm font-medium">Escola</label>
             <select className="w-full rounded border px-3 py-2" value={escolaId} onChange={(e) => setEscolaId(e.target.value)}>
               <option value="">Selecione...</option>
               {escolas.map((esc) => (
@@ -388,41 +406,41 @@ export default function EquipamentosPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Tipo</label>
+            <label htmlFor="tipo" className="mb-1 block text-sm font-medium">Tipo</label>
             <select className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value)}>
               {['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Modelo</label>
+            <label htmlFor="modelo" className="mb-1 block text-sm font-medium">Modelo</label>
             <input className="w-full rounded border px-3 py-2" value={modelo} onChange={(e) => setModelo(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Serial</label>
+            <label htmlFor="serial" className="mb-1 block text-sm font-medium">Serial</label>
             <input className="w-full rounded border px-3 py-2" value={serial} onChange={(e) => setSerial(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Data de Aquisição</label>
+            <label htmlFor="dataAquisicao" className="mb-1 block text-sm font-medium">Data de Aquisição</label>
             <input type="date" className="w-full rounded border px-3 py-2" value={dataAquisicao} onChange={(e) => setDataAquisicao(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Localização</label>
+            <label htmlFor="localizacao" className="mb-1 block text-sm font-medium">Localização</label>
             <input className="w-full rounded border px-3 py-2" value={localizacao} onChange={(e) => setLocalizacao(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Fabricante</label>
+            <label htmlFor="fabricante" className="mb-1 block text-sm font-medium">Fabricante</label>
             <input className="w-full rounded border px-3 py-2" value={fabricante} onChange={(e) => setFabricante(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Processador</label>
+            <label htmlFor="processador" className="mb-1 block text-sm font-medium">Processador</label>
             <input className="w-full rounded border px-3 py-2" value={processador} onChange={(e) => setProcessador(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Memória</label>
+            <label htmlFor="memoria" className="mb-1 block text-sm font-medium">Memória</label>
             <input className="w-full rounded border px-3 py-2" value={memoria} onChange={(e) => setMemoria(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">MAC Address</label>
+            <label htmlFor="macAddress" className="mb-1 block text-sm font-medium">MAC Address</label>
             <input
               className="w-full rounded border px-3 py-2"
               placeholder="AA:BB:CC:DD:EE:FF"
@@ -433,7 +451,7 @@ export default function EquipamentosPage() {
             />
           </div>
           <div className="md:col-span-2 lg:col-span-3">
-            <label className="mb-1 block text-sm font-medium">Observações</label>
+            <label htmlFor="observacoes" className="mb-1 block text-sm font-medium">Observações</label>
             <input className="w-full rounded border px-3 py-2" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
           </div>
           <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
@@ -445,6 +463,9 @@ export default function EquipamentosPage() {
               <RotateCcw size={16} />
               <span>Recarregar</span>
             </button>
+            <button type="button" onClick={() => setShowCreate(false)} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50">
+              Cancelar
+            </button>
           </div>
         </form>
       </section>
@@ -455,25 +476,40 @@ export default function EquipamentosPage() {
           <h2 className="mb-3 text-lg font-medium">Editar Equipamento</h2>
           <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Nome</label>
-              <input className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
+              <label htmlFor="editNome" className="mb-1 block text-sm font-medium">Nome</label>
+              <input ref={editNomeInputRef} className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Tipo</label>
+              <label htmlFor="editEscolaId" className="mb-1 block text-sm font-medium">Escola</label>
+              <select className="w-full rounded border px-3 py-2" value={editEscolaId} onChange={(e) => setEditEscolaId(e.target.value)}>
+                <option value="">Selecione...</option>
+                {escolas.map((esc) => (
+                  <option key={esc.id} value={esc.id}>{esc.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="editTipo" className="mb-1 block text-sm font-medium">Tipo</label>
               <select className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value)}>
                 {['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO'].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Modelo</label>
+              <label htmlFor="editModelo" className="mb-1 block text-sm font-medium">Modelo</label>
               <input className="w-full rounded border px-3 py-2" value={editModelo} onChange={(e) => setEditModelo(e.target.value.toUpperCase())} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Serial</label>
+              <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Serial</label>
               <input className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">MAC Address</label>
+              <label htmlFor="editStatus" className="mb-1 block text-sm font-medium">Status</label>
+              <select className="w-full rounded border px-3 py-2" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                {['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="editMacAddress" className="mb-1 block text-sm font-medium">MAC Address</label>
               <input
                 className="w-full rounded border px-3 py-2"
                 placeholder="AA:BB:CC:DD:EE:FF"
@@ -483,27 +519,27 @@ export default function EquipamentosPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Data de Aquisição</label>
+              <label htmlFor="editDataAquisicao" className="mb-1 block text-sm font-medium">Data de Aquisição</label>
               <input type="date" className="w-full rounded border px-3 py-2" value={editDataAquisicao} onChange={(e) => setEditDataAquisicao(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Localização</label>
+              <label htmlFor="editLocalizacao" className="mb-1 block text-sm font-medium">Localização</label>
               <input className="w-full rounded border px-3 py-2" value={editLocalizacao} onChange={(e) => setEditLocalizacao(e.target.value.toUpperCase())} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Fabricante</label>
+              <label htmlFor="editFabricante" className="mb-1 block text-sm font-medium">Fabricante</label>
               <input className="w-full rounded border px-3 py-2" value={editFabricante} onChange={(e) => setEditFabricante(e.target.value.toUpperCase())} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Processador</label>
+              <label htmlFor="editProcessador" className="mb-1 block text-sm font-medium">Processador</label>
               <input className="w-full rounded border px-3 py-2" value={editProcessador} onChange={(e) => setEditProcessador(e.target.value.toUpperCase())} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Memória</label>
+              <label htmlFor="editMemoria" className="mb-1 block text-sm font-medium">Memória</label>
               <input className="w-full rounded border px-3 py-2" value={editMemoria} onChange={(e) => setEditMemoria(e.target.value.toUpperCase())} />
             </div>
             <div className="md:col-span-2 lg:col-span-3">
-              <label className="mb-1 block text-sm font-medium">Observações</label>
+              <label htmlFor="editObservacoes" className="mb-1 block text-sm font-medium">Observações</label>
               <input className="w-full rounded border px-3 py-2" value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
             </div>
             <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
