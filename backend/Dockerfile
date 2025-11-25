@@ -11,6 +11,8 @@ RUN npm ci --omit=dev
 
 # Prisma client (gerado em build)
 COPY prisma ./prisma
+ARG DATABASE_URL="mysql://root:password@localhost:3306/inventario"
+ENV DATABASE_URL=${DATABASE_URL}
 RUN npx prisma generate
 
 # Código fonte
