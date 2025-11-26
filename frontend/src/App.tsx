@@ -200,7 +200,7 @@ function MobileSidebar({
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-64 bg-black text-white">
         <div className="flex items-center justify-between px-4 py-4 text-sm font-semibold">
-          <span className="font-advent">Inventário</span>
+          <span className="font-advent">7inventory</span>
           <button className="rounded bg-white/10 px-2 py-1" onClick={onClose}>
             Fechar
           </button>
