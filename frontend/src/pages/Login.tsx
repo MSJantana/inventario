@@ -77,7 +77,7 @@ export default function LoginPage() {
             <h2 className="mb-3 text-center text-lg font-semibold">Login</h2>
             <form onSubmit={onLogin} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium">E-mail</label>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium">E-mail</label>
                 <input
                   type="email"
                   className="w-full rounded-lg border px-3 py-2"
@@ -87,7 +87,7 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Senha</label>
+                <label htmlFor="senha" className="mb-1 block text-sm font-medium">Senha</label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -126,7 +126,7 @@ export default function LoginPage() {
           <h2 className="mb-6 text-center text-lg font-semibold tracking-wide">SIGN IN</h2>
           <form onSubmit={onLogin} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm">Email</label>
+              <label htmlFor="email" className="mb-1 block text-sm">Email</label>
               <div className="flex items-center gap-2">
                 <span className="text-black">▸</span>
                 <input
@@ -138,7 +138,7 @@ export default function LoginPage() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm">Senha</label>
+              <label htmlFor="senha" className="mb-1 block text-sm">Senha</label>
               <div className="flex items-center gap-2 relative">
                 <span className="text-black">▸</span>
                 <input

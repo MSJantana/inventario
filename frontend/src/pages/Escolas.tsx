@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pencil, Trash2, Save, X } from 'lucide-react'
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
 import api from '../lib/axios'
@@ -43,6 +43,8 @@ export default function EscolasPage() {
   const [estados, setEstados] = useState<EstadoOption[]>([])
   const [cidades, setCidades] = useState<CidadeOption[]>([])
   const [showCreate, setShowCreate] = useState(false)
+  const nomeInputRef = useRef<HTMLInputElement | null>(null)
+  const buscarInputRef = useRef<HTMLInputElement | null>(null)
 
   // edição
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -59,7 +61,7 @@ export default function EscolasPage() {
 
   // helpers de máscara/validação
   function formatTelefone(input: string) {
-    const digits = input.replace(/\D/g, '').slice(0, 11)
+    const digits = input.replaceAll(/\D/g, '').slice(0, 11)
     if (digits.length <= 2) return `(${digits}`
     const ddd = digits.slice(0, 2)
     const resto = digits.slice(2)
@@ -75,11 +77,11 @@ export default function EscolasPage() {
     }
   }
   function isTelefoneValido(input: string) {
-    const digits = input.replace(/\D/g, '')
+    const digits = input.replaceAll(/\D/g, '')
     return digits.length === 10 || digits.length === 11
   }
   function formatCep(input: string) {
-    const digits = input.replace(/\D/g, '').slice(0, 8)
+    const digits = input.replaceAll(/\D/g, '').slice(0, 8)
     if (digits.length <= 5) return digits
     return `${digits.slice(0, 5)}-${digits.slice(5)}`
   }
@@ -123,6 +125,12 @@ export default function EscolasPage() {
     carregarEstados()
   }, [])
 
+  useEffect(() => {
+    if (showCreate) {
+      setTimeout(() => nomeInputRef.current?.focus(), 0)
+    }
+  }, [showCreate])
+
   async function carregarCidadesByUF(ufSigla: string) {
     try {
       const found = estados.find((e) => e.sigla === ufSigla)
@@ -160,8 +168,9 @@ export default function EscolasPage() {
       {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-700">Buscar:</label>
+          <label htmlFor="searchInput" className="text-sm text-gray-700">Buscar:</label>
           <input
+            ref={buscarInputRef}
             className="w-64 rounded border px-3 py-2"
             placeholder="Nome, sigla, cidade, estado"
             value={filterText}
@@ -169,7 +178,7 @@ export default function EscolasPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-700">Itens por página:</label>
+          <label htmlFor="pageSizeSelect" className="text-sm text-gray-700">Itens por página:</label>
           <select
             className="rounded border px-2 py-2"
             value={pageSize}
@@ -181,11 +190,15 @@ export default function EscolasPage() {
             <option value={50}>50</option>
           </select>
           <span className="text-sm text-gray-600">{totalItems} resultado(s)</span>
-          <button
-            type="button"
-            className="ml-2 rounded bg-green-600 px-3 py-2 text-white hover:bg-green-700 flex items-center gap-1"
-            onClick={() => setShowCreate((v) => !v)}
-          >{showCreate ? (<><X size={16} /><span>Fechar</span></>) : '+ Adicionar Escola'}</button>
+          {!showCreate && (
+            <button
+              type="button"
+              className="ml-2 rounded bg-green-600 px-3 py-2 text-white hover:bg-green-700 flex items-center gap-1"
+              onClick={() => setShowCreate(true)}
+            >
+              + Adicionar Escola
+            </button>
+          )}
         </div>
       </div>
       {/* Tabela para desktop */}
@@ -295,19 +308,19 @@ export default function EscolasPage() {
         <h3 className="mb-2 text-md font-semibold">Adicionar Nova Escola</h3>
         <form onSubmit={criarEscola} className="grid gap-3 grid-cols-1 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome</label>
-            <input className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <label htmlFor="nome" className="mb-1 block text-sm font-medium">Nome</label>
+            <input ref={nomeInputRef} className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Sigla</label>
+            <label htmlFor="sigla" className="mb-1 block text-sm font-medium">Sigla</label>
             <input className="w-full rounded border px-3 py-2" value={sigla} onChange={(e) => setSigla(e.target.value.toUpperCase())} />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium">Endereço</label>
+            <label htmlFor="endereco" className="mb-1 block text-sm font-medium">Endereço</label>
             <input className="w-full rounded border px-3 py-2" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Estado</label>
+            <label htmlFor="estado" className="mb-1 block text-sm font-medium">Estado</label>
             <select className="w-full rounded border px-3 py-2" value={estado} onChange={(e) => { const uf = e.target.value; setEstado(uf); setCidade(''); carregarCidadesByUF(uf) }}>
               <option value="">Selecione o estado (UF)</option>
               {estados.map((uf) => (
@@ -316,7 +329,7 @@ export default function EscolasPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Cidade</label>
+            <label htmlFor="cidade" className="mb-1 block text-sm font-medium">Cidade</label>
             <select className="w-full rounded border px-3 py-2" value={cidade} onChange={(e) => setCidade(e.target.value)} disabled={!estado}>
               <option value="">Selecione a cidade</option>
               {cidades.map((c) => (
@@ -325,23 +338,23 @@ export default function EscolasPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">CEP</label>
+            <label htmlFor="cep" className="mb-1 block text-sm font-medium">CEP</label>
             <input className="w-full rounded border px-3 py-2" value={cep} onChange={(e) => setCep(formatCep(e.target.value))} placeholder="00000-000" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Telefone</label>
+            <label htmlFor="telefone" className="mb-1 block text-sm font-medium">Telefone</label>
             <input className="w-full rounded border px-3 py-2" value={telefone} onChange={(e) => setTelefone(formatTelefone(e.target.value))} placeholder="(DD) XXXXX-XXXX" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Email</label>
+            <label htmlFor="email" className="mb-1 block text-sm font-medium">Email</label>
             <input className="w-full rounded border px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@dominio.com" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Diretor</label>
+            <label htmlFor="diretor" className="mb-1 block text-sm font-medium">Diretor</label>
             <input className="w-full rounded border px-3 py-2" value={diretor} onChange={(e) => setDiretor(e.target.value)} />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium">Observações</label>
+            <label htmlFor="observacoes" className="mb-1 block text-sm font-medium">Observações</label>
             <textarea className="w-full rounded border px-3 py-2" rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
@@ -350,6 +363,10 @@ export default function EscolasPage() {
               <span>Salvar</span>
             </button>
             <button type="button" onClick={cancelCreate} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
+            <button type="button" onClick={() => { setShowCreate(false); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+              <X size={16} />
+              <span>Fechar</span>
+            </button>
           </div>
         </form>
       </section>
@@ -360,19 +377,19 @@ export default function EscolasPage() {
           <h3 className="mb-2 text-md font-semibold">Editar Escola</h3>
           <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome</label>
+            <label htmlFor="editNome" className="mb-1 block text-sm font-medium">Nome</label>
             <input className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Sigla</label>
+            <label htmlFor="editSigla" className="mb-1 block text-sm font-medium">Sigla</label>
             <input className="w-full rounded border px-3 py-2" value={editSigla} onChange={(e) => setEditSigla(e.target.value.toUpperCase())} />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium">Endereço</label>
+            <label htmlFor="editEndereco" className="mb-1 block text-sm font-medium">Endereço</label>
             <input className="w-full rounded border px-3 py-2" value={editEndereco} onChange={(e) => setEditEndereco(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Estado</label>
+            <label htmlFor="editEstado" className="mb-1 block text-sm font-medium">Estado</label>
             <select className="w-full rounded border px-3 py-2" value={editEstado} onChange={(e) => { const uf = e.target.value; setEditEstado(uf); setEditCidade(''); carregarCidadesByUF(uf) }}>
               <option value="">Selecione o estado (UF)</option>
               {estados.map((uf) => (
@@ -381,7 +398,7 @@ export default function EscolasPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Cidade</label>
+            <label htmlFor="editCidade" className="mb-1 block text-sm font-medium">Cidade</label>
             <select className="w-full rounded border px-3 py-2" value={editCidade} onChange={(e) => setEditCidade(e.target.value)} disabled={!editEstado}>
               <option value="">Selecione a cidade</option>
               {cidades.map((c) => (
@@ -390,23 +407,23 @@ export default function EscolasPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">CEP</label>
+            <label htmlFor="editCep" className="mb-1 block text-sm font-medium">CEP</label>
             <input className="w-full rounded border px-3 py-2" value={editCep} onChange={(e) => setEditCep(formatCep(e.target.value))} placeholder="00000-000" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Telefone</label>
+            <label htmlFor="editTelefone" className="mb-1 block text-sm font-medium">Telefone</label>
             <input className="w-full rounded border px-3 py-2" value={editTelefone} onChange={(e) => setEditTelefone(formatTelefone(e.target.value))} placeholder="(DD) XXXXX-XXXX" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Email</label>
+            <label htmlFor="editEmail" className="mb-1 block text-sm font-medium">Email</label>
             <input className="w-full rounded border px-3 py-2" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="email@dominio.com" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Diretor</label>
+            <label htmlFor="editDiretor" className="mb-1 block text-sm font-medium">Diretor</label>
             <input className="w-full rounded border px-3 py-2" value={editDiretor} onChange={(e) => setEditDiretor(e.target.value)} />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium">Observações</label>
+            <label htmlFor="editObservacoes" className="mb-1 block text-sm font-medium">Observações</label>
             <textarea className="w-full rounded border px-3 py-2" rows={3} value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">

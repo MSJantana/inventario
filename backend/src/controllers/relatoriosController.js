@@ -1,7 +1,6 @@
 import { prisma } from '../index.js';
 import PDFDocument from 'pdfkit';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
 
 export const equipamentosPdf = async (req, res, next) => {
   try {

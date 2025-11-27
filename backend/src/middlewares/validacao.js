@@ -7,7 +7,7 @@ export const validarEquipamento = (req, res, next) => {
   const { nome, tipo, modelo, serial, dataAquisicao } = req.body;
 
   // Normalização/validação de MAC (se enviado)
-  if (typeof req.body.macadress !== 'undefined') {
+  if (req.body.macadress !== undefined) {
     const sanitized = sanitizeMac(req.body.macadress);
     if (sanitized.length === 0) {
       return res.status(400).json({ error: 'MAC Address inválido ou vazio.' });
@@ -34,7 +34,7 @@ export const validarEquipamento = (req, res, next) => {
   if (method === 'PUT') {
     // TECNICO só pode atualizar parcialmente: status, localizacao, observacoes
     if (req.usuario?.role === 'TECNICO') {
-      const camposPermitidos = ['status', 'localizacao', 'observacoes'];
+      const camposPermitidos = new Set(['status', 'localizacao', 'observacoes']);
       const chaves = Object.keys(req.body);
       if (chaves.length === 0) {
         return res.status(400).json({ error: 'Nenhum campo para atualizar foi enviado' });
@@ -144,5 +144,21 @@ export const validarEscola = (req, res, next) => {
     return res.status(400).json({ error: 'Formato de CEP inválido. Use o formato 00000-000.' });
   }
   
+  next();
+};
+
+// Validação para Centro de Midia
+export const validarCentroMidia = (req, res, next) => {
+  const method = req.method;
+  const { nome, tipo, modelo, serial } = req.body;
+
+  if (method === 'POST') {
+    if (!nome || !tipo || !modelo || !serial) {
+      return res.status(400).json({
+        error: 'Dados incompletos. Nome, tipo, modelo e serial são obrigatórios.'
+      });
+    }
+  }
+
   next();
 };

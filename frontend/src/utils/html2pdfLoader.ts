@@ -46,9 +46,7 @@ interface PdfInstance {
   line: (x1: number, y1: number, x2: number, y2: number) => void;
 }
 
-interface Html2PdfStatic {
-  (): Html2PdfWorker;
-}
+type Html2PdfStatic = () => Html2PdfWorker;
 
 let html2pdfInstance: Html2PdfStatic | null = null;
 
@@ -100,7 +98,7 @@ export async function generatePdf(element: HTMLElement, options: Html2PdfOptions
 
   const finalOptions = { ...defaultOptions, ...options };
 
-  const worker = (html2pdf() as Html2PdfWorker).set(finalOptions).from(element).toPdf();
+  const worker = html2pdf().set(finalOptions).from(element).toPdf();
 
   // Try to fetch logos as data URLs for jsPDF addImage
   async function toDataUrl(url?: string): Promise<{ dataUrl: string; type: 'PNG' | 'JPEG' } | null> {

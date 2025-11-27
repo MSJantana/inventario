@@ -31,6 +31,16 @@ enum StatusEquipamento {
   RESERVADO
 }
 
+// Enums para Centro de Midia
+enum TipoMidia {
+  AUDIO
+  VIDEO
+  CAMERA
+  MICROFONE
+  ILUMINACAO
+  OUTRO
+}
+
 // Enum para Movimentação
 enum TipoMovimento {
   ENTRADA
@@ -113,6 +123,20 @@ model Escola {
   equipamentos Equipamento[]
   usuarios     Usuario[]
   movimentacoes Movimentacao[]
+  centroMidia  CentroMidia[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+}
+
+model CentroMidia {
+  id        String           @id @default(uuid())
+  nome      String
+  tipo      TipoMidia
+  modelo    String
+  serial    String           @unique
+  status    StatusEquipamento @default(DISPONIVEL)
+  escolaId  String?
+  escola    Escola?          @relation(fields: [escolaId], references: [id])
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }

@@ -28,3 +28,30 @@ body {
 .print-preview .print-only {
   display: block !important;
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-area {
+    width: 100%;
+  }
+  .print-area table th,
+  .print-area table td {
+    border: 1px solid #777 !important;
+  }
+  .print-total {
+    border: 1px solid #777;
+    padding: 4px 6px;
+    display: inline-block;
+  }
+  /* Esconder controles fora da área de impressão */
+  .print-area ~ * {
+    display: none !important;
+  }
+}

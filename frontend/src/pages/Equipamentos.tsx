@@ -42,6 +42,7 @@ export default function EquipamentosPage() {
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
+  const buscarInputRef = useRef<HTMLInputElement | null>(null)
 
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState('OUTRO')
@@ -265,7 +266,7 @@ export default function EquipamentosPage() {
   }, [editingId])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 md:pb-0">
       <section className="rounded-lg border bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-medium">Equipamentos</h2>
@@ -283,7 +284,7 @@ export default function EquipamentosPage() {
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
           <div>
             <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome</label>
-            <input className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
+            <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
           </div>
           <div>
             <label htmlFor="filterStatus" className="mb-1 block text-sm font-medium">Status</label>
@@ -365,7 +366,7 @@ export default function EquipamentosPage() {
             <div className="p-4 text-center text-sm text-gray-600">Nenhum equipamento encontrado.</div>
           )}
         </div>
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-3 hidden md:flex items-center justify-between">
           <div className="text-sm text-gray-600">Página {current} de {totalPages}</div>
           <div className="flex items-center gap-2">
             <button className="rounded border px-3 py-1" disabled={current <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>Anterior</button>
@@ -463,7 +464,7 @@ export default function EquipamentosPage() {
               <RotateCcw size={16} />
               <span>Recarregar</span>
             </button>
-            <button type="button" onClick={() => setShowCreate(false)} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50">
+            <button type="button" onClick={() => { setShowCreate(false); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50">
               Cancelar
             </button>
           </div>
@@ -547,11 +548,33 @@ export default function EquipamentosPage() {
                 <Save size={16} />
                 <span>Salvar alterações</span>
               </button>
-              <button type="button" onClick={cancelEdit} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
+              <button type="button" onClick={() => { cancelEdit(); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
             </div>
           </form>
         </section>
       )}
+
+      {/* Rodapé fixo para mobile */}
+      <div className="md:hidden fixed bottom-3 left-3 right-3 z-20">
+        <div className="rounded-lg border bg-white shadow-md px-3 py-2 flex items-center justify-between gap-2">
+          <span className="text-xs text-gray-700">Total: {filtrada.length}</span>
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded border px-2 py-1 text-xs"
+              disabled={current <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >Anterior</button>
+            <span className="text-xs px-2 py-1 rounded border bg-blue-600 text-white">
+              {current}
+            </span>
+            <button
+              className="rounded border px-2 py-1 text-xs"
+              disabled={current >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >Próxima</button>
+          </div>
+        </div>
+      </div>
 
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Pencil, Trash2, Save, RotateCcw, X, Plus, Eye, EyeOff } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Pencil, Trash2, Save, RotateCcw, Plus, Eye, EyeOff } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
 
@@ -35,6 +35,7 @@ export default function UsuariosPage() {
   const [role, setRole] = useState<'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO'>('USUARIO');
   const [cargo, setCargo] = useState('')
   const [escolaId, setEscolaId] = useState('')
+  const nomeInputRef = useRef<HTMLInputElement | null>(null)
 
   // Estados para formulário de edição
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -43,6 +44,12 @@ export default function UsuariosPage() {
   useEffect(() => {
     carregarDados()
   }, [])
+
+  useEffect(() => {
+    if (showCreate) {
+      setTimeout(() => nomeInputRef.current?.focus(), 0)
+    }
+  }, [showCreate])
 
   async function carregarDados() {
     setLoading(true)
@@ -195,15 +202,7 @@ export default function UsuariosPage() {
             <Plus size={16} />
             <span>Adicionar Usuário</span>
           </button>
-        ) : (
-          <button
-            onClick={() => setShowCreate(false)}
-            className="rounded border px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
-          >
-            <X size={16} />
-            <span>Fechar</span>
-          </button>
-        )}
+        ) : null}
       </div>
 
       {error && (
@@ -220,17 +219,18 @@ export default function UsuariosPage() {
           </h2>
           <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">Nome *</label>
+              <label htmlFor="nome" className="mb-1 block text-sm font-medium">Nome *</label>
               <input
                 type="text"
                 className="w-full rounded border px-3 py-2"
+                ref={nomeInputRef}
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 required
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Email *</label>
+              <label htmlFor="email" className="mb-1 block text-sm font-medium">Email *</label>
               <input
                 type="email"
                 className="w-full rounded border px-3 py-2"
@@ -269,7 +269,7 @@ export default function UsuariosPage() {
               )}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Função</label>
+              <label htmlFor="role" className="mb-1 block text-sm font-medium">Função</label>
               <select
                 className="w-full rounded border px-3 py-2"
                 value={role}
@@ -282,7 +282,7 @@ export default function UsuariosPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Cargo</label>
+              <label htmlFor="cargo" className="mb-1 block text-sm font-medium">Cargo</label>
               <input
                 type="text"
                 className="w-full rounded border px-3 py-2"
@@ -292,7 +292,7 @@ export default function UsuariosPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Escola</label>
+              <label htmlFor="escolaId" className="mb-1 block text-sm font-medium">Escola</label>
               <select
                 className="w-full rounded border px-3 py-2"
                 value={escolaId}

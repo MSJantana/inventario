@@ -46,7 +46,7 @@ export default function ForgotPassword() {
           <h2 className="mb-4 text-center text-base font-semibold tracking-wide">ESQUECI MINHA SENHA</h2>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs">Email</label>
+              <label htmlFor="email" className="mb-1 block text-xs">Email</label>
               <div className="flex items-center gap-2">
                 <span className="text-black">▸</span>
                 <input
@@ -96,7 +96,7 @@ export default function ForgotPassword() {
             <h2 className="mb-2 text-center text-base font-semibold">Esqueci Minha Senha</h2>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium">E-mail</label>
+                <label htmlFor="email" className="mb-1 block text-xs font-medium">E-mail</label>
                 <input
                   type="email"
                   className="w-full rounded-lg border px-3 py-2"

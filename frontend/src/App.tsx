@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
-import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown } from 'lucide-react';
+import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle } from 'lucide-react';
 import './index.css';
 import EquipamentosPage from './pages/Equipamentos';
 import MovimentacoesPage from './pages/Movimentacoes';
@@ -12,6 +12,8 @@ import UsuariosPage from './pages/Usuarios';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
+import CentroMidiaPage from './pages/CentroMidia';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.0';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -19,8 +21,8 @@ const navItems = [
   { to: '/movimentacoes', label: 'Movimentações', Icon: Shuffle },
   { to: '/escolas', label: 'Escolas', Icon: School },
   { to: '/relatorios', label: 'Relatórios', Icon: FileText },
-  { to: '/config', label: 'Config', Icon: Settings },
   { to: '/usuarios', label: 'Usuários', Icon: User },
+  { to: '/centro-midia', label: 'Centro de Midia', Icon: Image },
 ];
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -30,8 +32,8 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 type Role = 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO';
 const getUserRole = (): Role => (localStorage.getItem('userRole') as Role) || 'USUARIO';
 const canAccessPath = (role: Role, path: string) => {
+  if (path === '/centro-midia') return role === 'ADMIN';
   if (role === 'ADMIN' || role === 'GESTOR') return true;
-  // TECNICO e USUARIO não podem acessar config e usuários
   return path !== '/config' && path !== '/usuarios';
 };
 
@@ -79,10 +81,14 @@ function UserDropdown({
   userName,
   userEmail,
   onLogout,
+  hasWhatsNew,
+  onOpenWhatsNew,
 }: {
   userName: string;
   userEmail: string;
   onLogout: () => void;
+  hasWhatsNew: boolean;
+  onOpenWhatsNew: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -102,8 +108,11 @@ function UserDropdown({
         onClick={() => setOpen((v) => !v)}
         className="flex items-center space-x-2 rounded px-3 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg.white/10 hover:bg-white/10"
       >
-        <div className="bg.gray-700 rounded-full p-1.5 bg-gray-700">
+        <div className="relative rounded-full p-1.5 bg-gray-700">
           <User className="h-4 w-4 text-gray-300" strokeWidth={1.75} />
+          {hasWhatsNew ? (
+            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-600 ring-2 ring-black" />
+          ) : null}
         </div>
         <span>{userName || 'Usuário'}</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.75} />
@@ -134,6 +143,18 @@ function UserDropdown({
 
             <button
               onClick={() => {
+                onOpenWhatsNew();
+                setOpen(false);
+              }}
+              className="flex w-full items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <AlertCircle className={`h-4 w-4 ${hasWhatsNew ? 'text-red-600' : 'text-gray-600'}`} strokeWidth={1.75} />
+              <span>Novidades</span>
+              {hasWhatsNew ? <span className="ml-auto text-red-600 font-bold">!</span> : null}
+            </button>
+
+            <button
+              onClick={() => {
                 onLogout();
                 setOpen(false);
               }}
@@ -155,12 +176,16 @@ function Header({
   userName,
   userEmail,
   onLogout,
+  hasWhatsNew,
+  onOpenWhatsNew,
 }: {
   onOpenMobile: () => void;
   showUser: boolean;
   userName: string;
   userEmail: string;
   onLogout: () => void;
+  hasWhatsNew: boolean;
+  onOpenWhatsNew: () => void;
 }) {
   return (
     <header className="bg-black text-white px-6 py-4">
@@ -172,7 +197,7 @@ function Header({
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          {showUser && <UserDropdown userName={userName} userEmail={userEmail} onLogout={onLogout} />}
+          {showUser && <UserDropdown userName={userName} userEmail={userEmail} onLogout={onLogout} hasWhatsNew={hasWhatsNew} onOpenWhatsNew={onOpenWhatsNew} />}
           <button className="md:hidden rounded border px-2 py-2" onClick={onOpenMobile} aria-label="Abrir menu">
             <Menu className="h-5 w-5" />
           </button>
@@ -234,6 +259,31 @@ function MobileSidebar({
   );
 }
 
+function WhatsNewModal({ open, onClose, version, items }: Readonly<{ open: boolean; onClose: () => void; version: string; items: string[] }>) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-100">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-xl rounded-lg bg-white shadow-lg">
+        <div className="border-b px-4 py-3">
+          <h3 className="text-lg font-semibold">Novidades na versão {version}</h3>
+          <p className="text-xs text-gray-500">Veja o que foi atualizado</p>
+        </div>
+        <div className="px-4 py-3">
+          <ul className="list-disc pl-5 space-y-2 text-sm">
+            {items.map((it, idx) => (
+              <li key={idx}>{it}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex justify-end gap-2 border-t px-4 py-3">
+          <button onClick={onClose} className="rounded bg-black px-4 py-2 text-white hover:opacity-90">Entendi</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- App ----------
 export default function App() {
   const location = useLocation();
@@ -276,6 +326,31 @@ export default function App() {
     '/config': 'Configuração',
     '/relatorios': 'Relatórios',
     '/usuarios': 'Gestão de Usuários',
+    '/centro-midia': 'Centro de Midia',
+  };
+
+  const whatsNewItems = [
+    'Novo menu e tela Centro de Midia (somente ADMIN).',
+    'Cadastro do Centro de Midia com filtros, paginação e CRUD.',
+    'Fallback para armazenamento local quando a API retornar 404 no Centro de Midia.',
+    'Melhoria: foco automático no campo Nome ao criar usuário.',
+    'Proteções de rotas e visibilidade por perfil atualizadas.',
+  ];
+
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const hasWhatsNew = (localStorage.getItem('lastSeenVersion') !== APP_VERSION);
+  useEffect(() => {
+    if (isAuthRoute) return;
+    const lastVersion = localStorage.getItem('lastSeenVersion');
+    if (lastVersion !== APP_VERSION) {
+      setShowWhatsNew(true);
+    }
+  }, [isAuthRoute]);
+
+  const openWhatsNew = () => setShowWhatsNew(true);
+  const closeWhatsNew = () => {
+    setShowWhatsNew(false);
+    localStorage.setItem('lastSeenVersion', APP_VERSION);
   };
 
   return (
@@ -291,7 +366,10 @@ export default function App() {
             userName={userName}
             userEmail={userEmail}
             onLogout={onLogout}
+            hasWhatsNew={hasWhatsNew}
+            onOpenWhatsNew={openWhatsNew}
           />
+          <WhatsNewModal open={showWhatsNew} onClose={closeWhatsNew} version={APP_VERSION} items={whatsNewItems} />
           <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} authToken={authToken} onLogout={onLogout} />
 
           <main className="flex-1 p-6">
@@ -310,6 +388,7 @@ export default function App() {
                 <Route path="/relatorios" element={<RelatoriosEquipamentosPage />} />
                 <Route path="/usuarios" element={<RoleGuard allowed={['ADMIN','GESTOR']} children={<UsuariosPage />} />} />
                 <Route path="/config" element={<RoleGuard allowed={['ADMIN','GESTOR']} children={<ConfigPage />} />} />
+                <Route path="/centro-midia" element={<RoleGuard allowed={['ADMIN']} children={<CentroMidiaPage />} />} />
               </Route>
 
               {/* Rotas de auth (fallback caso usuário acesse fora do bloco AuthLayout) */}

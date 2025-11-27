@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, Save, RotateCcw, X } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
@@ -26,6 +26,8 @@ export default function MovimentacoesPage() {
   const [error, setError] = useState<string | null>(null)
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([])
   const [showCreate, setShowCreate] = useState(false)
+  const equipamentoSelectRef = useRef<HTMLSelectElement | null>(null)
+  const buscarInputRef = useRef<HTMLInputElement | null>(null)
 
   const [equipamentoId, setEquipamentoId] = useState('')
   const [tipo, setTipo] = useState<string>('ENTRADA')
@@ -102,6 +104,12 @@ export default function MovimentacoesPage() {
     }
   }
 
+  useEffect(() => {
+    if (showCreate) {
+      setTimeout(() => equipamentoSelectRef.current?.focus(), 0)
+    }
+  }, [showCreate])
+
   function startEdit(m: Mov) {
     setEditingId(m.id)
     setEditEquipamentoId(m.equipamentoId || '')
@@ -177,6 +185,14 @@ export default function MovimentacoesPage() {
 
   useEffect(() => { carregar(); carregarEquipamentos() }, [])
 
+  useEffect(() => {
+    function handleFocusBuscar() {
+      setTimeout(() => buscarInputRef.current?.focus(), 0)
+    }
+    globalThis.addEventListener('focus-buscar', handleFocusBuscar)
+    return () => globalThis.removeEventListener('focus-buscar', handleFocusBuscar)
+  }, [])
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border bg-white p-4 shadow-sm">
@@ -189,28 +205,23 @@ export default function MovimentacoesPage() {
                 <Plus size={16} />
                 <span>Registrar movimentação</span>
               </button>
-            ) : (
-              <button className="rounded border px-3 py-1.5 hover:bg-gray-50 flex items-center gap-1" onClick={() => setShowCreate(false)}>
-                <X size={16} />
-                <span>Fechar</span>
-              </button>
-            )}
+            ) : null}
           </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block text-sm font-medium">Buscar</label>
-            <input className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
+            <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Buscar</label>
+            <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Tipo</label>
-            <select className="w-full rounded border px-3 py-2" value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value as 'ALL' | string); setCurrentPage(1) }}>
+            <label htmlFor="filterTipo" className="mb-1 block text-sm font-medium">Tipo</label>
+            <select className="w-full rounded border px-3 py-2" value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value); setCurrentPage(1) }}>
               {['ALL', ...TIPOS].map(t => <option key={t} value={t}>{t === 'ALL' ? 'Todos' : t}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Itens por página</label>
+            <label htmlFor="pageSize" className="mb-1 block text-sm font-medium">Itens por página</label>
             <select className="w-full rounded border px-3 py-2" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
               {[5,10,20,50].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
@@ -350,8 +361,8 @@ export default function MovimentacoesPage() {
         <h2 className="mb-3 text-lg font-medium">Registrar Movimentação</h2>
         <form onSubmit={criar} className="grid gap-3 grid-cols-1 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">Equipamento</label>
-            <select className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={(e) => setEquipamentoId(e.target.value)}>
+            <label htmlFor="equipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
+            <select ref={equipamentoSelectRef} className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={(e) => setEquipamentoId(e.target.value)}>
               <option value="">Selecione...</option>
               {equipamentos.map((eq) => (
                 <option key={eq.id} value={eq.id}>{eq.nome || eq.id}</option>
@@ -359,25 +370,25 @@ export default function MovimentacoesPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Tipo</label>
+            <label htmlFor="createTipo" className="mb-1 block text-sm font-medium">Tipo</label>
             <select className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value)}>
               {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Origem</label>
+            <label htmlFor="origem" className="mb-1 block text-sm font-medium">Origem</label>
             <input className="w-full rounded border px-3 py-2" value={origem} onChange={(e) => setOrigem(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Destino</label>
+            <label htmlFor="destino" className="mb-1 block text-sm font-medium">Destino</label>
             <input className="w-full rounded border px-3 py-2" value={destino} onChange={(e) => setDestino(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Data</label>
+            <label htmlFor="createData" className="mb-1 block text-sm font-medium">Data</label>
             <input type="datetime-local" className="w-full rounded border px-3 py-2" value={data} onChange={(e) => setData(e.target.value)} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Descrição</label>
+            <label htmlFor="createDescricao" className="mb-1 block text-sm font-medium">Descrição</label>
             <input className="w-full rounded border px-3 py-2" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
@@ -389,6 +400,10 @@ export default function MovimentacoesPage() {
               <RotateCcw size={16} />
               <span>Recarregar</span>
             </button>
+            <button type="button" onClick={() => { setShowCreate(false); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+              <X size={16} />
+              <span>Fechar</span>
+            </button>
           </div>
         </form>
       </section>
@@ -399,7 +414,7 @@ export default function MovimentacoesPage() {
           <h2 className="mb-3 text-lg font-medium">Editar Movimentação</h2>
           <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Equipamento</label>
+              <label htmlFor="editEquipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
               <select className="w-full rounded border px-3 py-2" value={editEquipamentoId} onChange={(e) => setEditEquipamentoId(e.target.value)}>
                 <option value="">Selecione...</option>
                 {equipamentos.map((eq) => (
@@ -408,25 +423,25 @@ export default function MovimentacoesPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Tipo</label>
+              <label htmlFor="editTipo" className="mb-1 block text-sm font-medium">Tipo</label>
               <select className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value)}>
                 {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Origem</label>
+              <label htmlFor="editOrigem" className="mb-1 block text-sm font-medium">Origem</label>
               <input className="w-full rounded border px-3 py-2" value={editOrigem} onChange={(e) => setEditOrigem(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Destino</label>
+              <label htmlFor="editDestino" className="mb-1 block text-sm font-medium">Destino</label>
               <input className="w-full rounded border px-3 py-2" value={editDestino} onChange={(e) => setEditDestino(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Data</label>
+              <label htmlFor="editData" className="mb-1 block text-sm font-medium">Data</label>
               <input type="datetime-local" className="w-full rounded border px-3 py-2" value={editData} onChange={(e) => setEditData(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Descrição</label>
+              <label htmlFor="editDescricao" className="mb-1 block text-sm font-medium">Descrição</label>
               <input className="w-full rounded border px-3 py-2" value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} />
             </div>
             <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">

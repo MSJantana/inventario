@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import * as XLSX from 'xlsx-js-style'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast } from '../utils/toast'
 import { generatePdf } from '../utils/html2pdfLoader'
@@ -27,9 +28,9 @@ export default function RelatoriosEquipamentosPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filterText, setFilterText] = useState('')
-  const [filterStatus, setFilterStatus] = useState<'ALL' | string>('ALL')
-  const [filterTipo, setFilterTipo] = useState<'ALL' | string>('ALL')
-  const [filterEscola, setFilterEscola] = useState<'ALL' | string>('ALL')
+  const [filterStatus, setFilterStatus] = useState<string>('ALL')
+  const [filterTipo, setFilterTipo] = useState<'ALL' | typeof tipos[number]>('ALL')
+  const [filterEscola, setFilterEscola] = useState<string>('ALL')
   const [escolas, setEscolas] = useState<{ id: string; nome: string }[]>([])
   const [showPreview, setShowPreview] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
@@ -73,8 +74,8 @@ export default function RelatoriosEquipamentosPage() {
     return matchText && matchStatus && matchTipo && matchEscola
   })
 
-  function handlePrint() {
-    window.print()
+  const handlePrint = () => {
+    globalThis.print()
   }
 
   async function handleCSV() {
@@ -95,12 +96,138 @@ export default function RelatoriosEquipamentosPage() {
     }
   }
 
+  async function handleRefresh() {
+    try {
+      const prevTotal = equipamentos.length
+      setFilterText('')
+      setFilterStatus('ALL')
+      setFilterTipo('ALL')
+      setFilterEscola('ALL')
+
+      setLoading(true)
+      setError(null)
+      const [respEquip, respEscolas] = await Promise.all([
+        api.get('/api/equipamentos'),
+        api.get('/api/escolas')
+      ])
+      const novos = (respEquip.data || []).length - prevTotal
+      setEquipamentos(respEquip.data || [])
+      setEscolas(respEscolas.data || [])
+      if (novos > 0) {
+        showSuccessToast(`Novos equipamentos encontrados: ${novos}`)
+      } else {
+        showSuccessToast('Lista atualizada')
+      }
+    } catch (e: unknown) {
+      const msg = (e as Error)?.message || 'Erro ao atualizar'
+      setError(msg)
+      showErrorToast(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  
+
+  async function handleXLSX() {
+    try {
+      const wb = XLSX.utils.book_new()
+      const headers = [
+        'Nome','Tipo','Modelo','Serial','Status','Escola','Localização','Fabricante','Aquisição','Processador','Memória','MAC Address'
+      ]
+      const rows = filtrados.map(eq => [
+        eq.nome,
+        eq.tipo,
+        eq.modelo,
+        eq.serial,
+        eq.status.replace('_',' '),
+        eq.escola?.nome || '-',
+        eq.localizacao || '-',
+        eq.fabricante || '-',
+        formatDate(eq.dataAquisicao),
+        eq.processador || '-',
+        eq.memoria || '-',
+        eq.macaddress || '-',
+      ])
+      const aoa = [headers, ...rows]
+      const ws = XLSX.utils.aoa_to_sheet(aoa)
+      const colWidths = [28,12,20,22,12,24,22,18,12,16,12,20]
+      ws['!cols'] = colWidths.map(w => ({ wch: w }))
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c })
+        const cell = ws[cellAddress] || { t: 's', v: headers[c] }
+        cell.s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          fill: { patternType: 'solid', fgColor: { rgb: '1F2937' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'D1D5DB' } },
+            bottom: { style: 'thin', color: { rgb: 'D1D5DB' } },
+            left: { style: 'thin', color: { rgb: 'D1D5DB' } },
+            right: { style: 'thin', color: { rgb: 'D1D5DB' } }
+          }
+        }
+        ws[cellAddress] = cell
+      }
+      for (let r = range.s.r + 1; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r, c })
+          const cell = ws[addr]
+          if (!cell) continue
+          const isCenter = c === 1 || c === 3 || c === 4 || c === 8 || c === 10
+          cell.s = {
+            alignment: { horizontal: isCenter ? 'center' : 'left', vertical: 'center' },
+            border: {
+              top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+              bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+              left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+              right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+            }
+          }
+          ws[addr] = cell
+        }
+      }
+
+      // Linha de total ao final (uma linha em branco + total)
+      const finalStartRow = range.e.r + 2
+      const totalAddr = XLSX.utils.encode_cell({ r: finalStartRow, c: 0 })
+      ws[totalAddr] = {
+        t: 's',
+        v: `Total de equipamentos: ${filtrados.length}`,
+        s: {
+          font: { bold: true },
+          alignment: { horizontal: 'left', vertical: 'center' },
+          border: {
+            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+          }
+        }
+      }
+      // Mesclar de A até última coluna (L)
+      ws['!merges'] = (ws['!merges'] || []).concat([
+        {
+          s: { r: finalStartRow, c: 0 },
+          e: { r: finalStartRow, c: headers.length - 1 }
+        }
+      ])
+      XLSX.utils.book_append_sheet(wb, ws, 'Equipamentos')
+      const filename = `equipamentos_${new Date().toISOString().split('T')[0]}.xlsx`
+      XLSX.writeFile(wb, filename)
+      showSuccessToast('XLSX gerado com sucesso!')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      showErrorToast(`Erro ao gerar XLSX: ${msg}`)
+    }
+  }
+
   async function handlePDF() {
     try {
       const element = printRef.current
       if (!element) return
       
-      // Logos podem ser configurados via .env ou usar paths padrões em /assets
       const logoTopRight = LogoAsrs
       const logoBottomLeft = LogoEa
 
@@ -112,7 +239,7 @@ export default function RelatoriosEquipamentosPage() {
         jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'landscape' as const },
         headerLogoUrl: logoTopRight,
         footerLogoUrl: logoBottomLeft,
-        schoolName: filterEscola !== 'ALL' ? filterEscola : 'Sistema de Inventário',
+        schoolName: filterEscola === 'ALL' ? 'Sistema de Inventário' : filterEscola,
         footerTextColor: '#000000',
         headerLogoWidthMm: 30,
         headerLogoHeightMm: 12,
@@ -135,7 +262,7 @@ export default function RelatoriosEquipamentosPage() {
 
 
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="rounded-lg border bg-white p-4 pb-24 lg:pb-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-medium">Relatório de Equipamentos</h2>
         {/* <img src={LogoAsrs} alt="Logo ASRS" className="h-10" /> */}
@@ -151,7 +278,7 @@ export default function RelatoriosEquipamentosPage() {
       {/* Filtros */}
       <div className="mb-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Buscar</label>
+          <label htmlFor="searchInput" className="mb-1 block text-sm font-medium">Buscar</label>
           <input
             className="w-full rounded border px-3 py-2"
             placeholder="Nome, modelo, serial, escola..."
@@ -160,7 +287,7 @@ export default function RelatoriosEquipamentosPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Status</label>
+          <label htmlFor="statusSelect" className="mb-1 block text-sm font-medium">Status</label>
           <select
             className="w-full rounded border px-3 py-2"
             value={filterStatus}
@@ -173,7 +300,7 @@ export default function RelatoriosEquipamentosPage() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Tipo</label>
+          <label htmlFor="tipoSelect" className="mb-1 block text-sm font-medium">Tipo</label>
           <select
             className="w-full rounded border px-3 py-2"
             value={filterTipo}
@@ -186,7 +313,7 @@ export default function RelatoriosEquipamentosPage() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Escola</label>
+          <label htmlFor="escolaSelect" className="mb-1 block text-sm font-medium">Escola</label>
           <select
             className="w-full rounded border px-3 py-2"
             value={filterEscola}
@@ -224,6 +351,13 @@ export default function RelatoriosEquipamentosPage() {
           <span className="hidden sm:inline">Gerar PDF</span>
         </button>
         <button
+          onClick={handleXLSX}
+          className="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 flex items-center gap-2"
+        >
+          <span>📊</span>
+          <span className="hidden sm:inline">Exportar XLSX</span>
+        </button>
+        <button
           onClick={() => setShowPreview((v) => !v)}
           className="rounded bg-gray-200 px-4 py-2 text-black hover:bg-gray-300 flex items-center gap-2"
         >
@@ -231,7 +365,7 @@ export default function RelatoriosEquipamentosPage() {
           <span className="hidden sm:inline">{showPreview ? 'Ocultar Preview' : 'Visualizar Impressão'}</span>
         </button>
         <button
-          onClick={carregarDados}
+          onClick={handleRefresh}
           className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2"
         >
           <span>🔄</span>
@@ -305,7 +439,7 @@ export default function RelatoriosEquipamentosPage() {
           )}
         </div>
 
-        {/* Tabela para Desktop e Impressão (layout modernizado) */}
+        {/* Tabela para Desktop e Impressão (layout conforme imagem) */}
         <div className="hidden lg:block mt-8">
           <div className="overflow-x-auto rounded-lg border border-gray-300">
             <table className="w-full border-collapse text-sm">
@@ -356,6 +490,23 @@ export default function RelatoriosEquipamentosPage() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+          {/* Total ao fim da página impressa */}
+          <div className="print-only mt-2 hidden print:block">
+            <div className="print-total text-xs">Total de equipamentos: {filtrados.length}</div>
+          </div>
+        </div>
+
+        <div className="lg:hidden">
+          <div className="fixed bottom-3 left-3 right-3 z-20">
+            <div className="rounded-lg border bg-white shadow-md px-3 py-2 flex items-center justify-between gap-2">
+              <span className="text-xs text-gray-700">Total: {filtrados.length}</span>
+              <div className="flex items-center gap-2">
+                <button onClick={handleXLSX} className="rounded bg-emerald-600 px-3 py-1 text-white text-xs">XLSX</button>
+                <button onClick={handlePDF} className="rounded bg-red-600 px-3 py-1 text-white text-xs">PDF</button>
+                <button onClick={handlePrint} className="rounded bg-blue-600 px-3 py-1 text-white text-xs">Imprimir</button>
+              </div>
+            </div>
           </div>
         </div>
 

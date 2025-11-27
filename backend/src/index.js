@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Configuração do caminho para ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -15,7 +15,7 @@ import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import pinoHttp from 'pino-http';
 import { logger } from './utils/logger.js';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import auth from './middlewares/auth.js';
 import { issueCsrfToken } from './middlewares/csrf.js';
 
@@ -25,6 +25,7 @@ import usuariosRoutes from './routes/usuarios.js';
 import movimentacoesRoutes from './routes/movimentacoes.js';
 import escolasRoutes from './routes/escolas.js';
 import relatoriosRoutes from './routes/relatorios.js';
+import centroMidiaRoutes from './routes/centroMidia.js';
 import errorHandler from './middlewares/errorHandler.js';
 const app = express();
 const prisma = new PrismaClient({
@@ -32,7 +33,6 @@ const prisma = new PrismaClient({
     ? ['query', 'warn']
     : ['warn']
 });
-//const PORT = process.env.PORT || 3002;
 
 // Middlewares
 app.use(cors());
@@ -60,6 +60,7 @@ app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/movimentacoes', movimentacoesRoutes);
 app.use('/api/escolas', escolasRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
+app.use('/api/centro-midia', centroMidiaRoutes);
 
 // Endpoint para emissão de CSRF token (requer autenticação)
 app.get('/api/csrf-token', auth, issueCsrfToken);
@@ -90,7 +91,7 @@ app.listen(PORT, '0.0.0.0', () => {
 
 
 // Tratamento de erros do Prisma
-const SLOW_MS = parseInt(process.env.LOG_QUERY_SLOW_MS || '0', 10);
+const SLOW_MS = Number.parseInt(process.env.LOG_QUERY_SLOW_MS || '0', 10);
 
 if (process.env.NODE_ENV !== 'production') {
   prisma.$on('query', (e) => {

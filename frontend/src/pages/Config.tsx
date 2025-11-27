@@ -15,7 +15,7 @@ export default function ConfigPage() {
       <h2 className="mb-4 text-lg font-medium">Configuração</h2>
       <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">API Base URL</label>
+          <label htmlFor="apiBaseUrl" className="mb-1 block text-sm font-medium">API Base URL</label>
           <input
             className="w-full rounded border px-3 py-2"
             placeholder="http://localhost:3002"
@@ -24,7 +24,7 @@ export default function ConfigPage() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Auth Token (Bearer)</label>
+          <label htmlFor="authToken" className="mb-1 block text-sm font-medium">Auth Token (Bearer)</label>
           <input
             className="w-full rounded border px-3 py-2"
             placeholder="JWT..."
