@@ -75,15 +75,13 @@ app.get('/api/health', async (req, res) => {
       const parsed = new URL(dbUrl);
       dbHost = parsed.hostname || null;
     } catch {}
-    res.json({ status: 'ok', db: 'ok', dbHost });
+    const hostsEnv = process.env.DB_DEV_HOSTS || '';
+    const devDefaults = ['10.12.3.231', 'mysql', '172.20.0.2'];
+    const devHosts = (hostsEnv.split(',').map((s) => s.trim()).filter(Boolean)).concat(hostsEnv ? [] : devDefaults);
+    const dbIsDev = dbHost ? devHosts.includes(dbHost) : false;
+    res.json({ status: 'ok', db: 'ok', dbHost, dbIsDev });  
   } catch (err) {
-    const dbUrl = process.env.DATABASE_URL || '';
-    let dbHost = null;
-    try {
-      const parsed = new URL(dbUrl);
-      dbHost = parsed.hostname || null;
-    } catch {}
-    res.status(503).json({ status: 'degraded', db: 'error', dbHost });
+    res.status(500).json({ status: 'error', db: 'error', error: err.message });
   }
 });
 

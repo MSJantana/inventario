@@ -337,11 +337,10 @@ export default function App() {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const [dbHost, setDbHost] = useState('');
+  const [dbIsDev, setDbIsDev] = useState(false);
   useEffect(() => {
     api.get('/api/health').then((resp) => {
-      const host = resp?.data?.dbHost || '';
-      setDbHost(host);
+      setDbIsDev(Boolean(resp?.data?.dbIsDev));
     }).catch(() => {});
   }, []);
 
@@ -417,7 +416,7 @@ export default function App() {
                 <h2 className="text-xl font-semibold">{userName ? `Bem-vindo, ${userName}` : 'Bem-vindo'}</h2>
                 <p className="text-xs text-gray-500">{routeLabels[location.pathname] || 'Página'}</p>
               </div>
-              {dbHost === '10.12.3.231' && (
+              {dbIsDev && (
                 <span className="ml-4 inline-flex items-center rounded bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 border border-yellow-300">
                   Conectado ao banco de dados de desenvolvimento
                 </span>
