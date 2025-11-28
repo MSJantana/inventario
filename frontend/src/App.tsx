@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
+import type { ComponentType } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
-import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle } from 'lucide-react';
+import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle, Building2 } from 'lucide-react';
 import './index.css';
 import EquipamentosPage from './pages/Equipamentos';
 import MovimentacoesPage from './pages/Movimentacoes';
@@ -13,15 +14,19 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.0';
+import api from './lib/axios';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.1';
 
 // ---------- Helpers ----------
 const navItems = [
-  { to: '/equipamentos', label: 'Equipamentos', Icon: Monitor },
   { to: '/movimentacoes', label: 'Movimentações', Icon: Shuffle },
   { to: '/escolas', label: 'Escolas', Icon: School },
   { to: '/relatorios', label: 'Relatórios', Icon: FileText },
   { to: '/usuarios', label: 'Usuários', Icon: User },
+];
+
+const deptItems = [
+  { to: '/equipamentos', label: 'Equipamentos', Icon: Monitor },
   { to: '/centro-midia', label: 'Centro de Midia', Icon: Image },
 ];
 
@@ -65,8 +70,12 @@ function AuthLayout() {
 function NavLinks() {
   const role = getUserRole();
   const items = navItems.filter(({ to }) => canAccessPath(role, to));
+  const deptChildren = deptItems.filter(({ to }) => canAccessPath(role, to));
   return (
     <>
+      {deptChildren.length > 0 && (
+        <NavDropdown label="Departamentos" Icon={Building2} items={deptChildren} />
+      )}
       {items.map(({ to, label, Icon }) => (
         <NavLink key={to} to={to} className={navClass}>
           <Icon className="h-4 w-4" strokeWidth={1.75} />
@@ -220,6 +229,9 @@ function MobileSidebar({
 }) {
   const role = getUserRole();
   const items = navItems.filter(({ to }) => canAccessPath(role, to));
+  const deptChildren = deptItems.filter(({ to }) => canAccessPath(role, to));
+  const location = useLocation();
+  const isDeptActive = deptChildren.some(({ to }) => location.pathname.startsWith(to));
   return !open ? null : (
     <div className="md:hidden">
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
@@ -231,6 +243,22 @@ function MobileSidebar({
           </button>
         </div>
         <nav className="space-y-1 px-2">
+          {deptChildren.length > 0 && (
+            <div className="mb-2">
+              <div className={navClass({ isActive: isDeptActive })}>
+                <Building2 className="h-4 w-4" strokeWidth={1.75} />
+                <span>Departamentos</span>
+              </div>
+              <div className="ml-6 mt-1 space-y-1">
+                {deptChildren.map(({ to, label, Icon }) => (
+                  <NavLink key={to} to={to} className={navClass}>
+                    <Icon className="h-4 w-4" strokeWidth={1.75} />
+                    <span>{label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
           {items.map(({ to, label, Icon }) => (
             <NavLink key={to} to={to} className={navClass}>
               <Icon className="h-4 w-4" strokeWidth={1.75} />
@@ -309,6 +337,14 @@ export default function App() {
     setMobileOpen(false);
   }, [location.pathname]);
 
+  const [dbHost, setDbHost] = useState('');
+  useEffect(() => {
+    api.get('/api/health').then((resp) => {
+      const host = resp?.data?.dbHost || '';
+      setDbHost(host);
+    }).catch(() => {});
+  }, []);
+
   const onLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userName');
@@ -335,6 +371,9 @@ export default function App() {
     'Fallback para armazenamento local quando a API retornar 404 no Centro de Midia.',
     'Melhoria: foco automático no campo Nome ao criar usuário.',
     'Proteções de rotas e visibilidade por perfil atualizadas.',
+    'Adicionado um novo menu “Departamentos” com dropdown contendo “Equipamentos” e “Centro de Midia”.',
+    'Adicionado filtro por departamento nos relatórios.',
+    'Adicionado filtro por escola nos relatórios.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -373,9 +412,16 @@ export default function App() {
           <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} authToken={authToken} onLogout={onLogout} />
 
           <main className="flex-1 p-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold">{userName ? `Bem-vindo, ${userName}` : 'Bem-vindo'}</h2>
-              <p className="text-xs text-gray-500">{routeLabels[location.pathname] || 'Página'}</p>
+            <div className="mb-4 flex items-baseline justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">{userName ? `Bem-vindo, ${userName}` : 'Bem-vindo'}</h2>
+                <p className="text-xs text-gray-500">{routeLabels[location.pathname] || 'Página'}</p>
+              </div>
+              {dbHost === '10.12.3.231' && (
+                <span className="ml-4 inline-flex items-center rounded bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 border border-yellow-300">
+                  Conectado ao banco de dados de desenvolvimento
+                </span>
+              )}
             </div>
 
             {/* Rotas privadas protegidas por RequireAuth */}
@@ -401,6 +447,40 @@ export default function App() {
             </Routes>
           </main>
         </>
+      )}
+    </div>
+  );
+}
+function NavDropdown({ label, Icon, items }: Readonly<{ label: string; Icon: ComponentType<{ className?: string; strokeWidth?: number }>; items: { to: string; label: string; Icon: ComponentType<{ className?: string; strokeWidth?: number }> }[] }>) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const isGroupActive = items.some(({ to }) => location.pathname.startsWith(to));
+  useEffect(() => {
+    const handler = (ev: MouseEvent) => {
+      if (ref.current && !ref.current.contains(ev.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen((v) => !v)} className={navClass({ isActive: isGroupActive })}>
+        <Icon className="h-4 w-4" strokeWidth={1.75} />
+        <span>{label}</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.75} />
+      </button>
+      {open && (
+        <div className="absolute left-0 mt-2 w-56 origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+          <div className="py-1">
+            {items.map(({ to, label, Icon }) => (
+              <NavLink key={to} to={to} className={({ isActive }) => `flex items-center space-x-3 px-4 py-2 text-sm transition-colors ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`} onClick={() => setOpen(false)}>
+                <Icon className="h-4 w-4" strokeWidth={1.75} />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

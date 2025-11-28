@@ -88,3 +88,39 @@ export const excluirCentroMidia = async (req, res, next) => {
   }
 };
 
+// Exportar Centro de Midia em CSV
+export const exportarCentroMidiaCsv = async (req, res, next) => {
+  try {
+    const isAdmin = req.usuario?.role === 'ADMIN';
+    const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
+    const itens = await prisma.centroMidia.findMany({ where, include: { escola: true } });
+
+    const headers = ['id','nome','tipo','modelo','serial','status','escolaId','escolaNome'];
+    const escapeCsv = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (/[,"\n\r]/.test(str)) {
+        return '"' + str.replaceAll('"', '""') + '"';
+      }
+      return str;
+    };
+
+    const rows = itens.map((i) => [
+      i.id,
+      i.nome ?? '',
+      i.tipo ?? '',
+      i.modelo ?? '',
+      i.serial ?? '',
+      i.status ?? '',
+      i.escolaId ?? '',
+      i.escola?.nome ?? '',
+    ].map(escapeCsv).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="centro-midia.csv"');
+    res.status(200).send(csv);
+  } catch (error) {
+    next(error);
+  }
+};

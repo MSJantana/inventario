@@ -69,9 +69,21 @@ app.get('/api/csrf-token', auth, issueCsrfToken);
 app.get('/api/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', db: 'ok' });
+    const dbUrl = process.env.DATABASE_URL || '';
+    let dbHost = null;
+    try {
+      const parsed = new URL(dbUrl);
+      dbHost = parsed.hostname || null;
+    } catch {}
+    res.json({ status: 'ok', db: 'ok', dbHost });
   } catch (err) {
-    res.status(503).json({ status: 'degraded', db: 'error' });
+    const dbUrl = process.env.DATABASE_URL || '';
+    let dbHost = null;
+    try {
+      const parsed = new URL(dbUrl);
+      dbHost = parsed.hostname || null;
+    } catch {}
+    res.status(503).json({ status: 'degraded', db: 'error', dbHost });
   }
 });
 

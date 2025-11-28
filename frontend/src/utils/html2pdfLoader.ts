@@ -18,6 +18,7 @@ interface Html2PdfOptions {
   headerLogoHeightMm?: number; // default 14 (keeps aspect by default)
   footerLogoWidthMm?: number; // default 24
   footerLogoHeightMm?: number; // default 10
+  title?: string;
 }
 
 interface Html2PdfWorker {
@@ -176,7 +177,7 @@ export async function generatePdf(element: HTMLElement, options: Html2PdfOptions
       pdf.setFontSize(14);
       pdf.setTextColor('#000000');
       pdf.setFontSize(16);
-      pdf.text('Relatório de Equipamentos', pageWidth / 2, 10, { align: 'center' });
+      pdf.text(finalOptions.title || 'Relatório de Equipamentos', pageWidth / 2, 10, { align: 'center' });
       pdf.setFontSize(10);
       const emissionDate = new Date().toLocaleDateString('pt-BR');
       pdf.text(`Data de Emissão: ${emissionDate}`, pageWidth / 2, 20, { align: 'center' });
