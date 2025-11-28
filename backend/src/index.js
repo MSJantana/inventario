@@ -76,8 +76,9 @@ app.get('/api/health', async (req, res) => {
       dbHost = parsed.hostname || null;
     } catch {}
     const hostsEnv = process.env.DB_DEV_HOSTS || '';
-    const devDefaults = ['10.12.3.231', 'mysql', '172.20.0.2'];
-    const devHosts = (hostsEnv.split(',').map((s) => s.trim()).filter(Boolean)).concat(hostsEnv ? [] : devDefaults);
+    const devDefaults = ['10.12.3.231', 'mysql', '172.20.0.2', 'host.docker.internal'];
+    const configured = hostsEnv.split(',').map((s) => s.trim()).filter(Boolean);
+    const devHosts = Array.from(new Set([...configured, ...devDefaults]));
     const dbIsDev = dbHost ? devHosts.includes(dbHost) : false;
     res.json({ status: 'ok', db: 'ok', dbHost, dbIsDev });  
   } catch (err) {
