@@ -368,7 +368,7 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Novo menu e tela Centro de Midia (somente ADMIN).',
+    'Novo menu e tela Centro de Midia.',
     'Cadastro do Centro de Midia com filtros, paginação e CRUD.',
     'Fallback para armazenamento local quando a API retornar 404 no Centro de Midia.',
     'Melhoria: foco automático no campo Nome ao criar usuário.',
@@ -436,7 +436,7 @@ export default function App() {
                 <Route path="/relatorios" element={<RelatoriosEquipamentosPage />} />
                 <Route path="/usuarios" element={<RoleGuard allowed={['ADMIN','GESTOR']} children={<UsuariosPage />} />} />
                 <Route path="/config" element={<RoleGuard allowed={['ADMIN','GESTOR']} children={<ConfigPage />} />} />
-                <Route path="/centro-midia" element={<RoleGuard allowed={['ADMIN']} children={<CentroMidiaPage />} />} />
+                <Route path="/centro-midia" element={<CentroMidiaPage />}/>
               </Route>
 
               {/* Rotas de auth (fallback caso usuário acesse fora do bloco AuthLayout) */}

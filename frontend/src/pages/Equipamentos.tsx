@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
+import Pagination from '../components/Pagination'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
 
@@ -8,6 +9,17 @@ function formatMac(raw: string): string {
   const hex = raw.replaceAll(/[^0-9a-fA-F]/g, '').toUpperCase()
   const pairs = hex.match(/.{1,2}/g) || []
   return pairs.join(':').slice(0, 17)
+}
+
+function isValidDateStr(input: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input)
+  if (!m) return false
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`)
+  if (Number.isNaN(dt.getTime())) return false
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() + 1 === mo && dt.getUTCDate() === d
 }
 
 type Equipamento = {
@@ -26,10 +38,10 @@ type Equipamento = {
   observacoes?: string
   macaddress?: string
   escolaId?: string
-  escola?: { nome?: string }
+  escola?: { nome?: string; sigla?: string }
 }
 
-type Escola = { id: string; nome: string }
+type Escola = { id: string; nome: string; sigla?: string }
 
 export default function EquipamentosPage() {
   const [lista, setLista] = useState<Equipamento[]>([])
@@ -109,6 +121,10 @@ export default function EquipamentosPage() {
       showWarningToast('Preencha Nome, Modelo, Serial e Data de Aquisição')
       return
     }
+    if (!isValidDateStr(dataAquisicao)) {
+      showWarningToast('Data de Aquisição inválida')
+      return
+    }
     try {
       const macFmt = formatMac(macAddress)
       const payload: Record<string, unknown> = {
@@ -185,6 +201,10 @@ export default function EquipamentosPage() {
       showWarningToast('Preencha Nome')
       return
     }
+    if (editDataAquisicao && !isValidDateStr(editDataAquisicao)) {
+      showWarningToast('Data de Aquisição inválida')
+      return
+    }
     try {
       const macFmt = formatMac(editMacAddress)
       const payload: Record<string, unknown> = {
@@ -226,14 +246,28 @@ export default function EquipamentosPage() {
   // Dados filtrados e paginados
   const filtrada = lista.filter((e) => {
     const nome = (e.nome || e.nomeEquipamento || '').toLowerCase()
-    const matchesText = filterText ? nome.includes(filterText.toLowerCase()) : true
+    const texto = filterText.toLowerCase()
+    const matchesText = filterText ? (
+      nome.includes(texto) ||
+      (e.escola?.nome || '').toLowerCase().includes(texto) ||
+      (e.escola?.sigla || '').toLowerCase().includes(texto)
+    ) : true
     const matchesStatus = filterStatus === 'ALL' ? true : (e.status || '') === filterStatus
     return matchesText && matchesStatus
+  })
+  const ordenada = filtrada.slice().sort((a, b) => {
+    const an = (a.escola?.nome || '').toUpperCase()
+    const bn = (b.escola?.nome || '').toUpperCase()
+    const bySchool = an.localeCompare(bn)
+    if (bySchool !== 0) return bySchool
+    const ae = (a.nome || a.nomeEquipamento || '').toUpperCase()
+    const be = (b.nome || b.nomeEquipamento || '').toUpperCase()
+    return ae.localeCompare(be)
   })
   const totalPages = Math.max(1, Math.ceil(filtrada.length / pageSize))
   const current = Math.min(currentPage, totalPages)
   const startIdx = (current - 1) * pageSize
-  const pagina = filtrada.slice(startIdx, startIdx + pageSize)
+  const pagina = ordenada.slice(startIdx, startIdx + pageSize)
 
   useEffect(() => {
     carregarEscolas()
@@ -246,7 +280,7 @@ export default function EquipamentosPage() {
       prev.map((e) => {
         if (!e.escola && e.escolaId) {
           const esc = escolas.find((s) => s.id === e.escolaId)
-          return esc ? { ...e, escola: { nome: esc.nome } } : e
+          return esc ? { ...e, escola: { nome: esc.nome, sigla: esc.sigla } } : e
         }
         return e
       }),
@@ -283,8 +317,8 @@ export default function EquipamentosPage() {
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
           <div>
-            <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome</label>
-            <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
+            <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome ou sigla</label>
+            <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} placeholder="Digite nome do equipamento, escola ou sigla" />
           </div>
           <div>
             <label htmlFor="filterStatus" className="mb-1 block text-sm font-medium">Status</label>
@@ -368,24 +402,7 @@ export default function EquipamentosPage() {
         </div>
         <div className="mt-3 hidden md:flex items-center justify-between">
           <div className="text-sm text-gray-600">Página {current} de {totalPages}</div>
-          <div className="flex items-center gap-2">
-            <button className="rounded border px-3 py-1" disabled={current <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>Anterior</button>
-            {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
-              const start = Math.max(1, current - 4)
-              const page = Math.min(totalPages, start + i)
-              return (
-                <button
-                  key={page}
-                  className={`rounded border px-3 py-1 ${page === current ? 'bg-blue-600 text-white border-blue-600' : ''}`}
-                  onClick={() => setCurrentPage(page)}
-                  disabled={page > totalPages}
-                >
-                  {page}
-                </button>
-              )
-            })}
-            <button className="rounded border px-3 py-1" disabled={current >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>Próxima</button>
-          </div>
+          <Pagination current={current} totalPages={totalPages} onChange={setCurrentPage} windowSize={5} />
         </div>
       </section>
 

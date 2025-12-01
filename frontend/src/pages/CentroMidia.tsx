@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Pagination from '../components/Pagination'
 import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
@@ -273,10 +274,7 @@ export default function CentroMidiaPage() {
 
         <div className="mt-3 flex items-center justify-between">
           <div className="text-sm text-gray-600">Página {current} de {totalPages}</div>
-          <div className="flex items-center gap-2">
-            <button className="rounded border px-3 py-1" disabled={current <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>Anterior</button>
-            <button className="rounded border px-3 py-1" disabled={current >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>Próxima</button>
-          </div>
+          <Pagination current={current} totalPages={totalPages} onChange={setCurrentPage} windowSize={5} />
         </div>
       </section>
 

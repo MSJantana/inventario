@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Pagination from '../components/Pagination'
 import { Plus, Pencil, Trash2, Save, RotateCcw, X } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
@@ -335,24 +336,7 @@ export default function MovimentacoesPage() {
         </div>
         <div className="mt-3 flex items-center justify-between">
           <div className="text-sm text-gray-600">Página {current} de {totalPages}</div>
-          <div className="flex items-center gap-2">
-            <button className="rounded border px-3 py-1" disabled={current <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>Anterior</button>
-            {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
-              const start = Math.max(1, current - 4)
-              const page = Math.min(totalPages, start + i)
-              return (
-                <button
-                  key={page}
-                  className={`rounded border px-3 py-1 ${page === current ? 'bg-blue-600 text-white border-blue-600' : ''}`}
-                  onClick={() => setCurrentPage(page)}
-                  disabled={page > totalPages}
-                >
-                  {page}
-                </button>
-              )
-            })}
-            <button className="rounded border px-3 py-1" disabled={current >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>Próxima</button>
-          </div>
+          <Pagination current={current} totalPages={totalPages} onChange={setCurrentPage} windowSize={5} />
         </div>
       </section>
 
