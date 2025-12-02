@@ -7,20 +7,20 @@ export const validarEquipamento = (req, res, next) => {
   const { nome, tipo, modelo, serial, dataAquisicao } = req.body;
 
   // Normalização/validação de MAC (se enviado)
-  if (req.body.macadress !== undefined) {
-    const sanitized = sanitizeMac(req.body.macadress);
+  if (req.body.macaddress !== undefined) {
+    const sanitized = sanitizeMac(req.body.macaddress);
     if (sanitized.length === 0) {
       return res.status(400).json({ error: 'MAC Address inválido ou vazio.' });
     }
     if (sanitized.length !== 12) {
       return res.status(400).json({ error: 'MAC Address deve conter 12 dígitos hexadecimais.' });
     }
-    const normalized = normalizeToCiscoMac(req.body.macadress);
+    const normalized = normalizeToCiscoMac(sanitized);
     if (!normalized || !isValidMacCisco(normalized)) {
       return res.status(400).json({ error: 'MAC Address inválido. Use 12 dígitos hex (ex: AAAA.BBBB.CCCC).' });
     }
     // Substitui pelo formato normalizado
-    req.body.macadress = normalized;
+    req.body.macaddress = normalized;
   }
 
   if (method === 'POST') {
@@ -39,7 +39,7 @@ export const validarEquipamento = (req, res, next) => {
       if (chaves.length === 0) {
         return res.status(400).json({ error: 'Nenhum campo para atualizar foi enviado' });
       }
-      const invalidos = chaves.filter((k) => !camposPermitidos.includes(k));
+      const invalidos = chaves.filter((k) => !camposPermitidos.has(k));
       if (invalidos.length > 0) {
         return res.status(400).json({ error: 'TECNICO só pode atualizar status, localizacao e observacoes' });
       }

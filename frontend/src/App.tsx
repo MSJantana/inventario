@@ -15,7 +15,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.1';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.2';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -368,14 +368,16 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Novo menu e tela Centro de Midia.',
-    'Cadastro do Centro de Midia com filtros, paginação e CRUD.',
-    'Fallback para armazenamento local quando a API retornar 404 no Centro de Midia.',
-    'Melhoria: foco automático no campo Nome ao criar usuário.',
-    'Proteções de rotas e visibilidade por perfil atualizadas.',
-    'Adicionado um novo menu “Departamentos” com dropdown contendo “Equipamentos” e “Centro de Midia”.',
-    'Adicionado filtro por departamento nos relatórios.',
-    'Adicionado filtro por escola nos relatórios.',
+    // 'Novo menu e tela Centro de Midia.',
+    // 'Cadastro do Centro de Midia com filtros, paginação e CRUD.',
+    // 'Fallback para armazenamento local quando a API retornar 404 no Centro de Midia.',
+    // 'Melhoria: foco automático no campo Nome ao criar usuário.',
+    // 'Proteções de rotas e visibilidade por perfil atualizadas.',
+    // 'Adicionado um novo menu “Departamentos” com dropdown contendo “Equipamentos” e “Centro de Midia”.',
+    // 'Adicionado filtro por departamento nos relatórios.',
+    // 'Adicionado filtro por escola nos relatórios.',
+    'Correção Bug na Atualização de equipamento.',
+    'Correção no formato da Data no relatório de Movimentações.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);

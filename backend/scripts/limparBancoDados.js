@@ -1,7 +1,7 @@
-// Script para limpar o banco de dados
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const readline = require('readline');
+// Script para limpar o banco de dados (ESM)
+import { PrismaClient } from '@prisma/client'
+import readline from 'node:readline'
+const prisma = new PrismaClient()
 
 const rl = readline.createInterface({
   input: process.stdin,
