@@ -111,13 +111,13 @@ export const atualizarEquipamento = async (req, res, next) => {
 
     // TECNICO: atualização parcial permitida
     let dataUpdate;
-    if (req.usuario?.role === 'TECNICO') {
+    if (req.usuario?.role === 'USUARIO') {
       dataUpdate = {
         status,
         localizacao,
         observacoes,
       };
-    } else if (req.usuario?.role === 'GESTOR') {
+    } else if (req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO') {
       // GESTOR: atualização completa, mas sempre dentro da própria escola
       dataUpdate = {
         nome,
