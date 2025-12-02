@@ -116,6 +116,16 @@ export const criarMovimentacao = async (req, res, next) => {
       } catch (_) {}
     }
 
+    const novoLocal = typeof destino === 'string' ? destino.trim() : '';
+    if (novoLocal) {
+      try {
+        await prisma.equipamento.update({
+          where: { id: equipamentoId },
+          data: { localizacao: novoLocal }
+        });
+      } catch (_) {}
+    }
+
     const response = {
       ...movimentacao,
       tipo: movimentacao.tipoMovimento,
@@ -171,6 +181,18 @@ export const atualizarMovimentacao = async (req, res, next) => {
         await prisma.equipamento.update({
           where: { id: equipamentoAlvo },
           data: { status: statusAtualizado }
+        });
+      } catch (_) {}
+    }
+
+    const destinoAtual = typeof req.body.destino === 'string' && req.body.destino.trim()
+      ? req.body.destino.trim()
+      : (typeof movimentacaoExistente.destino === 'string' ? movimentacaoExistente.destino.trim() : '');
+    if (destinoAtual && equipamentoAlvo) {
+      try {
+        await prisma.equipamento.update({
+          where: { id: equipamentoAlvo },
+          data: { localizacao: destinoAtual }
         });
       } catch (_) {}
     }
