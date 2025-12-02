@@ -32,8 +32,8 @@ export const validarEquipamento = (req, res, next) => {
   }
 
   if (method === 'PUT') {
-    // TECNICO só pode atualizar parcialmente: status, localizacao, observacoes
-    if (req.usuario?.role === 'TECNICO') {
+    // USUARIO só pode atualizar parcialmente: status, localizacao, observacoes
+    if (req.usuario?.role === 'USUARIO') {
       const camposPermitidos = new Set(['status', 'localizacao', 'observacoes']);
       const chaves = Object.keys(req.body);
       if (chaves.length === 0) {
@@ -41,7 +41,7 @@ export const validarEquipamento = (req, res, next) => {
       }
       const invalidos = chaves.filter((k) => !camposPermitidos.has(k));
       if (invalidos.length > 0) {
-        return res.status(400).json({ error: 'TECNICO só pode atualizar status, localizacao e observacoes' });
+        return res.status(400).json({ error: 'USUARIO só pode atualizar status, localizacao e observacoes' });
       }
     }
   }
