@@ -223,9 +223,8 @@ export const excluirMovimentacao = async (req, res, next) => {
       return res.status(404).json({ error: 'Movimentação não encontrada' });
     }
 
-    // GESTOR só pode excluir da própria escola
-    if (req.usuario?.role === 'GESTOR' && movimentacao.escolaId !== req.usuario?.escolaId) {
-      return res.status(403).json({ error: 'Acesso restrito à movimentações da sua escola' });
+    if (req.usuario?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Apenas ADMIN pode excluir movimentações' });
     }
 
     // Excluir a movimentação

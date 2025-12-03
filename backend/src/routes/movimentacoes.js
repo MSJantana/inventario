@@ -3,6 +3,7 @@ import * as movimentacoesController from '../controllers/movimentacoesController
 import { validarMovimentacao } from '../middlewares/validacao.js';
 import auth from '../middlewares/auth.js';
 import { csrfProtect } from '../middlewares/csrf.js';
+import { permitRoles } from '../middlewares/authorize.js';
 
 const router = express.Router();
 
@@ -13,6 +14,6 @@ router.get('/:id', auth, movimentacoesController.obterMovimentacao);
 // Escrita liberada para qualquer usuário autenticado
 router.post('/', auth, csrfProtect, validarMovimentacao, movimentacoesController.criarMovimentacao);
 router.put('/:id', auth, csrfProtect, validarMovimentacao, movimentacoesController.atualizarMovimentacao);
-router.delete('/:id', auth, csrfProtect, movimentacoesController.excluirMovimentacao);
+router.delete('/:id', auth, csrfProtect, permitRoles('ADMIN'), movimentacoesController.excluirMovimentacao);
 
 export default router;

@@ -2,12 +2,7 @@ import { prisma } from '../index.js';
 
 export const listarCentroMidia = async (req, res, next) => {
   try {
-    const isAdmin = req.usuario?.role === 'ADMIN';
-    const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
-    const itens = await prisma.centroMidia.findMany({
-      where,
-      include: { escola: true }
-    });
+    const itens = await prisma.centroMidia.findMany({ include: { escola: true } });
     res.json(itens);
   } catch (error) {
     next(error);
@@ -17,16 +12,12 @@ export const listarCentroMidia = async (req, res, next) => {
 export const obterCentroMidia = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const item = await prisma.centroMidia.findUnique({
-      where: { id },
-      include: { escola: true }
-    });
-    if (!item) return res.status(404).json({ error: 'Item não encontrado' });
-
-    if (req.usuario?.role !== 'ADMIN' && item.escolaId !== req.usuario?.escolaId) {
-      return res.status(403).json({ error: 'Acesso restrito à sua escola' });
-    }
-    res.json(item);
+  const item = await prisma.centroMidia.findUnique({
+    where: { id },
+    include: { escola: true }
+  });
+  if (!item) return res.status(404).json({ error: 'Item não encontrado' });
+  res.json(item);
   } catch (error) {
     next(error);
   }
@@ -34,10 +25,14 @@ export const obterCentroMidia = async (req, res, next) => {
 
 export const criarCentroMidia = async (req, res, next) => {
   try {
-    const { nome, tipo, modelo, serial } = req.body;
-    const escolaId = req.body.escolaId || null;
+    const { nome, tipo, modelo, serial, status } = req.body;
+    const isAdmin = req.usuario?.role === 'ADMIN';
+    const escolaId = isAdmin ? (req.body.escolaId || null) : (req.usuario?.escolaId || null);
+    if (!isAdmin) {
+      if (!escolaId) return res.status(403).json({ error: 'Ação restrita à sua escola' });
+    }
     const item = await prisma.centroMidia.create({
-      data: { nome, tipo, modelo, serial, escolaId }
+      data: { nome, tipo, modelo, serial, status, escolaId }
     });
     res.status(201).json(item);
   } catch (error) {
@@ -50,11 +45,10 @@ export const atualizarCentroMidia = async (req, res, next) => {
     const { id } = req.params;
     const existente = await prisma.centroMidia.findUnique({ where: { id } });
     if (!existente) return res.status(404).json({ error: 'Item não encontrado' });
-
-    if (req.usuario?.role !== 'ADMIN' && existente.escolaId !== req.usuario?.escolaId) {
-      return res.status(403).json({ error: 'Acesso restrito à sua escola' });
+    const isAdmin = req.usuario?.role === 'ADMIN';
+    if (!isAdmin && existente.escolaId !== req.usuario?.escolaId) {
+      return res.status(403).json({ error: 'Ação restrita à sua escola' });
     }
-
     const { nome, tipo, modelo, serial, escolaId, status } = req.body;
     const item = await prisma.centroMidia.update({
       where: { id },
@@ -64,7 +58,7 @@ export const atualizarCentroMidia = async (req, res, next) => {
         modelo: modelo ?? existente.modelo,
         serial: serial ?? existente.serial,
         status: status ?? existente.status,
-        escolaId: req.usuario?.role === 'ADMIN' ? (escolaId ?? existente.escolaId) : existente.escolaId,
+        escolaId: isAdmin ? (escolaId ?? existente.escolaId) : (req.usuario?.escolaId ?? existente.escolaId),
       }
     });
     res.json(item);
@@ -78,8 +72,9 @@ export const excluirCentroMidia = async (req, res, next) => {
     const { id } = req.params;
     const existente = await prisma.centroMidia.findUnique({ where: { id } });
     if (!existente) return res.status(404).json({ error: 'Item não encontrado' });
-    if (req.usuario?.role !== 'ADMIN' && existente.escolaId !== req.usuario?.escolaId) {
-      return res.status(403).json({ error: 'Acesso restrito à sua escola' });
+    const isAdmin = req.usuario?.role === 'ADMIN';
+    if (!isAdmin && existente.escolaId !== req.usuario?.escolaId) {
+      return res.status(403).json({ error: 'Ação restrita à sua escola' });
     }
     await prisma.centroMidia.delete({ where: { id } });
     res.json({ message: 'Item excluído com sucesso' });

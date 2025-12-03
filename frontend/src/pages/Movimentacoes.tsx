@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Pagination from '../components/Pagination'
 import { Plus, Pencil, Trash2, Save, RotateCcw, X } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
 
 type Mov = {
   id: string
@@ -26,6 +26,7 @@ export default function MovimentacoesPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([])
+  const [departamentoSel, setDepartamentoSel] = useState<'EQUIPAMENTOS' | 'CENTRO_MIDIA'>('EQUIPAMENTOS')
   const [showCreate, setShowCreate] = useState(false)
   const equipamentoSelectRef = useRef<HTMLSelectElement | null>(null)
   const buscarInputRef = useRef<HTMLInputElement | null>(null)
@@ -36,7 +37,6 @@ export default function MovimentacoesPage() {
   const [destino, setDestino] = useState('')
   const [data, setData] = useState<string>('')
   const [descricao, setDescricao] = useState('')
-  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   // Filtros e paginação
   const [filterText, setFilterText] = useState('')
@@ -52,6 +52,8 @@ export default function MovimentacoesPage() {
   const [editDestino, setEditDestino] = useState('')
   const [editData, setEditData] = useState<string>('')
   const [editDescricao, setEditDescricao] = useState('')
+  const role = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
+  const isAdmin = role === 'ADMIN'
 
   async function carregar() {
     setLoading(true)
@@ -67,11 +69,17 @@ export default function MovimentacoesPage() {
     }
   }
 
-  async function carregarEquipamentos() {
+  async function carregarItens() {
     try {
-      const resp = await api.get('/api/equipamentos')
-      const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string }) => ({ id: e.id, nome: e.nome || e.nomeEquipamento }))
-      setEquipamentos(data)
+      if (departamentoSel === 'CENTRO_MIDIA') {
+        const resp = await api.get('/api/centro-midia')
+        const data: EquipamentoOption[] = (resp.data || []).map((i: { id: string; nome?: string }) => ({ id: i.id, nome: i.nome }))
+        setEquipamentos(data)
+      } else {
+        const resp = await api.get('/api/equipamentos')
+        const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string }) => ({ id: e.id, nome: e.nome || e.nomeEquipamento }))
+        setEquipamentos(data)
+      }
     } catch {
       // silencioso
     }
@@ -79,6 +87,10 @@ export default function MovimentacoesPage() {
 
   async function criar(ev: React.FormEvent) {
     ev.preventDefault()
+    if (departamentoSel !== 'EQUIPAMENTOS') {
+      showWarningToast('Apenas Equipamentos podem ser movimentados')
+      return
+    }
     if (!equipamentoId.trim()) {
       showWarningToast('Informe o ID do equipamento')
       return
@@ -169,7 +181,6 @@ export default function MovimentacoesPage() {
     } catch (e: unknown) {
       showErrorToast((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao excluir movimentação')
     }
-    setDeleteId(null)
   }
 
   // Dados filtrados e paginados
@@ -184,7 +195,8 @@ export default function MovimentacoesPage() {
   const startIdx = (current - 1) * pageSize
   const pagina = filtrada.slice(startIdx, startIdx + pageSize)
 
-  useEffect(() => { carregar(); carregarEquipamentos() }, [])
+  useEffect(() => { carregar(); carregarItens() }, [])
+  useEffect(() => { carregarItens() }, [departamentoSel])
 
   useEffect(() => {
     function handleFocusBuscar() {
@@ -257,10 +269,12 @@ export default function MovimentacoesPage() {
                         <Pencil size={16} />
                         <span>Editar</span>
                       </button>
-                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => setDeleteId(m.id)}>
-                        <Trash2 size={16} />
-                        <span>Excluir</span>
-                      </button>
+                      {isAdmin && (
+                        <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))}>
+                          <Trash2 size={16} />
+                          <span>Excluir</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -322,10 +336,12 @@ export default function MovimentacoesPage() {
                     <Pencil size={14} />
                     <span>Editar</span>
                   </button>
-                  <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => setDeleteId(m.id)}>
-                    <Trash2 size={14} />
-                    <span>Excluir</span>
-                  </button>
+                  {isAdmin && (
+                    <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))}>
+                      <Trash2 size={14} />
+                      <span>Excluir</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -344,6 +360,19 @@ export default function MovimentacoesPage() {
       <section className="rounded-lg border bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-medium">Registrar Movimentação</h2>
         <form onSubmit={criar} className="grid gap-3 grid-cols-1 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <span className="mb-1 block text-sm font-medium">Departamento</span>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={departamentoSel === 'EQUIPAMENTOS'} onChange={() => setDepartamentoSel('EQUIPAMENTOS')} />
+                <span>Equipamentos</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={departamentoSel === 'CENTRO_MIDIA'} onChange={() => setDepartamentoSel('CENTRO_MIDIA')} />
+                <span>Centro de Mídia</span>
+              </label>
+            </div>
+          </div>
           <div>
             <label htmlFor="equipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
             <select ref={equipamentoSelectRef} className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={(e) => setEquipamentoId(e.target.value)}>
@@ -416,10 +445,10 @@ export default function MovimentacoesPage() {
               <label htmlFor="editOrigem" className="mb-1 block text-sm font-medium">Origem</label>
               <input className="w-full rounded border px-3 py-2" value={editOrigem} onChange={(e) => setEditOrigem(e.target.value)} />
             </div>
-            <div>
-              <label htmlFor="editDestino" className="mb-1 block text-sm font-medium">Destino</label>
-              <input className="w-full rounded border px-3 py-2" value={editDestino} onChange={(e) => setEditDestino(e.target.value)} />
-            </div>
+          <div>
+            <label htmlFor="editDestino" className="mb-1 block text-sm font-medium">Destino</label>
+            <input className="w-full rounded border px-3 py-2" value={editDestino} onChange={(e) => setEditDestino(e.target.value)} />
+          </div>
             <div>
               <label htmlFor="editData" className="mb-1 block text-sm font-medium">Data</label>
               <input type="datetime-local" className="w-full rounded border px-3 py-2" value={editData} onChange={(e) => setEditData(e.target.value)} />
@@ -438,18 +467,7 @@ export default function MovimentacoesPage() {
           </form>
         </section>
       )}
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold">Confirmar exclusão</h3>
-            <p className="mb-4 text-sm text-gray-700">Esta ação é permanente. Tem certeza que deseja excluir a movimentação?</p>
-            <div className="flex justify-end gap-2">
-              <button className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700" onClick={() => setDeleteId(null)}>Cancelar</button>
-              <button className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700" onClick={() => deleteId && excluirMov(deleteId)}>Excluir</button>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   )
 }

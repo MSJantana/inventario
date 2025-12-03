@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
 
 // Formata MAC: mantém apenas hex, agrupa em pares e insere ':'
 function formatMac(raw: string): string {
@@ -69,10 +69,9 @@ export default function EquipamentosPage() {
   const [macAddress, setMacAddress] = useState('')
   const [escolas, setEscolas] = useState<Escola[]>([])
   const [escolaId, setEscolaId] = useState<string>('')
+  const [status, setStatus] = useState<string>('DISPONIVEL')
   const nomeInputRef = useRef<HTMLInputElement | null>(null)
 
-  // Modal de confirmação de exclusão
-  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   // Edição
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -140,6 +139,7 @@ export default function EquipamentosPage() {
         observacoes: observacoes || undefined,
         macaddress: macFmt || undefined,
         escolaId: escolaId || undefined,
+        status,
       }
       await api.post('/api/equipamentos', payload)
       showSuccessToast('Equipamento criado')
@@ -155,6 +155,7 @@ export default function EquipamentosPage() {
       setObservacoes('')
       setMacAddress('')
       setEscolaId('')
+      setStatus('DISPONIVEL')
       await carregar()
     } catch (e: unknown) {
       showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar equipamento')
@@ -238,8 +239,6 @@ export default function EquipamentosPage() {
       setLista((prev) => prev.filter((e) => e.id !== id))
     } catch (e: unknown) {
       showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir equipamento')
-    } finally {
-      setDeleteId(null)
     }
   }
 
@@ -356,7 +355,7 @@ export default function EquipamentosPage() {
                         <Pencil size={16} />
                         <span>Editar</span>
                       </button>
-                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => setDeleteId(e.id)}>
+                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este equipamento?', () => excluirEquipamento(e.id))}>
                         <Trash2 size={16} />
                         <span>Excluir</span>
                       </button>
@@ -389,7 +388,7 @@ export default function EquipamentosPage() {
                   <Pencil size={14} />
                   <span>Editar</span>
                 </button>
-                <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => setDeleteId(e.id)}>
+                <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este equipamento?', () => excluirEquipamento(e.id))}>
                   <Trash2 size={14} />
                   <span>Excluir</span>
                 </button>
@@ -427,6 +426,14 @@ export default function EquipamentosPage() {
             <label htmlFor="tipo" className="mb-1 block text-sm font-medium">Tipo</label>
             <select className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value)}>
               {['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO'].map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="status" className="mb-1 block text-sm font-medium">Status</label>
+            <select className="w-full rounded border px-3 py-2" value={status} onChange={(e) => setStatus(e.target.value)}>
+              {['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO'].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -593,21 +600,7 @@ export default function EquipamentosPage() {
         </div>
       </div>
 
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold">Confirmar exclusão</h3>
-            <p className="mb-4 text-sm text-gray-700">Esta ação é permanente. Tem certeza que deseja excluir o equipamento?</p>
-            <div className="flex justify-end gap-2">
-              <button className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700" onClick={() => setDeleteId(null)}>Cancelar</button>
-              <button className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 flex items-center gap-2" onClick={() => deleteId && excluirEquipamento(deleteId)}>
-                <Trash2 size={16} />
-                <span>Excluir</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   )
 }

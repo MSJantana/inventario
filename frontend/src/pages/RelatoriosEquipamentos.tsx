@@ -444,6 +444,8 @@ export default function RelatoriosEquipamentosPage() {
         </span>
       </div>
 
+      
+
       {/* Tabela para impressão */}
       <div ref={printRef} className={`print-area ${showPreview ? 'print-preview' : ''}`}>
         {showPreview && (
@@ -501,6 +503,7 @@ export default function RelatoriosEquipamentosPage() {
                   </div>
                 </div>
               ))}
+              
             </div>
           )}
         </div>
@@ -558,7 +561,7 @@ export default function RelatoriosEquipamentosPage() {
                     )}
                   </tr>
                 ))}
-                {(filterDepartamento === 'CENTRO_MIDIA' ? filtradosCm : filtrados).length === 0 && (
+                {filtradosFinal.length === 0 && (
                   <tr>
                     <td className="border-2 border-gray-400 px-3 py-4 text-center" colSpan={12}>
                       Nenhum equipamento encontrado com os filtros aplicados.

@@ -15,7 +15,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.2';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.3';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -37,7 +37,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 type Role = 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO';
 const getUserRole = (): Role => (localStorage.getItem('userRole') as Role) || 'USUARIO';
 const canAccessPath = (role: Role, path: string) => {
-  if (path === '/centro-midia') return role === 'ADMIN';
+  if (path === '/centro-midia') return true;
   if (role === 'ADMIN' || role === 'GESTOR') return true;
   return path !== '/config' && path !== '/usuarios';
 };
@@ -376,8 +376,14 @@ export default function App() {
     // 'Adicionado um novo menu “Departamentos” com dropdown contendo “Equipamentos” e “Centro de Midia”.',
     // 'Adicionado filtro por departamento nos relatórios.',
     // 'Adicionado filtro por escola nos relatórios.',
-    'Correção Bug na Atualização de equipamento.',
-    'Correção no formato da Data no relatório de Movimentações.',
+    // 'Correção Bug na Atualização de equipamento.',
+    // 'Correção no formato da Data no relatório de Movimentações.',
+    'Menu Centro Midia Liberador para todos os usuários.',
+    'Mostrar um toast de confirmação antes de excluir qualquer item e só executar a operação após confirmação.',
+    'Adicionado um novo menu “Departamentos” com dropdown contendo “Equipamentos” e “Centro de Midia”.',
+    'Ao registrar uma movimentação de equipamentos poderá ser associada a um departamento no checkbox.',
+    'Relatórios poderá ser exportado em formato XLSX.',
+    'Paginação nos relatórios.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);

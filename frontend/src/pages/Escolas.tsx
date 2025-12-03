@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pencil, Trash2, Save, X } from 'lucide-react'
-import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
 import api from '../lib/axios'
 
 type Escola = {
@@ -23,7 +23,6 @@ export default function EscolasPage() {
   const [lista, setLista] = useState<Escola[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
   // filtros e paginação
   const [filterText, setFilterText] = useState('')
   const [pageSize, setPageSize] = useState(5)
@@ -226,7 +225,7 @@ export default function EscolasPage() {
                       <Pencil size={16} />
                       <span>Editar</span>
                     </button>
-                    <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => setDeleteId(e.id)}>
+                    <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))}>
                       <Trash2 size={16} />
                       <span>Excluir</span>
                     </button>
@@ -273,7 +272,7 @@ export default function EscolasPage() {
               </button>
               <button 
                 className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1" 
-                onClick={() => setDeleteId(e.id)}
+                onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))}
               >
                 <Trash2 size={14} />
                 <span>Excluir</span>
@@ -437,21 +436,7 @@ export default function EscolasPage() {
         </section>
       )}
 
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold">Confirmar exclusão</h3>
-            <p className="mb-4 text-sm text-gray-700">Esta ação é permanente. Tem certeza que deseja excluir a escola?</p>
-            <div className="flex justify-end gap-2">
-              <button className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700" onClick={() => setDeleteId(null)}>Cancelar</button>
-              <button className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 flex items-center gap-2" onClick={() => deleteId && excluirEscola(deleteId)}>
-                <Trash2 size={16} />
-                <span>Excluir</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   )
   
@@ -556,8 +541,6 @@ export default function EscolasPage() {
       await carregar()
     } catch (e: unknown) {
           showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir escola')
-    } finally {
-      setDeleteId(null)
     }
   }
   function cancelCreate() {

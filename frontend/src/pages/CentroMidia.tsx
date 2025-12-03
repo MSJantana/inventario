@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Pagination from '../components/Pagination'
 import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
 
 type Item = {
   id: string
@@ -37,6 +37,7 @@ export default function CentroMidiaPage() {
   const [serial, setSerial] = useState('')
   const [escolaId, setEscolaId] = useState<string>('')
   const [escolas, setEscolas] = useState<Escola[]>([])
+  const [statusSel, setStatusSel] = useState<typeof STATUS[number]>('DISPONIVEL')
   const nomeInputRef = useRef<HTMLInputElement | null>(null)
   const buscarInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -87,22 +88,22 @@ export default function CentroMidiaPage() {
       return
     }
     try {
-      const payload: Record<string, unknown> = { nome, tipo, modelo, serial, escolaId: escolaId || undefined }
+      const payload: Record<string, unknown> = { nome, tipo, modelo, serial, escolaId: escolaId || undefined, status: statusSel }
       await api.post('/api/centro-midia', payload)
       showSuccessToast('Item criado')
       await carregar()
-      setNome(''); setTipo('OUTRO'); setModelo(''); setSerial(''); setEscolaId('')
+      setNome(''); setTipo('OUTRO'); setModelo(''); setSerial(''); setEscolaId(''); setStatusSel('DISPONIVEL')
     } catch (e: unknown) {
-      const status = (e as { response?: { status?: number } })?.response?.status
-      if (status === 404) {
+      const httpStatus = (e as { response?: { status?: number } })?.response?.status
+      if (httpStatus === 404) {
         const newItem: Item = {
-          id: String(Date.now()), nome, tipo, modelo, serial, escolaId: escolaId || undefined as unknown as string,
+          id: String(Date.now()), nome, tipo, modelo, serial, escolaId: escolaId || undefined as unknown as string, status: statusSel,
         }
         const next = [newItem, ...lista]
         setLista(next)
         writeLocal(next)
         showSuccessToast('Item criado (armazenado localmente)')
-        setNome(''); setTipo('OUTRO'); setModelo(''); setSerial(''); setEscolaId('')
+        setNome(''); setTipo('OUTRO'); setModelo(''); setSerial(''); setEscolaId(''); setStatusSel('DISPONIVEL')
         await carregar()
       } else {
         showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar item')
@@ -255,7 +256,7 @@ export default function CentroMidiaPage() {
                         <Pencil size={16} />
                         <span>Editar</span>
                       </button>
-                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => excluirItem(i.id)}>
+                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este item?', () => excluirItem(i.id))}>
                         <Trash2 size={16} />
                         <span>Excluir</span>
                       </button>
@@ -308,6 +309,12 @@ export default function CentroMidiaPage() {
           <div>
             <label htmlFor="serial" className="mb-1 block text-sm font-medium">Serial</label>
             <input className="w-full rounded border px-3 py-2" value={serial} onChange={(e) => setSerial(e.target.value.toUpperCase())} />
+          </div>
+          <div>
+            <label htmlFor="status" className="mb-1 block text-sm font-medium">Status</label>
+            <select className="w-full rounded border px-3 py-2" value={statusSel} onChange={(e) => setStatusSel(e.target.value as typeof STATUS[number])}>
+              {STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
           <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
             <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
