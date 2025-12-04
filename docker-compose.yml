@@ -23,7 +23,7 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: inventario-backend
+    container_name: backend
     depends_on:
       db:
         condition: service_healthy
@@ -47,7 +47,7 @@ services:
       args:
         # O frontend acessa o backend via reverse proxy interno
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-    container_name: inventario-frontend
+    container_name: frontend
     depends_on:
       - backend
     ports:

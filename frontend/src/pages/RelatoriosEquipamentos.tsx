@@ -190,12 +190,12 @@ export default function RelatoriosEquipamentosPage() {
       const rows = (isCm ? filtradosCm : filtrados).map((item) => (
         isCm
           ? [
-              (item as CmItem).nome || '-',
-              (item as CmItem).tipo || '-',
-              (((item as CmItem).status) || '-').replace('_',' '),
-              (item as CmItem).escola?.nome || '-',
-              (item as CmItem).modelo || '-',
-              (item as CmItem).serial || '-',
+              item.nome || '-',
+              item.tipo || '-',
+              ((item.status || '-')).replace('_',' '),
+              item.escola?.nome || '-',
+              item.modelo || '-',
+              item.serial || '-',
             ]
           : [
               (item as Equipamento).nome,
@@ -233,7 +233,7 @@ export default function RelatoriosEquipamentosPage() {
           const addr = XLSX.utils.encode_cell({ r, c })
           const cell = ws[addr]
           if (!cell) continue
-          const isCenter = isCm ? (c === 1 || c === 2) : (c === 1 || c === 2)
+          const isCenter = c === 1 || c === 2
           cell.s = {
             alignment: { horizontal: isCenter ? 'center' : 'left', vertical: 'center' },
             border: {
@@ -313,10 +313,6 @@ export default function RelatoriosEquipamentosPage() {
       showErrorToast(`Erro ao gerar PDF: ${msg}`)
     }
   }
-
-  
-
-
 
   return (
     <div className="rounded-lg border bg-white p-4 pb-24 lg:pb-4 shadow-sm">
@@ -487,16 +483,16 @@ export default function RelatoriosEquipamentosPage() {
               {filtradosFinal.map((it) => (
                 <div key={it.id} className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-medium text-gray-900">{(it as Equipamento).nome || (it as CmItem).nome || '-'}</h3>
+                    <h3 className="font-medium text-gray-900">{it.nome || '-'}</h3>
                     <span className="text-sm px-2 py-1 rounded bg-gray-200 text-gray-700">
-                      {(((it as Equipamento).status || (it as CmItem).status) || '-').replace('_', ' ')}
+                      {((it.status || '-')).replace('_', ' ')}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    <div><strong>Tipo:</strong> {(it as Equipamento).tipo || (it as CmItem).tipo || '-'}</div>
-                    <div><strong>Escola:</strong> {((it as Equipamento).escola?.nome || (it as CmItem).escola?.nome) || '-'}</div>
-                    <div><strong>Modelo:</strong> {(it as Equipamento).modelo || (it as CmItem).modelo || '-'}</div>
-                    <div><strong>Serial:</strong> {(it as Equipamento).serial || (it as CmItem).serial || '-'}</div>
+                    <div><strong>Tipo:</strong> {it.tipo || '-'}</div>
+                    <div><strong>Escola:</strong> {it.escola?.nome || '-'}</div>
+                    <div><strong>Modelo:</strong> {it.modelo || '-'}</div>
+                    <div><strong>Serial:</strong> {it.serial || '-'}</div>
                     {filterDepartamento !== 'CENTRO_MIDIA' && (
                       <div><strong>Localização:</strong> {(it as Equipamento).localizacao || '-'}</div>
                     )}
@@ -541,12 +537,12 @@ export default function RelatoriosEquipamentosPage() {
                   <tr key={it.id}>
                     {filterDepartamento === 'CENTRO_MIDIA' ? (
                       <>
-                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as CmItem).nome || '-'}</td>
-                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as CmItem).tipo || '-'}</td>
-                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(((it as CmItem).status) || '-').replace('_', ' ')}</td>
-                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as CmItem).escola?.nome || '-'}</td>
-                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as CmItem).modelo || '-'}</td>
-                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as CmItem).serial || '-'}</td>
+                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{it.nome || '-'}</td>
+                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{it.tipo || '-'}</td>
+                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{((it.status || '-')).replace('_', ' ')}</td>
+                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it.escola?.nome || '-')}</td>
+                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it.modelo || '-')}</td>
+                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it.serial || '-')}</td>
                       </>
                     ) : (
                       <>

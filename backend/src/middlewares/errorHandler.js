@@ -95,6 +95,9 @@ const errorHandler = (err, req, res, next) => {
     code: err.code,
     target: err?.meta?.target,
   };
+  if (err.code === 'EBADCSRFTOKEN' && err.details) {
+    logPayload.csrf = err.details;
+  }
   if (req?.log) {
     if (SHOW_STACK) {
       req.log.error({ ...logPayload, err }, 'HTTP error');

@@ -15,7 +15,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.3';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.4';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -48,7 +48,7 @@ function RequireAuth() {
   return authToken ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
-function RoleGuard({ allowed, children }: { allowed: Role[]; children: React.ReactElement }) {
+function RoleGuard({ allowed, children }: Readonly<{ allowed: Role[]; children: React.ReactElement }>) {
   const role = getUserRole();
   return allowed.includes(role) ? children : <Navigate to="/equipamentos" replace />;
 }
@@ -92,13 +92,13 @@ function UserDropdown({
   onLogout,
   hasWhatsNew,
   onOpenWhatsNew,
-}: {
+}: Readonly<{
   userName: string;
   userEmail: string;
   onLogout: () => void;
   hasWhatsNew: boolean;
   onOpenWhatsNew: () => void;
-}) {
+}>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const role = getUserRole();
@@ -187,7 +187,7 @@ function Header({
   onLogout,
   hasWhatsNew,
   onOpenWhatsNew,
-}: {
+}: Readonly<{
   onOpenMobile: () => void;
   showUser: boolean;
   userName: string;
@@ -195,7 +195,7 @@ function Header({
   onLogout: () => void;
   hasWhatsNew: boolean;
   onOpenWhatsNew: () => void;
-}) {
+}>) {
   return (
     <header className="bg-black text-white px-6 py-4">
       <div className="flex items-center justify-between">
@@ -221,12 +221,12 @@ function MobileSidebar({
   onClose,
   authToken,
   onLogout,
-}: {
+}: Readonly<{
   open: boolean;
   onClose: () => void;
   authToken: string | null | undefined;
   onLogout: () => void;
-}) {
+}>) {
   const role = getUserRole();
   const items = navItems.filter(({ to }) => canAccessPath(role, to));
   const deptChildren = deptItems.filter(({ to }) => canAccessPath(role, to));
@@ -368,22 +368,10 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    // 'Novo menu e tela Centro de Midia.',
-    // 'Cadastro do Centro de Midia com filtros, paginação e CRUD.',
-    // 'Fallback para armazenamento local quando a API retornar 404 no Centro de Midia.',
-    // 'Melhoria: foco automático no campo Nome ao criar usuário.',
-    // 'Proteções de rotas e visibilidade por perfil atualizadas.',
-    // 'Adicionado um novo menu “Departamentos” com dropdown contendo “Equipamentos” e “Centro de Midia”.',
-    // 'Adicionado filtro por departamento nos relatórios.',
-    // 'Adicionado filtro por escola nos relatórios.',
-    // 'Correção Bug na Atualização de equipamento.',
-    // 'Correção no formato da Data no relatório de Movimentações.',
-    'Menu Centro Midia Liberador para todos os usuários.',
-    'Mostrar um toast de confirmação antes de excluir qualquer item e só executar a operação após confirmação.',
-    'Adicionado um novo menu “Departamentos” com dropdown contendo “Equipamentos” e “Centro de Midia”.',
-    'Ao registrar uma movimentação de equipamentos poderá ser associada a um departamento no checkbox.',
-    'Relatórios poderá ser exportado em formato XLSX.',
-    'Paginação nos relatórios.',
+    'Movimentações de equipamentos poderá ser exportado em formato XLSX.',
+    'Token ausente: retorna 403 com reason: missing .',
+    'Melhoria Interna no código "Sonarquebe"',
+    'Token correto: requisições de escrita são aceitas quando cabeçalho X-CSRF-Token é válido.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -442,8 +430,8 @@ export default function App() {
                 <Route path="/movimentacoes" element={<MovimentacoesPage />} />
                 <Route path="/escolas" element={<EscolasPage />} />
                 <Route path="/relatorios" element={<RelatoriosEquipamentosPage />} />
-                <Route path="/usuarios" element={<RoleGuard allowed={['ADMIN','GESTOR']} children={<UsuariosPage />} />} />
-                <Route path="/config" element={<RoleGuard allowed={['ADMIN','GESTOR']} children={<ConfigPage />} />} />
+                <Route path="/usuarios" element={<RoleGuard allowed={['ADMIN','GESTOR']}><UsuariosPage /></RoleGuard>} />
+                <Route path="/config" element={<RoleGuard allowed={['ADMIN','GESTOR']}><ConfigPage /></RoleGuard>} />
                 <Route path="/centro-midia" element={<CentroMidiaPage />}/>
               </Route>
 

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Pagination from '../components/Pagination'
 import { Plus, Pencil, Trash2, Save, RotateCcw, X } from 'lucide-react'
+import * as XLSX from 'xlsx-js-style'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
 
@@ -40,7 +41,7 @@ export default function MovimentacoesPage() {
 
   // Filtros e paginação
   const [filterText, setFilterText] = useState('')
-  const [filterTipo, setFilterTipo] = useState<'ALL' | string>('ALL')
+  const [filterTipo, setFilterTipo] = useState<'ALL' | typeof TIPOS[number]>('ALL')
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -61,7 +62,6 @@ export default function MovimentacoesPage() {
     try {
       const resp = await api.get('/api/movimentacoes')
       setLista(resp.data || [])
-      setCurrentPage(1)
     } catch (e: unknown) {
       setError((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || (e as { message?: string })?.message || 'Erro ao carregar movimentações')
     } finally {
@@ -69,7 +69,7 @@ export default function MovimentacoesPage() {
     }
   }
 
-  async function carregarItens() {
+  const carregarItens = useCallback(async () => {
     try {
       if (departamentoSel === 'CENTRO_MIDIA') {
         const resp = await api.get('/api/centro-midia')
@@ -81,9 +81,9 @@ export default function MovimentacoesPage() {
         setEquipamentos(data)
       }
     } catch {
-      // silencioso
+      void 0
     }
-  }
+  }, [departamentoSel])
 
   async function criar(ev: React.FormEvent) {
     ev.preventDefault()
@@ -183,6 +183,74 @@ export default function MovimentacoesPage() {
     }
   }
 
+  async function handleXLSX() {
+    try {
+      const headers = ['Equipamento','Tipo','Origem','Destino','Data','Descrição']
+      const rows = filtrada.map((m) => [
+        m.equipamento?.nome || m.equipamentoId,
+        m.tipo || '-',
+        m.origem || '-',
+        m.destino || '-',
+        m.data ? new Date(m.data).toLocaleString() : '-',
+        m.descricao || '-',
+      ])
+      const wb = XLSX.utils.book_new()
+      const aoa = [headers, ...rows]
+      const ws = XLSX.utils.aoa_to_sheet(aoa)
+      ws['!cols'] = [28,12,18,18,20,36].map(w => ({ wch: w }))
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c })
+        const cell = ws[addr] || { t: 's', v: headers[c] }
+        cell.s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          fill: { patternType: 'solid', fgColor: { rgb: '1F2937' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'D1D5DB' } },
+            bottom: { style: 'thin', color: { rgb: 'D1D5DB' } },
+            left: { style: 'thin', color: { rgb: 'D1D5DB' } },
+            right: { style: 'thin', color: { rgb: 'D1D5DB' } }
+          }
+        }
+        ws[addr] = cell
+      }
+      for (let r = range.s.r + 1; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r, c })
+          const cell = ws[addr]
+          if (!cell) continue
+          const isCenter = c === 1 || c === 4
+          cell.s = {
+            alignment: { horizontal: isCenter ? 'center' : 'left', vertical: 'center' },
+            border: {
+              top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+              bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+              left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+              right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+            }
+          }
+          ws[addr] = cell
+        }
+      }
+      const finalRow = range.e.r + 2
+      const totalAddr = XLSX.utils.encode_cell({ r: finalRow, c: 0 })
+      ws[totalAddr] = {
+        t: 's',
+        v: `Total: ${filtrada.length}`,
+        s: { font: { bold: true }, alignment: { horizontal: 'left', vertical: 'center' } }
+      }
+      ws['!merges'] = (ws['!merges'] || []).concat([{ s: { r: finalRow, c: 0 }, e: { r: finalRow, c: headers.length - 1 } }])
+      XLSX.utils.book_append_sheet(wb, ws, 'Movimentacoes')
+      const filename = `movimentacoes_${new Date().toISOString().split('T')[0]}.xlsx`
+      XLSX.writeFile(wb, filename)
+      showSuccessToast('XLSX gerado com sucesso!')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      showErrorToast(`Erro ao gerar XLSX: ${msg}`)
+    }
+  }
+
   // Dados filtrados e paginados
   const filtrada = lista.filter((m) => {
     const texto = `${m.equipamento?.nome || ''} ${m.descricao || ''} ${m.origem || ''} ${m.destino || ''} ${m.equipamentoId}`.toLowerCase()
@@ -195,8 +263,8 @@ export default function MovimentacoesPage() {
   const startIdx = (current - 1) * pageSize
   const pagina = filtrada.slice(startIdx, startIdx + pageSize)
 
-  useEffect(() => { carregar(); carregarItens() }, [])
-  useEffect(() => { carregarItens() }, [departamentoSel])
+  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregarItens() }, [carregarItens])
 
   useEffect(() => {
     function handleFocusBuscar() {
@@ -213,6 +281,10 @@ export default function MovimentacoesPage() {
           <h2 className="text-lg font-medium">Movimentações</h2>
           <div className="flex items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
+            <button className="rounded bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 flex items-center gap-1" onClick={handleXLSX}>
+              <span>📊</span>
+              <span className="hidden sm:inline">Exportar Excel</span>
+            </button>
             {!showCreate ? (
               <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} />
@@ -229,7 +301,7 @@ export default function MovimentacoesPage() {
           </div>
           <div>
             <label htmlFor="filterTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-            <select className="w-full rounded border px-3 py-2" value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value); setCurrentPage(1) }}>
+            <select className="w-full rounded border px-3 py-2" value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value as typeof TIPOS[number] | 'ALL'); setCurrentPage(1) }}>
               {['ALL', ...TIPOS].map(t => <option key={t} value={t}>{t === 'ALL' ? 'Todos' : t}</option>)}
             </select>
           </div>
