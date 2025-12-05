@@ -64,7 +64,7 @@ model Equipamento {
   tipo          TipoEquipamento
   modelo        String
   serial        String            @unique
-  status        StatusEquipamento @default(DISPONIVEL)
+  status        StatusEquipamento @default(EM_USO)
   localizacao   String?
   fabricante    String?
   dataAquisicao DateTime  
