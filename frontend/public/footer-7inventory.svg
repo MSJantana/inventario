@@ -1,0 +1,17 @@
+<svg width="320" height="80" viewBox="0 0 320 80" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+  <rect width="320" height="80" fill="transparent"/>
+  <g transform="translate(12,14)">
+    <rect x="0" y="0" width="52" height="52" rx="16" fill="#0F172A"/>
+    <rect x="14" y="16" width="24" height="3" rx="1.5" fill="#38BDF8" opacity="0.95"/>
+    <rect x="14" y="24" width="20" height="3" rx="1.5" fill="#22C55E" opacity="0.9"/>
+    <rect x="14" y="32" width="14" height="3" rx="1.5" fill="#A5B4FC" opacity="0.85"/>
+    <path d="M18 14H40L30 36" fill="none" stroke="#F9FAFB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M4 6C7 3 11 1.5 16 1.5" stroke="#38BDF8" stroke-width="1.6" stroke-linecap="round" opacity="0.75"/>
+  </g>
+  <g transform="translate(84,22)">
+    <text x="0" y="22" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26" font-weight="800" fill="#0EA5E9">7</text>
+    <text x="26" y="22" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="600" fill="#111827">Inventory</text>
+    <rect x="0" y="30" width="130" height="3" rx="1.5" fill="#E5E7EB"/>
+    <text x="0" y="46" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="10" letter-spacing="0.12em" fill="#9CA3AF">CONTROLE INTELIGENTE DE ESTOQUE</text>
+  </g>
+</svg>

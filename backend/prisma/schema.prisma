@@ -72,6 +72,7 @@ model Equipamento {
   memoria       String?
   macaddress    String?
   observacoes   String?
+  usuarioNome   String?
   escolaId      String?
   escola        Escola?           @relation(fields: [escolaId], references: [id])
   movimentacoes Movimentacao[]

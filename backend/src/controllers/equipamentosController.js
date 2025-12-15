@@ -20,7 +20,11 @@ export const listarEquipamentos = async (req, res, next) => {
       include: {
         escola: true,
         movimentacoes: true
-      }
+      },
+      orderBy: [
+        { escola: { nome: 'asc' } },
+        { nome: 'asc' }
+      ]
     });
     res.json(equipamentos);
   } catch (error) {
@@ -58,7 +62,7 @@ export const obterEquipamento = async (req, res, next) => {
 // Criar um novo equipamento
 export const criarEquipamento = async (req, res, next) => {
   try {
-    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes } = req.body;
+    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes, usuarioNome } = req.body;
 
     // GESTOR/TECNICO criam sempre na própria escola
     const escolaId = (req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO')
@@ -79,6 +83,7 @@ export const criarEquipamento = async (req, res, next) => {
         dataAquisicao: new Date(dataAquisicao),
         status,
         observacoes,
+        usuarioNome: usuarioNome || undefined,
         escolaId
       }
     });
@@ -93,7 +98,7 @@ export const criarEquipamento = async (req, res, next) => {
 export const atualizarEquipamento = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes } = req.body;
+    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes, usuarioNome } = req.body;
 
     // Verificar se o equipamento existe
     const equipamentoExistente = await prisma.equipamento.findUnique({
@@ -132,6 +137,7 @@ export const atualizarEquipamento = async (req, res, next) => {
         macaddress,
         dataAquisicao: dataAquisicao ? new Date(dataAquisicao) : undefined,
         status,
+        usuarioNome: usuarioNome ?? equipamentoExistente.usuarioNome,
         escolaId: req.usuario?.escolaId,
       };
     } else {
@@ -149,6 +155,7 @@ export const atualizarEquipamento = async (req, res, next) => {
         macaddress,
         dataAquisicao: dataAquisicao ? new Date(dataAquisicao) : undefined,
         status,
+        usuarioNome: usuarioNome ?? equipamentoExistente.usuarioNome,
         // escolaId só é alterado pelo ADMIN se vier no body
         escolaId: req.body.escolaId ?? equipamentoExistente.escolaId,
       };
@@ -213,12 +220,16 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
     const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
     const equipamentos = await prisma.equipamento.findMany({
       where,
-      include: { escola: true }
+      include: { escola: true },
+      orderBy: [
+        { escola: { nome: 'asc' } },
+        { nome: 'asc' }
+      ]
     });
 
     // Cabeçalho CSV
     const headers = [
-      'id','nome','tipo','modelo','serial','macaddress','status','localizacao','fabricante','processador','memoria','dataAquisicao','observacoes','escolaId','escolaNome'
+      'id','nome','tipo','modelo','serial','macaddress','status','localizacao','fabricante','processador','memoria','dataAquisicao','observacoes','usuarioNome','escolaId','escolaNome'
     ];
 
     const escapeCsv = (value) => {
@@ -245,6 +256,7 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
       e.memoria ?? '',
       formatDateYYYYMMDD(e.dataAquisicao),
       e.observacoes ?? '',
+      e.usuarioNome ?? '',
       e.escolaId ?? '',
       e.escola?.nome ?? ''
     ].map(escapeCsv).join(','));

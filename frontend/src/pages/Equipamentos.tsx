@@ -26,6 +26,7 @@ type Equipamento = {
   id: string
   nome?: string
   nomeEquipamento?: string
+  usuarioNome?: string
   tipo?: string
   modelo?: string
   serial?: string
@@ -57,6 +58,7 @@ export default function EquipamentosPage() {
   const buscarInputRef = useRef<HTMLInputElement | null>(null)
 
   const [nome, setNome] = useState('')
+  const [usuarioNome, setUsuarioNome] = useState('')
   const [tipo, setTipo] = useState('OUTRO')
   const [modelo, setModelo] = useState('')
   const [serial, setSerial] = useState('')
@@ -76,6 +78,7 @@ export default function EquipamentosPage() {
   // Edição
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editNome, setEditNome] = useState('')
+  const [editUsuarioNome, setEditUsuarioNome] = useState('')
   const [editTipo, setEditTipo] = useState('OUTRO')
   const [editModelo, setEditModelo] = useState('')
   const [editSerial, setEditSerial] = useState('')
@@ -116,8 +119,8 @@ export default function EquipamentosPage() {
 
   async function criarEquipamento(ev: React.FormEvent) {
     ev.preventDefault()
-    if (!nome.trim() || !modelo.trim() || !serial.trim() || !dataAquisicao) {
-      showWarningToast('Preencha Nome, Modelo, Serial e Data de Aquisição')
+    if (!nome.trim() || !modelo.trim() || !serial.trim() || !dataAquisicao || !usuarioNome.trim()) {
+      showWarningToast('Preencha Nome, Modelo, Serial, Data de Aquisição e Nome do Usuário')
       return
     }
     if (!isValidDateStr(dataAquisicao)) {
@@ -128,6 +131,7 @@ export default function EquipamentosPage() {
       const macFmt = formatMac(macAddress)
       const payload: Record<string, unknown> = {
         nome,
+        usuarioNome: usuarioNome || undefined,
         tipo,
         modelo,
         serial,
@@ -144,6 +148,7 @@ export default function EquipamentosPage() {
       await api.post('/api/equipamentos', payload)
       showSuccessToast('Equipamento criado')
       setNome('')
+      setUsuarioNome('')
       setTipo('OUTRO')
       setModelo('')
       setSerial('')
@@ -165,6 +170,7 @@ export default function EquipamentosPage() {
   function startEdit(e: Equipamento) {
     setEditingId(e.id)
     setEditNome(e.nome || e.nomeEquipamento || '')
+    setEditUsuarioNome(e.usuarioNome || '')
     setEditTipo(e.tipo || 'OUTRO')
     setEditModelo(e.modelo || '')
     setEditSerial(e.serial || '')
@@ -210,6 +216,7 @@ export default function EquipamentosPage() {
       const macFmt = formatMac(editMacAddress)
       const payload: Record<string, unknown> = {
         nome: editNome,
+        usuarioNome: editUsuarioNome || undefined,
         tipo: editTipo,
         modelo: editModelo || undefined,
         serial: editSerial || undefined,
@@ -248,6 +255,7 @@ export default function EquipamentosPage() {
     const texto = filterText.toLowerCase()
     const matchesText = filterText ? (
       nome.includes(texto) ||
+      (e.usuarioNome || '').toLowerCase().includes(texto) ||
       (e.escola?.nome || '').toLowerCase().includes(texto) ||
       (e.escola?.sigla || '').toLowerCase().includes(texto)
     ) : true
@@ -316,8 +324,8 @@ export default function EquipamentosPage() {
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
           <div>
-            <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome ou sigla</label>
-            <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} placeholder="Digite nome do equipamento, escola ou sigla" />
+            <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome, usuário ou sigla</label>
+            <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} placeholder="Digite nome do equipamento, usuário, escola ou sigla" />
           </div>
           <div>
             <label htmlFor="filterStatus" className="mb-1 block text-sm font-medium">Status</label>
@@ -338,6 +346,7 @@ export default function EquipamentosPage() {
             <thead className="bg-gray-100">
               <tr>
                 <th className="border px-3 py-2 text-left">Nome</th>
+                <th className="border px-3 py-2 text-left">Nome do Usuário</th>
                 <th className="border px-3 py-2 text-left">Status</th>
                 <th className="border px-3 py-2 text-left">Escola</th>
                 <th className="border px-3 py-2 text-left">Ações</th>
@@ -347,6 +356,7 @@ export default function EquipamentosPage() {
               {pagina.map((e) => (
                 <tr key={e.id}>
                   <td className="border px-3 py-2">{e.nome || e.nomeEquipamento || '-'}</td>
+                  <td className="border px-3 py-2">{e.usuarioNome || '-'}</td>
                   <td className="border px-3 py-2">{e.status || '-'}</td>
                   <td className="border px-3 py-2">{e.escola?.nome || '-'}</td>
                   <td className="border px-3 py-2">
@@ -380,6 +390,7 @@ export default function EquipamentosPage() {
                 <div className="flex-1">
                   <h3 className="text-sm font-medium text-gray-900">{e.nome || e.nomeEquipamento || '-'}</h3>
                   <p className="text-xs text-gray-500">{e.status || '-'}</p>
+                  <p className="text-xs text-gray-500">Usuário: {e.usuarioNome || '-'}</p>
                 </div>
                 <span className="text-xs text-gray-500">{e.escola?.nome || '-'}</span>
               </div>
@@ -412,6 +423,10 @@ export default function EquipamentosPage() {
           <div>
             <label htmlFor="nome" className="mb-1 block text-sm font-medium">Nome</label>
             <input ref={nomeInputRef} className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="usuarioNome" className="mb-1 block text-sm font-medium">Nome do Usuário</label>
+            <input className="w-full rounded border px-3 py-2" value={usuarioNome} onChange={(e) => setUsuarioNome(e.target.value)} />
           </div>
           <div>
             <label htmlFor="escolaId" className="mb-1 block text-sm font-medium">Escola</label>
@@ -475,7 +490,7 @@ export default function EquipamentosPage() {
               }}
             />
           </div>
-          <div className="md:col-span-2 lg:col-span-3">
+          <div className="md:col-span-1 lg:col-span-2">
             <label htmlFor="observacoes" className="mb-1 block text-sm font-medium">Observações</label>
             <input className="w-full rounded border px-3 py-2" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
           </div>
@@ -505,6 +520,10 @@ export default function EquipamentosPage() {
               <input ref={editNomeInputRef} className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
             </div>
             <div>
+              <label htmlFor="editUsuarioNome" className="mb-1 block text-sm font-medium">Nome do Usuário</label>
+              <input className="w-full rounded border px-3 py-2" value={editUsuarioNome} onChange={(e) => setEditUsuarioNome(e.target.value)} />
+            </div>
+            <div>
               <label htmlFor="editEscolaId" className="mb-1 block text-sm font-medium">Escola</label>
               <select className="w-full rounded border px-3 py-2" value={editEscolaId} onChange={(e) => setEditEscolaId(e.target.value)}>
                 <option value="">Selecione...</option>
@@ -520,28 +539,18 @@ export default function EquipamentosPage() {
               </select>
             </div>
             <div>
-              <label htmlFor="editModelo" className="mb-1 block text-sm font-medium">Modelo</label>
-              <input className="w-full rounded border px-3 py-2" value={editModelo} onChange={(e) => setEditModelo(e.target.value.toUpperCase())} />
-            </div>
-            <div>
-              <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Serial</label>
-              <input className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
-            </div>
-            <div>
               <label htmlFor="editStatus" className="mb-1 block text-sm font-medium">Status</label>
               <select className="w-full rounded border px-3 py-2" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
                 {['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="editMacAddress" className="mb-1 block text-sm font-medium">MAC Address</label>
-              <input
-                className="w-full rounded border px-3 py-2"
-                placeholder="AA:BB:CC:DD:EE:FF"
-                value={editMacAddress}
-                onChange={(e) => setEditMacAddress(e.target.value.toUpperCase())}
-                onBlur={() => setEditMacAddress(formatMac(editMacAddress))}
-              />
+              <label htmlFor="editModelo" className="mb-1 block text-sm font-medium">Modelo</label>
+              <input className="w-full rounded border px-3 py-2" value={editModelo} onChange={(e) => setEditModelo(e.target.value.toUpperCase())} />
+            </div>
+            <div>
+              <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Serial</label>
+              <input className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
             </div>
             <div>
               <label htmlFor="editDataAquisicao" className="mb-1 block text-sm font-medium">Data de Aquisição</label>
@@ -563,7 +572,17 @@ export default function EquipamentosPage() {
               <label htmlFor="editMemoria" className="mb-1 block text-sm font-medium">Memória</label>
               <input className="w-full rounded border px-3 py-2" value={editMemoria} onChange={(e) => setEditMemoria(e.target.value.toUpperCase())} />
             </div>
-            <div className="md:col-span-2 lg:col-span-3">
+            <div>
+              <label htmlFor="editMacAddress" className="mb-1 block text-sm font-medium">MAC Address</label>
+              <input
+                className="w-full rounded border px-3 py-2"
+                placeholder="AA:BB:CC:DD:EE:FF"
+                value={editMacAddress}
+                onChange={(e) => setEditMacAddress(e.target.value.toUpperCase())}
+                onBlur={() => setEditMacAddress(formatMac(editMacAddress))}
+              />
+            </div>
+            <div className="md:col-span-1 lg:col-span-2">
               <label htmlFor="editObservacoes" className="mb-1 block text-sm font-medium">Observações</label>
               <input className="w-full rounded border px-3 py-2" value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
             </div>

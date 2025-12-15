@@ -15,7 +15,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.4';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.5';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -187,6 +187,7 @@ function Header({
   onLogout,
   hasWhatsNew,
   onOpenWhatsNew,
+  version,
 }: Readonly<{
   onOpenMobile: () => void;
   showUser: boolean;
@@ -195,12 +196,14 @@ function Header({
   onLogout: () => void;
   hasWhatsNew: boolean;
   onOpenWhatsNew: () => void;
+  version: string;
 }>) {
   return (
     <header className="bg-black text-white px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-6">
           <h1 className="text-xl font-semibold font-advent">7Inventory</h1>
+          <span className="ml-2 inline-flex items-center rounded bg-white/10 px-2 py-0.5 text-xs text-gray-300">v{version}</span>
           <nav className="hidden md:flex items-center gap-4">
             <NavLinks />
           </nav>
@@ -368,10 +371,10 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Movimentações de equipamentos poderá ser exportado em formato XLSX.',
-    'Token ausente: retorna 403 com reason: missing .',
-    'Melhoria Interna no código "Sonarquebe"',
-    'Token correto: requisições de escrita são aceitas quando cabeçalho X-CSRF-Token é válido.',
+    'Corrigido Relatório Ordenado por Nome da Escola.',
+    'Adicionado um novo Rodapé.',
+    'Favicon do site.',
+    'Cadastro de equipamentos agora tem nome do usuário do PC.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -389,6 +392,7 @@ export default function App() {
     setShowWhatsNew(false);
     localStorage.setItem('lastSeenVersion', APP_VERSION);
   };
+  const canScroll = location.pathname === '/relatorios';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -405,11 +409,12 @@ export default function App() {
             onLogout={onLogout}
             hasWhatsNew={hasWhatsNew}
             onOpenWhatsNew={openWhatsNew}
+            version={APP_VERSION}
           />
           <WhatsNewModal open={showWhatsNew} onClose={closeWhatsNew} version={APP_VERSION} items={whatsNewItems} />
           <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} authToken={authToken} onLogout={onLogout} />
 
-          <main className="flex-1 p-6">
+          <main className={`flex-1 p-6 ${canScroll ? 'overflow-auto' : 'overflow-hidden'}`}>
             <div className="mb-4 flex items-baseline justify-between">
               <div>
                 <h2 className="text-xl font-semibold">{userName ? `Bem-vindo, ${userName}` : 'Bem-vindo'}</h2>
@@ -444,6 +449,9 @@ export default function App() {
               <Route path="*" element={<Navigate to={authToken ? '/equipamentos' : '/login'} replace />} />
             </Routes>
           </main>
+          <footer className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-sm py-1 flex items-center justify-center">
+            <img src="/footer-7inventory.svg" alt="7Inventory" className="h-14" />
+          </footer>
         </>
       )}
     </div>

@@ -9,7 +9,11 @@ export const equipamentosPdf = async (req, res, next) => {
 
     const equipamentos = await prisma.equipamento.findMany({
       where,
-      include: { escola: true }
+      include: { escola: true },
+      orderBy: [
+        { escola: { nome: 'asc' } },
+        { nome: 'asc' }
+      ]
     });
 
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -70,13 +74,14 @@ export const equipamentosPdf = async (req, res, next) => {
     };
 
     const columns = [
-      { key: 'nome', label: 'Nome', width: 140 },
-      { key: 'tipo', label: 'Tipo', width: 70 },
-      { key: 'modelo', label: 'Modelo', width: 90 },
-      { key: 'serial', label: 'Serial', width: 110 },
-      { key: 'status', label: 'Status', width: 70 },
-      { key: 'escola', label: 'Escola', width: 140 },
-      { key: 'dataAquisicao', label: 'Data de Aquisição', width: 140 },
+      { key: 'nome', label: 'Nome', width: 80 },
+      { key: 'tipo', label: 'Tipo', width: 50 },
+      { key: 'modelo', label: 'Modelo', width: 70 },
+      { key: 'serial', label: 'Serial', width: 90 },
+      { key: 'status', label: 'Status', width: 50 },
+      { key: 'escola', label: 'Escola', width: 90 },
+      { key: 'usuario', label: 'Usuário', width: 45 },
+      { key: 'dataAquisicao', label: 'Data de Aquisição', width: 40 },
     ];
     const colPaddingX = 6;
     const rowPaddingY = 6;
@@ -119,6 +124,7 @@ export const equipamentosPdf = async (req, res, next) => {
         serial: e.serial || '-',
         status: e.status || '-',
         escola: e.escola?.nome || '-',
+        usuario: e.usuarioNome || '-',
         dataAquisicao: e.dataAquisicao || '-',
       };
 

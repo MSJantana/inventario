@@ -9,6 +9,7 @@ import LogoAsrs from '../assets/Logo_ASRS.svg';
 type Equipamento = {
   id: string
   nome: string
+  usuarioNome?: string
   tipo: string
   modelo: string
   serial: string
@@ -186,7 +187,7 @@ export default function RelatoriosEquipamentosPage() {
       const isCm = filterDepartamento === 'CENTRO_MIDIA'
       const headers = isCm
         ? ['Nome','Tipo','Status','Escola','Modelo','Serial']
-        : ['Nome','Tipo','Status','Escola','Modelo','Serial','Localização']
+        : ['Nome','Tipo','Status','Escola','Usuário','Modelo','Serial','Localização']
       const rows = (isCm ? filtradosCm : filtrados).map((item) => (
         isCm
           ? [
@@ -202,6 +203,7 @@ export default function RelatoriosEquipamentosPage() {
               (item as Equipamento).tipo,
               (item as Equipamento).status.replace('_',' '),
               (item as Equipamento).escola?.nome || '-',
+              (item as Equipamento).usuarioNome || '-',
               (item as Equipamento).modelo,
               (item as Equipamento).serial,
               (item as Equipamento).localizacao || '-',
@@ -209,7 +211,7 @@ export default function RelatoriosEquipamentosPage() {
       ))
       const aoa = [headers, ...rows]
       const ws = XLSX.utils.aoa_to_sheet(aoa)
-      const colWidths = isCm ? [28,12,12,22,20,22] : [28,12,12,22,20,22,22]
+      const colWidths = isCm ? [28,12,12,22,20,22] : [24,12,12,22,18,20,22,22]
       ws['!cols'] = colWidths.map(w => ({ wch: w }))
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
       for (let c = range.s.c; c <= range.e.c; c++) {
@@ -524,9 +526,10 @@ export default function RelatoriosEquipamentosPage() {
                       <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[16%] text-xs">Nome</th>
                       <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[10%] text-xs">Tipo</th>
                       <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[10%] text-xs">Status</th>
-                      <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[20%] text-xs">Escola</th>
-                      <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[22%] text-xs">Modelo</th>
-                      <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[22%] text-xs">Serial</th>
+                      <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[18%] text-xs">Escola</th>
+                      <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[14%] text-xs">Usuário</th>
+                      <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[18%] text-xs">Modelo</th>
+                      <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[18%] text-xs">Serial</th>
                       <th className="border-2 border-gray-400 px-2 py-1 text-left font-medium w-[12%] text-xs">Localização</th>
                     </>
                   )}
@@ -550,6 +553,7 @@ export default function RelatoriosEquipamentosPage() {
                         <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as Equipamento).tipo}</td>
                         <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as Equipamento).status.replace('_', ' ')}</td>
                         <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as Equipamento).escola?.nome || '-'}</td>
+                        <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as Equipamento).usuarioNome || '-'}</td>
                         <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as Equipamento).modelo}</td>
                         <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as Equipamento).serial}</td>
                         <td className="border-2 border-gray-400 px-2 py-1 text-xs whitespace-nowrap truncate">{(it as Equipamento).localizacao || '-'}</td>

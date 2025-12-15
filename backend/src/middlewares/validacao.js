@@ -24,9 +24,9 @@ export const validarEquipamento = (req, res, next) => {
   }
 
   if (method === 'POST') {
-    if (!nome || !tipo || !modelo || !serial || !dataAquisicao) {
+    if (!nome || !tipo || !modelo || !serial || !dataAquisicao || !req.body.usuarioNome) {
       return res.status(400).json({
-        error: 'Dados incompletos. Nome, tipo, modelo, serial e data de aquisição são obrigatórios.'
+        error: 'Dados incompletos. Nome, tipo, modelo, serial, data de aquisição e nome do usuário são obrigatórios.'
       });
     }
   }
