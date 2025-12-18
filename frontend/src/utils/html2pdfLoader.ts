@@ -19,6 +19,7 @@ interface Html2PdfOptions {
   footerLogoWidthMm?: number; // default 24
   footerLogoHeightMm?: number; // default 10
   title?: string;
+  drawHeader?: boolean;
 }
 
 interface Html2PdfWorker {
@@ -81,6 +82,181 @@ export function clearHtml2pdfCache(): void {
 }
 
 /**
+ * Converts an image URL to a base64 data URL
+ * Supports SVG by converting to PNG via Canvas
+ */
+async function toDataUrl(url?: string): Promise<{ dataUrl: string; type: 'PNG' | 'JPEG' } | null> {
+  if (!url) return null;
+  try {
+    const resp = await fetch(url);
+    const contentType = resp.headers.get('content-type') || '';
+    if (contentType.includes('svg')) {
+      // Converter SVG em PNG para compatibilidade com jsPDF.addImage
+      const svgText = await resp.text();
+      const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      const imgLoaded = new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+      });
+      img.src = svgUrl;
+      await imgLoaded;
+      const canvas = document.createElement('canvas');
+      const targetWidth = 800; // resolução alta para manter qualidade
+      const aspect = img.naturalWidth && img.naturalHeight ? img.naturalHeight / img.naturalWidth : 0.3;
+      const targetHeight = Math.max(1, Math.round(targetWidth * aspect));
+      canvas.width = targetWidth;
+      canvas.height = targetHeight || 240;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      }
+      const dataUrl = canvas.toDataURL('image/png');
+      URL.revokeObjectURL(svgUrl);
+      return { dataUrl, type: 'PNG' };
+    }
+    // PNG/JPEG
+    const blob = await resp.blob();
+    const reader = new FileReader();
+    const dataUrlPromise = new Promise<string>((resolve, reject) => {
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+    });
+    reader.readAsDataURL(blob);
+    const dataUrl = await dataUrlPromise;
+    const mime = blob.type || '';
+    const type: 'PNG' | 'JPEG' = mime.includes('png') ? 'PNG' : 'JPEG';
+    return { dataUrl, type };
+  } catch (e) {
+    console.warn('Não foi possível carregar logo para PDF:', e);
+    return null;
+  }
+}
+
+type LogoImage = { dataUrl: string; type: 'PNG' | 'JPEG' };
+
+interface PdfLayout {
+  pageWidth: number;
+  rightMargin: number;
+  leftMargin: number;
+  headerW: number;
+  headerH: number;
+  footerW: number;
+  footerH: number;
+  footerContentY: number;
+  footerLineY: number;
+  color: string;
+}
+
+function calculateLayout(pdf: PdfInstance, options: Html2PdfOptions): PdfLayout {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = Array.isArray(options.margin) ? options.margin : [options.margin || 10, options.margin || 10, options.margin || 10, options.margin || 10];
+  
+  const rightMargin = margin[1];
+  const leftMargin = margin[3];
+  const footerW = options.footerLogoWidthMm ?? 24;
+  const footerH = options.footerLogoHeightMm ?? 10;
+  
+  const footerPaddingBottom = 5;
+  const footerContentY = pageHeight - footerH - footerPaddingBottom;
+  const footerLineY = footerContentY - 2;
+
+  return {
+    pageWidth,
+    rightMargin,
+    leftMargin,
+    headerW: options.headerLogoWidthMm ?? 35,
+    headerH: options.headerLogoHeightMm ?? 14,
+    footerW,
+    footerH,
+    footerContentY,
+    footerLineY,
+    color: options.footerTextColor || '#000000'
+  };
+}
+
+function renderHeader(pdf: PdfInstance, layout: PdfLayout, options: Html2PdfOptions, headerLogo: LogoImage | null) {
+  // Header: Título e data dentro da margem superior
+  pdf.setFontSize(14);
+  pdf.setTextColor('#000000');
+  pdf.setFontSize(16);
+  pdf.text(options.title || 'Relatório de Equipamentos', layout.pageWidth / 2, 10, { align: 'center' });
+  pdf.setFontSize(10);
+  const emissionDate = new Date().toLocaleDateString('pt-BR');
+  pdf.text(`Data de Emissão: ${emissionDate}`, layout.pageWidth / 2, 20, { align: 'center' });
+
+  // Header logo at top-right
+  if (headerLogo) {
+    try {
+      pdf.addImage(headerLogo.dataUrl, headerLogo.type, layout.pageWidth - layout.rightMargin - layout.headerW, 5, layout.headerW, layout.headerH);
+    } catch (e) {
+      console.warn('Falha ao adicionar logo no cabeçalho:', e);
+    }
+  }
+}
+
+function renderFooter(
+  pdf: PdfInstance, 
+  pageNum: number, 
+  total: number, 
+  layout: PdfLayout, 
+  options: Html2PdfOptions, 
+  footerLogo: LogoImage | null
+) {
+  // Linha separadora
+  pdf.setLineWidth(0.5);
+  pdf.setDrawColor('#000000');
+  pdf.line(layout.leftMargin, layout.footerLineY, layout.pageWidth - layout.rightMargin, layout.footerLineY);
+
+  // Footer logo bottom-left
+  if (footerLogo) {
+    try {
+      pdf.addImage(footerLogo.dataUrl, footerLogo.type, layout.leftMargin, layout.footerContentY, layout.footerW, layout.footerH);
+    } catch (e) {
+      console.warn('Falha ao adicionar logo no rodapé:', e);
+    }
+  }
+
+  // Footer texts
+  try {
+    pdf.setFontSize(10);
+    pdf.setTextColor(layout.color);
+    // Centraliza o texto verticalmente em relação ao logo
+    const textY = layout.footerContentY + (layout.footerH / 2) + 1; 
+    
+    if (options.schoolName) {
+      pdf.text(String(options.schoolName), layout.pageWidth / 2, textY, { align: 'center' });
+    }
+    pdf.text(`Página ${pageNum} de ${total}`, layout.pageWidth - layout.rightMargin, textY, { align: 'right' });
+  } catch (e) {
+    console.warn('Falha ao adicionar textos de rodapé:', e);
+  }
+}
+
+/**
+ * Applies header and footer to all pages of the PDF
+ */
+function applyHeaderAndFooter(
+  pdf: PdfInstance,
+  total: number,
+  options: Html2PdfOptions,
+  headerLogo: LogoImage | null,
+  footerLogo: LogoImage | null
+) {
+  const layout = calculateLayout(pdf, options);
+
+  for (let i = 1; i <= total; i++) {
+    pdf.setPage(i);
+    if (options.drawHeader !== false) {
+      renderHeader(pdf, layout, options, headerLogo);
+    }
+    renderFooter(pdf, i, total, layout, options, footerLogo);
+  }
+}
+
+/**
  * Generates PDF from HTML element using dynamically loaded html2pdf.js
  * @param element - HTML element to convert to PDF
  * @param options - Configuration options for PDF generation
@@ -101,123 +277,13 @@ export async function generatePdf(element: HTMLElement, options: Html2PdfOptions
 
   const worker = html2pdf().set(finalOptions).from(element).toPdf();
 
-  // Try to fetch logos as data URLs for jsPDF addImage
-  async function toDataUrl(url?: string): Promise<{ dataUrl: string; type: 'PNG' | 'JPEG' } | null> {
-    if (!url) return null;
-    try {
-      const resp = await fetch(url);
-      const contentType = resp.headers.get('content-type') || '';
-      if (contentType.includes('svg')) {
-        // Converter SVG em PNG para compatibilidade com jsPDF.addImage
-        const svgText = await resp.text();
-        const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
-        const svgUrl = URL.createObjectURL(svgBlob);
-        const img = new Image();
-        const imgLoaded = new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = reject;
-        });
-        img.src = svgUrl;
-        await imgLoaded;
-        const canvas = document.createElement('canvas');
-        const targetWidth = 800; // resolução alta para manter qualidade
-        const aspect = img.naturalWidth && img.naturalHeight ? img.naturalHeight / img.naturalWidth : 0.3;
-        const targetHeight = Math.max(1, Math.round(targetWidth * aspect));
-        canvas.width = targetWidth;
-        canvas.height = targetHeight || 240;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        }
-        const dataUrl = canvas.toDataURL('image/png');
-        URL.revokeObjectURL(svgUrl);
-        return { dataUrl, type: 'PNG' };
-      }
-      // PNG/JPEG
-      const blob = await resp.blob();
-      const reader = new FileReader();
-      const dataUrlPromise = new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(blob);
-      const dataUrl = await dataUrlPromise;
-      const mime = blob.type || '';
-      const type: 'PNG' | 'JPEG' = mime.includes('png') ? 'PNG' : 'JPEG';
-      return { dataUrl, type };
-    } catch (e) {
-      console.warn('Não foi possível carregar logo para PDF:', e);
-      return null;
-    }
-  }
-
   const headerLogo = await toDataUrl(finalOptions.headerLogoUrl);
   const footerLogo = await toDataUrl(finalOptions.footerLogoUrl || finalOptions.headerLogoUrl);
 
   const pdf = await worker.get('pdf');
-  {
-    const total = pdf.internal.getNumberOfPages();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = Array.isArray(finalOptions.margin) ? finalOptions.margin : [finalOptions.margin || 10, finalOptions.margin || 10, finalOptions.margin || 10, finalOptions.margin || 10];
-    
-    const rightMargin = margin[1];
-    const bottomMargin = margin[2];
-    const leftMargin = margin[3];
-    const color = finalOptions.footerTextColor || '#000000';
-    const headerW = finalOptions.headerLogoWidthMm ?? 35;
-    const headerH = finalOptions.headerLogoHeightMm ?? 14;
-    const footerW = finalOptions.footerLogoWidthMm ?? 24;
-    const footerH = finalOptions.footerLogoHeightMm ?? 10;
-    
-
-    for (let i = 1; i <= total; i++) {
-      pdf.setPage(i);
-      // Header: Título e data dentro da margem superior
-      pdf.setFontSize(14);
-      pdf.setTextColor('#000000');
-      pdf.setFontSize(16);
-      pdf.text(finalOptions.title || 'Relatório de Equipamentos', pageWidth / 2, 10, { align: 'center' });
-      pdf.setFontSize(10);
-      const emissionDate = new Date().toLocaleDateString('pt-BR');
-      pdf.text(`Data de Emissão: ${emissionDate}`, pageWidth / 2, 20, { align: 'center' });
-
-      // Header logo at top-right, ajustado para caber na margem superior
-      if (headerLogo) {
-        try {
-          pdf.addImage(headerLogo.dataUrl, headerLogo.type, pageWidth - rightMargin - headerW, 5, headerW, headerH);
-        } catch (e) {
-          console.warn('Falha ao adicionar logo no cabeçalho:', e);
-        }
-      }
-      // Linha separadora no início do rodapé
-      const footerLineY = pageHeight - bottomMargin - footerH - 5; // Posição da linha acima do rodapé
-      pdf.setLineWidth(0.5);
-      pdf.setDrawColor('#000000');
-      pdf.line(leftMargin, footerLineY, pageWidth - rightMargin, footerLineY);
-
-      // Footer logo bottom-left
-      if (footerLogo) {
-        try {
-          pdf.addImage(footerLogo.dataUrl, footerLogo.type, leftMargin, pageHeight - bottomMargin - footerH, footerW, footerH);
-        } catch (e) {
-          console.warn('Falha ao adicionar logo no rodapé:', e);
-        }
-      }
-      // Footer texts: school center, page numbers right
-      try {
-        pdf.setFontSize(10);
-        pdf.setTextColor(color);
-        const footerY = pageHeight - bottomMargin + 5; // Ajustado para ficar abaixo do logo do rodapé
-        if (finalOptions.schoolName) {
-          pdf.text(String(finalOptions.schoolName), pageWidth / 2, footerY, { align: 'center' });
-        }
-        pdf.text(`Página ${i} de ${total}`, pageWidth - rightMargin, footerY, { align: 'right' });
-      } catch (e) {
-        console.warn('Falha ao adicionar textos de rodapé:', e);
-      }
-    }
-  }
+  const total = pdf.internal.getNumberOfPages();
+  
+  applyHeaderAndFooter(pdf, total, finalOptions, headerLogo, footerLogo);
 
   return worker.save();
 }

@@ -15,7 +15,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.5';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.6';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -202,8 +202,8 @@ function Header({
     <header className="bg-black text-white px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <h1 className="text-xl font-semibold font-advent">7Inventory</h1>
-          <span className="ml-2 inline-flex items-center rounded bg-white/10 px-2 py-0.5 text-xs text-gray-300">v{version}</span>
+          <img src="/header-logo.svg" alt="7Inventory" className="h-14 w-14" />
+          <span className="inline-flex items-center rounded bg-white/10 px-2 py-0.5 text-xs text-gray-300">v{version}</span>
           <nav className="hidden md:flex items-center gap-4">
             <NavLinks />
           </nav>
@@ -371,10 +371,9 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Corrigido Relatório Ordenado por Nome da Escola.',
-    'Adicionado um novo Rodapé.',
-    'Favicon do site.',
-    'Cadastro de equipamentos agora tem nome do usuário do PC.',
+    '- Corrigido bug no relátorio de pdf.',
+    '- Icones do Sistema Atualizado.',
+    '- Melhorias internas no código.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -449,7 +448,7 @@ export default function App() {
               <Route path="*" element={<Navigate to={authToken ? '/equipamentos' : '/login'} replace />} />
             </Routes>
           </main>
-          <footer className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-sm py-1 flex items-center justify-center">
+          <footer className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-sm py-1 flex items-center justify-end px-6">
             <img src="/footer-7inventory.svg" alt="7Inventory" className="h-14" />
           </footer>
         </>
