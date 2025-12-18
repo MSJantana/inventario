@@ -178,9 +178,10 @@ export default function RelatoriosEquipamentosPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  // Removido carregamento automático inicial
+  // useEffect(() => {
+  //   loadData()
+  // }, [])
 
   useEffect(() => {
     setFilterTipo('ALL')
@@ -289,6 +290,10 @@ export default function RelatoriosEquipamentosPage() {
   }
 
   async function handlePDF() {
+    if (equipamentos.length === 0 && cmItems.length === 0) {
+      showErrorToast('Nenhum dado carregado. Clique em "Visualizar Impressão" primeiro.')
+      return
+    }
     try {
       setIsGeneratingPdf(true)
       
@@ -371,7 +376,10 @@ export default function RelatoriosEquipamentosPage() {
         handleXLSX={handleXLSX}
         handleRefresh={handleRefresh}
         showPreview={showPreview}
-        setShowPreview={setShowPreview}
+        setShowPreview={(val) => {
+          if (val) loadData()
+          setShowPreview(val)
+        }}
         count={filtradosFinal.length}
       />
 

@@ -100,7 +100,7 @@ export function RelatoriosContent({
       </div>
 
       {/* Layout de Cards para Mobile */}
-      <div className="lg:hidden">
+      <div className={`lg:hidden ${showPreview || isGeneratingPdf ? '' : 'hidden'}`}>
         {filtradosFinal.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             Nenhum equipamento encontrado com os filtros aplicados.
@@ -132,7 +132,7 @@ export function RelatoriosContent({
       </div>
 
       {/* Tabela para Desktop e Impressão */}
-      <div className="hidden lg:block mt-8">
+      <div className={`mt-8 ${showPreview || isGeneratingPdf ? 'hidden lg:block' : 'hidden'}`}>
         <div className={`rounded-lg ${isGeneratingPdf ? 'overflow-visible' : 'overflow-x-auto'}`}>
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 bg-white z-10">
