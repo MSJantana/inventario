@@ -1,20 +1,29 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Fundo quadrado arredondado -->
-  <rect x="0" y="0" width="64" height="64" rx="18" fill="#070C1A"/>
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"> 
+   <!-- Fundo quadrado arredondado escuro --> 
+   <rect x="0" y="0" width="64" height="64" rx="18" fill="#050B18"/> 
   
-  <!-- Círculo interno -->
-  <circle cx="32" cy="32" r="18" fill="#020617"/>
+   <!-- Círculo interno --> 
+   <circle cx="32" cy="32" r="18" fill="#020617"/> 
   
-  <!-- Texto 7I -->
-  <text 
-    x="50%" 
-    y="50%" 
-    text-anchor="middle" 
-    dominant-baseline="central" 
-    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
-    font-size="20" 
-    font-weight="800" 
-    fill="#FFFFFF">
-    7I
-  </text>
-</svg>
+   <!-- Arco azul no topo --> 
+   <path 
+     d="M20 16 C 24 14, 28 13.5, 34 14" 
+     stroke="#22C3F6" 
+     stroke-width="3" 
+     stroke-linecap="round" 
+     fill="none" 
+   /> 
+  
+   <!-- Texto 7I centralizado --> 
+   <text 
+     x="50%" 
+     y="50%" 
+     text-anchor="middle" 
+     dominant-baseline="central" 
+     font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+     font-size="18" 
+     font-weight="800" 
+     fill="#FFFFFF"> 
+     7I 
+   </text> 
+ </svg>

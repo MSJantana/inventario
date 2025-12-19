@@ -10,7 +10,7 @@ import type { Equipamento, CmItem } from './types';
 const styles = StyleSheet.create({
   page: {
     paddingTop: 20,
-    paddingBottom: 80, // Aumentado consideravelmente para evitar sobreposição com o footer
+    paddingBottom: 120, // Aumentado para 120 para garantir que o rodapé não cubra o conteúdo
     paddingHorizontal: 20,
     fontSize: 9,
     fontFamily: 'Helvetica',

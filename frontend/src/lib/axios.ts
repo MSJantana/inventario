@@ -53,6 +53,7 @@ api.interceptors.response.use(
         localStorage.removeItem('userName');
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userRole');
+        localStorage.removeItem('userEscolaNome');
         useAppStore.getState().setAuthTokenState('');
         showErrorToast('Sessão expirada. Faça login novamente.');
       } catch (err) {

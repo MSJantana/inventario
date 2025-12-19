@@ -135,7 +135,7 @@ export function RelatoriosContent({
       <div className={`mt-8 ${showPreview || isGeneratingPdf ? 'hidden lg:block' : 'hidden'}`}>
         <div className={`rounded-lg ${isGeneratingPdf ? 'overflow-visible' : 'overflow-x-auto'}`}>
           <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 bg-white z-10">
+            <thead className="bg-white">
               <tr className="">
                 {filterDepartamento === 'CENTRO_MIDIA' ? (
                   <>

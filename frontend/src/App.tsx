@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import type { ComponentType } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
 import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle, Building2 } from 'lucide-react';
+import LogoSystem from './assets/Logo_System.svg';
 import './index.css';
 import EquipamentosPage from './pages/Equipamentos';
 import MovimentacoesPage from './pages/Movimentacoes';
@@ -355,6 +356,7 @@ export default function App() {
     localStorage.removeItem('userName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('userEscolaNome');
     setAuthTokenState('');
     navigate('/login');
   };
@@ -413,7 +415,7 @@ export default function App() {
           <WhatsNewModal open={showWhatsNew} onClose={closeWhatsNew} version={APP_VERSION} items={whatsNewItems} />
           <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} authToken={authToken} onLogout={onLogout} />
 
-          <main className={`flex-1 p-6 ${canScroll ? 'overflow-auto' : 'overflow-hidden'}`}>
+          <main className={`flex-1 p-6 pb-20 ${canScroll ? 'overflow-auto' : 'overflow-hidden'}`}>
             <div className="mb-4 flex items-baseline justify-between">
               <div>
                 <h2 className="text-xl font-semibold">{userName ? `Bem-vindo, ${userName}` : 'Bem-vindo'}</h2>
@@ -449,7 +451,7 @@ export default function App() {
             </Routes>
           </main>
           <footer className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-sm py-1 flex items-center justify-end px-6">
-            <img src="/footer-7inventory.svg" alt="7Inventory" className="h-14" />
+            <img src={LogoSystem} alt="7Inventory" className="h-14" />
           </footer>
         </>
       )}

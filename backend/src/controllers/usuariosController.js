@@ -257,6 +257,7 @@ export const login = async (req, res, next) => {
     // Verificar se o usuário existe
     const usuario = await prisma.usuario.findUnique({
       where: { email },
+      include: { escola: true }
     });
 
     if (!usuario) {
@@ -285,6 +286,7 @@ export const login = async (req, res, next) => {
         nome: usuario.nome,
         email: usuario.email,
         role: usuario.role,
+        escolaNome: usuario.escola?.nome
       },
     });
   } catch (error) {

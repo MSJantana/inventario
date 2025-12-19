@@ -170,7 +170,7 @@ export default function RelatoriosEquipamentosPage() {
   const [filterText, setFilterText] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [filterTipo, setFilterTipo] = useState<string>('ALL')
-  const [filterEscola, setFilterEscola] = useState<string>('ALL')
+  const [filterEscola, setFilterEscola] = useState<string>(() => localStorage.getItem('userEscolaNome') || 'ALL')
   const [escolas, setEscolas] = useState<{ id: string; nome: string }[]>([])
   const [filterDepartamento, setFilterDepartamento] = useState<'EQUIPAMENTOS' | 'CENTRO_MIDIA'>('EQUIPAMENTOS')
   
@@ -178,10 +178,19 @@ export default function RelatoriosEquipamentosPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
-  // Removido carregamento automático inicial
-  // useEffect(() => {
-  //   loadData()
-  // }, [])
+  // Carregar apenas escolas ao entrar na página
+  useEffect(() => {
+    async function loadEscolas() {
+      try {
+        const { data } = await api.get('/api/escolas')
+        setEscolas(data || [])
+      } catch (error) {
+        console.error('Erro ao carregar escolas:', error)
+        showErrorToast('Erro ao carregar lista de escolas')
+      }
+    }
+    loadEscolas()
+  }, [])
 
   useEffect(() => {
     setFilterTipo('ALL')
@@ -237,7 +246,7 @@ export default function RelatoriosEquipamentosPage() {
       setFilterText('')
       setFilterStatus('ALL')
       setFilterTipo('ALL')
-      setFilterEscola('ALL')
+      setFilterEscola(localStorage.getItem('userEscolaNome') || 'ALL')
       setFilterDepartamento('EQUIPAMENTOS')
 
       setLoading(true)

@@ -31,12 +31,18 @@ export default function LoginPage() {
       const nome = resp.data?.usuario?.nome || ''
       const emailUsuario = resp.data?.usuario?.email || ''
       const role = (resp.data?.usuario?.role as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
+      const escolaNome = resp.data?.usuario?.escolaNome || ''
             
       if (nome) {
         localStorage.setItem('userName', nome)
       }
       if (emailUsuario) {
         localStorage.setItem('userEmail', emailUsuario)
+      }
+      if (escolaNome) {
+        localStorage.setItem('userEscolaNome', escolaNome)
+      } else {
+        localStorage.removeItem('userEscolaNome')
       }
       localStorage.setItem('userRole', role)
       showSuccessToast('Login realizado')
