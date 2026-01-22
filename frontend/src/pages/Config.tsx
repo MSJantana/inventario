@@ -1,13 +1,18 @@
 import { useState } from 'react'
-import { getApiBaseUrl, setApiBaseUrl, getAuthToken, setAuthToken } from '../services/auth'
+import { getApiBaseUrl, setApiBaseUrl as saveApiBaseUrl, getAuthToken, setAuthToken as saveAuthToken } from '../services/auth'
+import { getValidityYears, setValidityYears as saveValidityYears } from '../services/settings'
+import { showSuccessToast } from '../utils/toast'
 
 export default function ConfigPage() {
-  const [apiBaseUrl, setApiUrlState] = useState<string>(getApiBaseUrl())
-  const [authTokenInput, setAuthTokenInput] = useState<string>(getAuthToken() || '')
+  const [apiBaseUrl, setApiBaseUrl] = useState<string>(getApiBaseUrl())
+  const [authToken, setAuthToken] = useState<string>(getAuthToken() || '')
+  const [validityYears, setValidityYears] = useState<number>(getValidityYears())
 
   const salvar = () => {
-    setApiBaseUrl(apiBaseUrl)
-    setAuthToken(authTokenInput)
+    saveApiBaseUrl(apiBaseUrl)
+    saveAuthToken(authToken)
+    saveValidityYears(validityYears)
+    showSuccessToast('Configurações salvas com sucesso!')
   }
 
   return (
@@ -20,7 +25,7 @@ export default function ConfigPage() {
             className="w-full rounded border px-3 py-2"
             placeholder="http://localhost:3002"
             value={apiBaseUrl}
-            onChange={(e) => setApiUrlState(e.target.value)}
+            onChange={(e) => setApiBaseUrl(e.target.value)}
           />
         </div>
         <div>
@@ -28,9 +33,22 @@ export default function ConfigPage() {
           <input
             className="w-full rounded border px-3 py-2"
             placeholder="JWT..."
-            value={authTokenInput}
-            onChange={(e) => setAuthTokenInput(e.target.value)}
+            value={authToken}
+            onChange={(e) => setAuthToken(e.target.value)}
           />
+        </div>
+        <div>
+          <label htmlFor="validityYears" className="mb-1 block text-sm font-medium">Tempo de Validade (anos)</label>
+          <input
+            type="number"
+            min="1"
+            className="w-full rounded border px-3 py-2"
+            value={validityYears}
+            onChange={(e) => setValidityYears(Number(e.target.value))}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Equipamentos com data de aquisição anterior a este período serão destacados.
+          </p>
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">

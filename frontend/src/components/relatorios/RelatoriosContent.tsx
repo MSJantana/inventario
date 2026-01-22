@@ -2,6 +2,7 @@ import { type RefObject } from 'react'
 import type { Equipamento, CmItem } from './types'
 import LogoEa from '../../assets/Logo_EA.svg'
 import LogoAsrs from '../../assets/Logo_ASRS.svg'
+import { isExpired, formatDate } from '../../utils/validity'
 
 interface RelatoriosContentProps {
   readonly printRef: RefObject<HTMLDivElement | null>
@@ -148,14 +149,16 @@ export function RelatoriosContent({
                   </>
                 ) : (
                   <>
-                    <th className={getCellClasses(true, 'w-[16%]')}>Nome</th>
-                    <th className={getCellClasses(true, 'w-[7%]')}>Tipo</th>
-                    <th className={getCellClasses(true, 'w-[7%]')}>Status</th>
-                    <th className={getCellClasses(true, 'w-[16%]')}>Escola</th>
-                    <th className={getCellClasses(true, 'w-[12%]')}>Usuário</th>
-                    <th className={getCellClasses(true, 'w-[14%]')}>Modelo</th>
-                    <th className={getCellClasses(true, 'w-[14%]')}>Serial</th>
-                    <th className={getCellClasses(true, 'w-[14%]')}>Localização</th>
+                    <th className={getCellClasses(true, 'w-[12%]')}>Nome</th>
+                    <th className={getCellClasses(true, 'w-[6%]')}>Tipo</th>
+                    <th className={getCellClasses(true, 'w-[6%]')}>Status</th>
+                    <th className={getCellClasses(true, 'w-[8%]')}>Escola</th>
+                    <th className={getCellClasses(true, 'w-[8%]')}>Usuário</th>
+                    <th className={getCellClasses(true, 'w-[12%]')}>Modelo</th>
+                    <th className={getCellClasses(true, 'w-[16%]')}>Serial</th>
+                    <th className={getCellClasses(true, 'w-[10%]')}>Localização</th>
+                    <th className={getCellClasses(true, 'w-[10%]')}>Aquisição</th>
+                    <th className={getCellClasses(true, 'w-[12%]')}>Situação</th>
                   </>
                 )}
               </tr>
@@ -182,6 +185,10 @@ export function RelatoriosContent({
                       <td className={getCellClasses()}>{(it as Equipamento).modelo}</td>
                       <td className={getCellClasses()}>{(it as Equipamento).serial}</td>
                       <td className={getCellClasses()}>{(it as Equipamento).localizacao || '-'}</td>
+                      <td className={getCellClasses()}>{formatDate((it as Equipamento).dataAquisicao)}</td>
+                      <td className={`${getCellClasses()} ${isExpired((it as Equipamento).dataAquisicao) ? 'text-red-600 font-bold' : ''}`}>
+                        {isExpired((it as Equipamento).dataAquisicao) ? 'VENCIDO' : 'REGULAR'}
+                      </td>
                     </>
                   )}
                 </tr>

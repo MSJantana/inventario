@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx-js-style'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast } from '../utils/toast'
@@ -11,12 +11,14 @@ import { RelatoriosFilters } from '../components/relatorios/RelatoriosFilters'
 import { RelatoriosActions } from '../components/relatorios/RelatoriosActions'
 import { RelatoriosContent } from '../components/relatorios/RelatoriosContent'
 import type { Equipamento, CmItem } from '../components/relatorios/types'
+import { isExpired, formatDate } from '../utils/validity'
+import { useAppStore } from '../store/useAppStore'
 
 // Helper functions for XLSX
 function getXlsxData(isCm: boolean, filtrados: Equipamento[], filtradosCm: CmItem[]) {
   const headers = isCm
     ? ['Nome', 'Tipo', 'Status', 'Escola', 'Modelo', 'Serial']
-    : ['Nome', 'Tipo', 'Status', 'Escola', 'Usuário', 'Modelo', 'Serial', 'Localização']
+    : ['Nome', 'Tipo', 'Status', 'Escola', 'Usuário', 'Modelo', 'Serial', 'Localização', 'Aquisição', 'Situação']
 
   const rows = (isCm ? filtradosCm : filtrados).map((item) => (
     isCm
@@ -37,10 +39,12 @@ function getXlsxData(isCm: boolean, filtrados: Equipamento[], filtradosCm: CmIte
           (item as Equipamento).modelo,
           (item as Equipamento).serial,
           (item as Equipamento).localizacao || '-',
+          formatDate((item as Equipamento).dataAquisicao),
+          isExpired((item as Equipamento).dataAquisicao) ? 'VENCIDO' : 'REGULAR',
         ]
   ))
 
-  const colWidths = isCm ? [28, 12, 12, 22, 20, 22] : [24, 12, 12, 22, 18, 20, 22, 22]
+  const colWidths = isCm ? [28, 12, 12, 22, 20, 22] : [24, 12, 12, 22, 18, 20, 22, 22, 16, 16]
 
   return { headers, rows, colWidths }
 }
@@ -211,10 +215,28 @@ export default function RelatoriosEquipamentosPage() {
     }
   }
 
-  const currentFilters = { text: filterText, status: filterStatus, tipo: filterTipo, escola: filterEscola }
-  const filtrados = filterItems(equipamentos, currentFilters) as Equipamento[]
-  const filtradosCm = filterItems(cmItems, currentFilters) as CmItem[]
+  const setExpiredCount = useAppStore((state) => state.setExpiredCount)
+
+  const currentFilters = useMemo(() => ({ 
+    text: filterText, 
+    status: filterStatus, 
+    tipo: filterTipo, 
+    escola: filterEscola 
+  }), [filterText, filterStatus, filterTipo, filterEscola])
+
+  const filtrados = useMemo(() => filterItems(equipamentos, currentFilters), [equipamentos, currentFilters])
+  const filtradosCm = useMemo(() => filterItems(cmItems, currentFilters), [cmItems, currentFilters])
+  
   const filtradosFinal = filterDepartamento === 'CENTRO_MIDIA' ? filtradosCm : filtrados
+
+  useEffect(() => {
+    if (filterDepartamento === 'EQUIPAMENTOS') {
+      const count = filtrados.filter(e => isExpired((e as Equipamento).dataAquisicao)).length
+      setExpiredCount(count)
+    } else {
+      setExpiredCount(0)
+    }
+  }, [filtrados, filterDepartamento, setExpiredCount])
 
   const handlePrint = () => {
     globalThis.print()
@@ -222,16 +244,36 @@ export default function RelatoriosEquipamentosPage() {
 
   async function handleCSV() {
     try {
-      const endpoint = filterDepartamento === 'CENTRO_MIDIA' ? '/api/centro-midia/export/csv' : '/api/equipamentos/export/csv'
-      const { data } = await api.get(endpoint, { responseType: 'blob' })
-      const url = URL.createObjectURL(data)
+      const isCm = filterDepartamento === 'CENTRO_MIDIA'
+      const { headers, rows } = getXlsxData(isCm, filtrados, filtradosCm)
+      
+      // Helper para escapar valores CSV
+      const escapeCsv = (val: string | number | boolean | null | undefined) => {
+        if (val === null || val === undefined) return ''
+        const str = String(val)
+        if (/[,"\n\r]/.test(str)) {
+          return `"${str.replaceAll('"', '""')}"`
+        }
+        return str
+      }
+
+      // BOM para Excel reconhecer UTF-8
+      const BOM = '\uFEFF'
+      const csvContent = BOM + [
+        headers.join(','),
+        ...rows.map(row => row.map(escapeCsv).join(','))
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${filterDepartamento === 'CENTRO_MIDIA' ? 'centro_midia' : 'equipamentos'}_${new Date().toISOString().split('T')[0]}.csv`
+      a.download = `${isCm ? 'centro_midia' : 'equipamentos'}_${new Date().toISOString().split('T')[0]}.csv`
       document.body.appendChild(a)
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
+      
       showSuccessToast('CSV baixado com sucesso!')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'

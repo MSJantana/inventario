@@ -1,5 +1,6 @@
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
 import type { Equipamento, CmItem } from './types';
+import { isExpired, formatDate } from '../../utils/validity';
 
 // Registrando uma fonte padrão (opcional, mas recomendado para acentuação)
 // Font.register({
@@ -73,18 +74,20 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     padding: 3,
-    fontSize: 8,
+    fontSize: 7, // Reduzido levemente para caber mais colunas
   },
   // Larguras das colunas (total deve ser 100%)
-  // Rebalanceado para acomodar Serial longo (22%) e Modelo (18%)
-  colNome: { width: '14%' },
-  colTipo: { width: '7%' },
-  colStatus: { width: '7%' },
+  // Ajustado para incluir Aquisição e Situação
+  colNome: { width: '12%' },
+  colTipo: { width: '6%' },
+  colStatus: { width: '6%' },
   colEscola: { width: '8%' },
   colUsuario: { width: '8%' },
-  colModelo: { width: '18%' },
-  colSerial: { width: '24%' }, // Aumentado drasticamente para comportar UUIDs
-  colLoc: { width: '14%' },
+  colModelo: { width: '12%' },
+  colSerial: { width: '16%' },
+  colLoc: { width: '10%' },
+  colAquisicao: { width: '10%' },
+  colSituacao: { width: '12%' },
   
   // Colunas CM
   colCmNome: { width: '25%' },
@@ -190,6 +193,8 @@ export const RelatoriosPDF = ({ data, isCm, filters, logoTop, logoBottom, escola
                 <Text style={[styles.tableCell, styles.colModelo]}>Modelo</Text>
                 <Text style={[styles.tableCell, styles.colSerial]}>Serial</Text>
                 <Text style={[styles.tableCell, styles.colLoc]}>Localização</Text>
+                <Text style={[styles.tableCell, styles.colAquisicao]}>Aquisição</Text>
+                <Text style={[styles.tableCell, styles.colSituacao]}>Situação</Text>
               </>
             )}
           </View>
@@ -220,6 +225,15 @@ export const RelatoriosPDF = ({ data, isCm, filters, logoTop, logoBottom, escola
                     <Text style={[styles.tableCell, styles.colModelo]}>{(item as Equipamento).modelo || '-'}</Text>
                     <Text style={[styles.tableCell, styles.colSerial]}>{(item as Equipamento).serial || '-'}</Text>
                     <Text style={[styles.tableCell, styles.colLoc]}>{(item as Equipamento).localizacao || '-'}</Text>
+                    <Text style={[styles.tableCell, styles.colAquisicao]}>
+                      {formatDate((item as Equipamento).dataAquisicao)}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.colSituacao, { 
+                      color: isExpired((item as Equipamento).dataAquisicao) ? '#dc2626' : '#000000',
+                      fontWeight: isExpired((item as Equipamento).dataAquisicao) ? 'bold' : 'normal'
+                    }]}>
+                      {isExpired((item as Equipamento).dataAquisicao) ? 'VENCIDO' : 'REGULAR'}
+                    </Text>
                   </>
                 )}
               </View>

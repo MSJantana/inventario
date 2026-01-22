@@ -154,8 +154,7 @@ export const equipamentosPdf = async (req, res, next) => {
       doc.rect(left, y, contentWidth, rowHeight).strokeColor(theme.border).lineWidth(0.5).stroke();
       x = left;
       // Células
-      for (let i = 0; i < columns.length; i++) {
-        const col = columns[i];
+      for (const col of columns) {
         const cellY = y + rowPaddingY;
         doc.text(values[col.key], x + colPaddingX, cellY, { width: col.width - colPaddingX * 2 });
         x += col.width;

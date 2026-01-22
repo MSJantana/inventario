@@ -3,6 +3,7 @@ import Pagination from '../components/Pagination'
 import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
+import { useAppStore } from '../store/useAppStore'
 
 type Item = {
   id: string
@@ -48,6 +49,11 @@ export default function CentroMidiaPage() {
   const [editSerial, setEditSerial] = useState('')
   const [editEscolaId, setEditEscolaId] = useState('')
   const editNomeInputRef = useRef<HTMLInputElement | null>(null)
+
+  const setExpiredCount = useAppStore((state) => state.setExpiredCount)
+  useEffect(() => {
+    setExpiredCount(0)
+  }, [setExpiredCount])
 
   function readLocal(): Item[] {
     try { return JSON.parse(localStorage.getItem('cm_items') || '[]') ?? [] } catch { return [] }

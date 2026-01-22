@@ -1,8 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
+import { Plus, Pencil, Trash2, Save, RotateCcw, AlertTriangle } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
+import { getValidityYears } from '../services/settings'
+import { useAppStore } from '../store/useAppStore'
+
+// Formata Data: YYYY-MM-DDTHH:mm:ss.sssZ -> DD/MM/YYYY
+function formatData(isoStr: string | undefined): string {
+  if (!isoStr) return '-'
+  return isoStr.split('T')[0].split('-').reverse().join('/')
+}
+
+function isExpired(isoStr: string | undefined): boolean {
+  if (!isoStr) return false
+  const dt = new Date(isoStr)
+  if (Number.isNaN(dt.getTime())) return false
+  
+  const validityYears = getValidityYears()
+  const limitDate = new Date(dt)
+  limitDate.setFullYear(limitDate.getFullYear() + validityYears)
+  
+  // Comparar com a data atual
+  return new Date() > limitDate
+}
 
 // Formata MAC: mantém apenas hex, agrupa em pares e insere ':'
 function formatMac(raw: string): string {
@@ -249,8 +270,10 @@ export default function EquipamentosPage() {
     }
   }
 
+  const setExpiredCount = useAppStore((state) => state.setExpiredCount)
+
   // Dados filtrados e paginados
-  const filtrada = lista.filter((e) => {
+  const filtrada = useMemo(() => lista.filter((e) => {
     const nome = (e.nome || e.nomeEquipamento || '').toLowerCase()
     const texto = filterText.toLowerCase()
     const matchesText = filterText ? (
@@ -261,7 +284,12 @@ export default function EquipamentosPage() {
     ) : true
     const matchesStatus = filterStatus === 'ALL' ? true : (e.status || '') === filterStatus
     return matchesText && matchesStatus
-  })
+  }), [lista, filterText, filterStatus])
+
+  useEffect(() => {
+    const count = filtrada.filter(e => isExpired(e.dataAquisicao)).length
+    setExpiredCount(count)
+  }, [filtrada, setExpiredCount])
   const ordenada = filtrada.slice().sort((a, b) => {
     const an = (a.escola?.nome || '').toUpperCase()
     const bn = (b.escola?.nome || '').toUpperCase()
@@ -348,6 +376,7 @@ export default function EquipamentosPage() {
                 <th className="border px-3 py-2 text-left">Nome</th>
                 <th className="border px-3 py-2 text-left">Nome do Usuário</th>
                 <th className="border px-3 py-2 text-left">Status</th>
+                <th className="border px-3 py-2 text-left">Data Aquisição</th>
                 <th className="border px-3 py-2 text-left">Escola</th>
                 <th className="border px-3 py-2 text-left">Ações</th>
               </tr>
@@ -358,6 +387,12 @@ export default function EquipamentosPage() {
                   <td className="border px-3 py-2">{e.nome || e.nomeEquipamento || '-'}</td>
                   <td className="border px-3 py-2">{e.usuarioNome || '-'}</td>
                   <td className="border px-3 py-2">{e.status || '-'}</td>
+                  <td className="border px-3 py-2">
+                    <div className={`flex items-center gap-1 ${isExpired(e.dataAquisicao) ? 'text-red-600 font-bold' : ''}`}>
+                      {formatData(e.dataAquisicao)}
+                      {isExpired(e.dataAquisicao) && <span title="Validade vencida"><AlertTriangle size={16} /></span>}
+                    </div>
+                  </td>
                   <td className="border px-3 py-2">{e.escola?.nome || '-'}</td>
                   <td className="border px-3 py-2">
                     <div className="flex gap-2">
@@ -390,6 +425,10 @@ export default function EquipamentosPage() {
                 <div className="flex-1">
                   <h3 className="text-sm font-medium text-gray-900">{e.nome || e.nomeEquipamento || '-'}</h3>
                   <p className="text-xs text-gray-500">{e.status || '-'}</p>
+                  <p className={`text-xs ${isExpired(e.dataAquisicao) ? 'text-red-600 font-bold flex items-center gap-1' : 'text-gray-500'}`}>
+                    Aquisição: {formatData(e.dataAquisicao)}
+                    {isExpired(e.dataAquisicao) && <AlertTriangle size={12} />}
+                  </p>
                   <p className="text-xs text-gray-500">Usuário: {e.usuarioNome || '-'}</p>
                 </div>
                 <span className="text-xs text-gray-500">{e.escola?.nome || '-'}</span>

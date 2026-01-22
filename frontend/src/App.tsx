@@ -16,7 +16,8 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.6';
+import { isExpired } from './utils/validity';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.7';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -189,6 +190,7 @@ function Header({
   hasWhatsNew,
   onOpenWhatsNew,
   version,
+  expiredCount,
 }: Readonly<{
   onOpenMobile: () => void;
   showUser: boolean;
@@ -198,6 +200,7 @@ function Header({
   hasWhatsNew: boolean;
   onOpenWhatsNew: () => void;
   version: string;
+  expiredCount: number;
 }>) {
   return (
     <header className="bg-black text-white px-6 py-4">
@@ -210,6 +213,14 @@ function Header({
           </nav>
         </div>
         <div className="flex items-center gap-4">
+          {expiredCount > 0 && (
+            <div className="relative flex items-center mr-2" title={`${expiredCount} equipamentos vencidos`}>
+              <span className="material-symbols-outlined text-yellow-500" style={{ fontSize: '28px' }}>warning</span>
+              <span className="absolute -top-1 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-black">
+                {expiredCount}
+              </span>
+            </div>
+          )}
           {showUser && <UserDropdown userName={userName} userEmail={userEmail} onLogout={onLogout} hasWhatsNew={hasWhatsNew} onOpenWhatsNew={onOpenWhatsNew} />}
           <button className="md:hidden rounded border px-2 py-2" onClick={onOpenMobile} aria-label="Abrir menu">
             <Menu className="h-5 w-5" />
@@ -351,6 +362,22 @@ export default function App() {
     }).catch(() => {});
   }, []);
 
+  const expiredCount = useAppStore((state) => state.expiredCount);
+  const setExpiredCount = useAppStore((state) => state.setExpiredCount);
+
+  useEffect(() => {
+    const excludedPaths = ['/equipamentos', '/relatorios', '/centro-midia', '/'];
+    if (authToken && !excludedPaths.includes(location.pathname)) {
+      api.get('/api/equipamentos').then((res) => {
+        const list = res.data?.data || res.data || [];
+        if (Array.isArray(list)) {
+          const count = list.filter((item: { dataAquisicao?: string }) => isExpired(item.dataAquisicao)).length;
+          setExpiredCount(count);
+        }
+      }).catch(() => {});
+    }
+  }, [authToken, location.pathname, setExpiredCount]);
+
   const onLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userName');
@@ -411,6 +438,7 @@ export default function App() {
             hasWhatsNew={hasWhatsNew}
             onOpenWhatsNew={openWhatsNew}
             version={APP_VERSION}
+            expiredCount={expiredCount}
           />
           <WhatsNewModal open={showWhatsNew} onClose={closeWhatsNew} version={APP_VERSION} items={whatsNewItems} />
           <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} authToken={authToken} onLogout={onLogout} />
@@ -421,11 +449,13 @@ export default function App() {
                 <h2 className="text-xl font-semibold">{userName ? `Bem-vindo, ${userName}` : 'Bem-vindo'}</h2>
                 <p className="text-xs text-gray-500">{routeLabels[location.pathname] || 'Página'}</p>
               </div>
-              {dbIsDev && (
-                <span className="ml-4 inline-flex items-center rounded bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 border border-yellow-300">
-                  Conectado ao banco de dados de desenvolvimento{dbHost ? ` (${dbHost})` : ''}
-                </span>
-              )}
+              <div className="flex items-center gap-4">
+                {dbIsDev && (
+                  <span className="inline-flex items-center rounded bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 border border-yellow-300">
+                    Conectado ao banco de dados de desenvolvimento{dbHost ? ` (${dbHost})` : ''}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Rotas privadas protegidas por RequireAuth */}
