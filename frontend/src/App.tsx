@@ -352,12 +352,10 @@ export default function App() {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const [dbHost, setDbHost] = useState('');
   const [dbIsDev, setDbIsDev] = useState(false);
+
   useEffect(() => {
     api.get('/api/health').then((resp) => {
-      const host = resp?.data?.dbHost || '';
-      setDbHost(host);
       setDbIsDev(Boolean(resp?.data?.dbIsDev));
     }).catch(() => {});
   }, []);
@@ -400,9 +398,10 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    '- Corrigido bug no relátorio de pdf.',
-    '- Icones do Sistema Atualizado.',
-    '- Melhorias internas no código.',
+    'Na tela de Equipamentos, data de aquisição é exibida',
+    'Na tela de Equipamentos, data de validade do equipamento é exibida.',
+    'No menu configuração colocar tempo de validade do equipamento ao passar a validade exibir uma mensagem de aviso e fica vermelho.',
+    'No header agora exibi a quantidade de equipamentos vencidos com um icone de aviso.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -451,8 +450,8 @@ export default function App() {
               </div>
               <div className="flex items-center gap-4">
                 {dbIsDev && (
-                  <span className="inline-flex items-center rounded bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800 border border-yellow-300">
-                    Conectado ao banco de dados de desenvolvimento{dbHost ? ` (${dbHost})` : ''}
+                  <span className="text-red-400 font-bold ml-3">
+                    (Conectado ao banco de dados de desenvolvimento - 10.12.3.231)
                   </span>
                 )}
               </div>
