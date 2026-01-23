@@ -355,9 +355,15 @@ export default function App() {
   const [dbIsDev, setDbIsDev] = useState(false);
 
   useEffect(() => {
+    // Check if running on specific IP
+    const isDevIp = globalThis.location.hostname === '10.12.3.231';
+    
     api.get('/api/health').then((resp) => {
-      setDbIsDev(Boolean(resp?.data?.dbIsDev));
-    }).catch(() => {});
+      setDbIsDev(isDevIp || Boolean(resp?.data?.dbIsDev));
+    }).catch(() => {
+      // Even if API fails, if IP matches, show warning
+      setDbIsDev(isDevIp);
+    });
   }, []);
 
   const expiredCount = useAppStore((state) => state.expiredCount);
