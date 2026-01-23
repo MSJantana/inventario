@@ -23,7 +23,8 @@ api.interceptors.request.use(async (config) => {
   }
 
   const method = (config.method || 'get').toLowerCase();
-  if (WRITE_METHODS.has(method)) {
+  // CSRF token só pode ser emitido para usuários autenticados
+  if (WRITE_METHODS.has(method) && token) {
     try {
       const csrfPath = baseNorm.endsWith('/api') ? `${baseNorm}/csrf-token` : `${baseNorm}/api/csrf-token`;
       const csrfResp = await axios.get(csrfPath, {
