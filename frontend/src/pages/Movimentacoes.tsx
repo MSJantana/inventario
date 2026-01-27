@@ -18,7 +18,7 @@ type Mov = {
   escola?: { nome?: string }
 }
 
-type EquipamentoOption = { id: string; nome?: string }
+type EquipamentoOption = { id: string; nome?: string; localizacao?: string }
 
 const TIPOS = ['ENTRADA','SAIDA','TRANSFERENCIA','MANUTENCAO','DESCARTE'] as const
 
@@ -77,13 +77,38 @@ export default function MovimentacoesPage() {
         setEquipamentos(data)
       } else {
         const resp = await api.get('/api/equipamentos')
-        const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string }) => ({ id: e.id, nome: e.nome || e.nomeEquipamento }))
+        const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string; localizacao?: string }) => ({ id: e.id, nome: e.nome || e.nomeEquipamento, localizacao: e.localizacao }))
         setEquipamentos(data)
       }
     } catch {
       void 0
     }
   }, [departamentoSel])
+
+  const handleEquipamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value
+    setEquipamentoId(selectedId)
+    
+    if (departamentoSel === 'EQUIPAMENTOS') {
+      const selectedEquip = equipamentos.find(eq => eq.id === selectedId)
+      if (selectedEquip && selectedEquip.localizacao) {
+        setOrigem(selectedEquip.localizacao)
+      } else {
+        setOrigem('')
+      }
+    }
+  }
+
+  const cancelCreate = () => {
+    setShowCreate(false)
+    setEquipamentoId('')
+    setTipo('ENTRADA')
+    setOrigem('')
+    setDestino('')
+    setData('')
+    setDescricao('')
+    setDepartamentoSel('EQUIPAMENTOS')
+  }
 
   async function criar(ev: React.FormEvent) {
     ev.preventDefault()
@@ -285,12 +310,12 @@ export default function MovimentacoesPage() {
               <span>📊</span>
               <span className="hidden sm:inline">Exportar Excel</span>
             </button>
-            {!showCreate ? (
+            {!showCreate && (
               <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} />
                 <span>Registrar movimentação</span>
               </button>
-            ) : null}
+            )}
           </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
@@ -447,7 +472,7 @@ export default function MovimentacoesPage() {
           </div>
           <div>
             <label htmlFor="equipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
-            <select ref={equipamentoSelectRef} className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={(e) => setEquipamentoId(e.target.value)}>
+            <select ref={equipamentoSelectRef} className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={handleEquipamentoChange}>
               <option value="">Selecione...</option>
               {equipamentos.map((eq) => (
                 <option key={eq.id} value={eq.id}>{eq.nome || eq.id}</option>
@@ -462,7 +487,12 @@ export default function MovimentacoesPage() {
           </div>
           <div>
             <label htmlFor="origem" className="mb-1 block text-sm font-medium">Origem</label>
-            <input className="w-full rounded border px-3 py-2" value={origem} onChange={(e) => setOrigem(e.target.value)} />
+            <input 
+              className="w-full rounded border px-3 py-2 bg-gray-100 cursor-not-allowed" 
+              value={origem} 
+              readOnly
+              title="A origem é definida automaticamente pela localização atual do equipamento"
+            />
           </div>
           <div>
             <label htmlFor="destino" className="mb-1 block text-sm font-medium">Destino</label>
@@ -485,7 +515,7 @@ export default function MovimentacoesPage() {
               <RotateCcw size={16} />
               <span>Recarregar</span>
             </button>
-            <button type="button" onClick={() => { setShowCreate(false); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+            <button type="button" onClick={() => { cancelCreate(); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
               <X size={16} />
               <span>Fechar</span>
             </button>

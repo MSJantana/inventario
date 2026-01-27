@@ -17,7 +17,7 @@ import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.7';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.8';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -247,7 +247,12 @@ function MobileSidebar({
   const deptChildren = deptItems.filter(({ to }) => canAccessPath(role, to));
   const location = useLocation();
   const isDeptActive = deptChildren.some(({ to }) => location.pathname.startsWith(to));
-  return !open ? null : (
+
+  if (!open) {
+    return null;
+  }
+
+  return (
     <div className="md:hidden">
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-64 bg-black text-white">
@@ -314,8 +319,8 @@ function WhatsNewModal({ open, onClose, version, items }: Readonly<{ open: boole
         </div>
         <div className="px-4 py-3">
           <ul className="list-disc pl-5 space-y-2 text-sm">
-            {items.map((it, idx) => (
-              <li key={idx}>{it}</li>
+            {items.map((it) => (
+              <li key={it}>{it}</li>
             ))}
           </ul>
         </div>
@@ -404,10 +409,9 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Na tela de Equipamentos, data de aquisição é exibida',
-    'Na tela de Equipamentos, data de validade do equipamento é exibida.',
-    'No menu configuração colocar tempo de validade do equipamento ao passar a validade exibir uma mensagem de aviso e fica vermelho.',
-    'No header agora exibi a quantidade de equipamentos vencidos com um icone de aviso.',
+    'Na tela de Equipamentos, botão com informações do equipamento e exibido e um QR Code.',
+    'Na tela de Equipamentos, ao cancelar limpa os dados do formulário.',    
+    'No header agora exibi a quantidade de equipamentos em manutenção com um icone de aviso.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);

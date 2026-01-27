@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Pagination from '../components/Pagination'
-import { Plus, Pencil, Trash2, Save, RotateCcw } from 'lucide-react'
+import CentroMidiaIdCard from '../components/CentroMidiaIdCard'
+import { Plus, Pencil, Trash2, Save, RotateCcw, Barcode } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
 import { useAppStore } from '../store/useAppStore'
@@ -49,6 +50,8 @@ export default function CentroMidiaPage() {
   const [editSerial, setEditSerial] = useState('')
   const [editEscolaId, setEditEscolaId] = useState('')
   const editNomeInputRef = useRef<HTMLInputElement | null>(null)
+
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null)
 
   const setExpiredCount = useAppStore((state) => state.setExpiredCount)
   useEffect(() => {
@@ -210,12 +213,12 @@ export default function CentroMidiaPage() {
           <h2 className="text-lg font-medium">Centro de Midia</h2>
           <div className="flex items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
-            {!showCreate ? (
+            {showCreate ? null : (
               <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} />
                 <span>Criar item</span>
               </button>
-            ) : null}
+            )}
           </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
@@ -242,22 +245,26 @@ export default function CentroMidiaPage() {
           <table className="min-w-full border text-sm">
             <thead className="bg-gray-100">
               <tr>
-                <th className="border px-3 py-2 text-left">Nome</th>
-                <th className="border px-3 py-2 text-left">Tipo</th>
-                <th className="border px-3 py-2 text-left">Status</th>
-                <th className="border px-3 py-2 text-left">Escola</th>
-                <th className="border px-3 py-2 text-left">Ações</th>
+                <th className="border px-3 py-2 text-center">Nome</th>
+                <th className="border px-3 py-2 text-center">Tipo</th>
+                <th className="border px-3 py-2 text-center">Status</th>
+                <th className="border px-3 py-2 text-center">Escola</th>
+                <th className="border px-3 py-2 text-center">Ações</th>
               </tr>
             </thead>
             <tbody>
               {pagina.map((i) => (
                 <tr key={i.id}>
-                  <td className="border px-3 py-2">{i.nome || '-'}</td>
-                  <td className="border px-3 py-2">{i.tipo || '-'}</td>
-                  <td className="border px-3 py-2">{i.status || '-'}</td>
-                  <td className="border px-3 py-2">{i.escola?.nome || '-'}</td>
-                  <td className="border px-3 py-2">
-                    <div className="flex gap-2">
+                  <td className="border px-3 py-2 text-center">{i.nome || '-'}</td>
+                  <td className="border px-3 py-2 text-center">{i.tipo || '-'}</td>
+                  <td className="border px-3 py-2 text-center">{i.status || '-'}</td>
+                  <td className="border px-3 py-2 text-center">{i.escola?.nome || '-'}</td>
+                  <td className="border px-3 py-2 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => setSelectedItem(i)} title="Visualizar Identificação">
+                        <Barcode size={16} />
+                        <span>Identificação</span>
+                      </button>
                       <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(i)}>
                         <Pencil size={16} />
                         <span>Editar</span>
@@ -379,6 +386,12 @@ export default function CentroMidiaPage() {
             </div>
           </form>
         </section>
+      )}
+      {selectedItem && (
+        <CentroMidiaIdCard
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
       )}
     </div>
   )

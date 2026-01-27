@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { getApiBaseUrl, setApiBaseUrl as saveApiBaseUrl, getAuthToken, setAuthToken as saveAuthToken } from '../services/auth'
 import { getValidityYears, setValidityYears as saveValidityYears } from '../services/settings'
 import { showSuccessToast } from '../utils/toast'
@@ -7,6 +8,7 @@ export default function ConfigPage() {
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(getApiBaseUrl())
   const [authToken, setAuthToken] = useState<string>(getAuthToken() || '')
   const [validityYears, setValidityYears] = useState<number>(getValidityYears())
+  const [showToken, setShowToken] = useState(false)
 
   const salvar = () => {
     saveApiBaseUrl(apiBaseUrl)
@@ -30,12 +32,22 @@ export default function ConfigPage() {
         </div>
         <div>
           <label htmlFor="authToken" className="mb-1 block text-sm font-medium">Auth Token (Bearer)</label>
-          <input
-            className="w-full rounded border px-3 py-2"
-            placeholder="JWT..."
-            value={authToken}
-            onChange={(e) => setAuthToken(e.target.value)}
-          />
+          <div className="relative">
+            <input
+              type={showToken ? 'text' : 'password'}
+              className="w-full rounded border px-3 py-2 pr-10"
+              placeholder="JWT..."
+              value={authToken}
+              onChange={(e) => setAuthToken(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => setShowToken(!showToken)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </div>
         <div>
           <label htmlFor="validityYears" className="mb-1 block text-sm font-medium">Tempo de Validade (anos)</label>

@@ -18,8 +18,7 @@ export const listarEquipamentos = async (req, res, next) => {
     const equipamentos = await prisma.equipamento.findMany({
       where,
       include: {
-        escola: true,
-        movimentacoes: true
+        escola: true
       },
       orderBy: [
         { escola: { nome: 'asc' } },

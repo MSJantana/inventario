@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Save, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, RotateCcw, AlertTriangle, Barcode } from 'lucide-react'
 import Pagination from '../components/Pagination'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
 import { getValidityYears } from '../services/settings'
 import { useAppStore } from '../store/useAppStore'
+import EquipmentIdCard from '../components/EquipmentIdCard'
 
 // Formata Data: YYYY-MM-DDTHH:mm:ss.sssZ -> DD/MM/YYYY
 function formatData(isoStr: string | undefined): string {
@@ -65,6 +66,92 @@ type Equipamento = {
 
 type Escola = { id: string; nome: string; sigla?: string }
 
+function mergeEscolaIntoEquipamento(e: Equipamento, escolas: Escola[]): Equipamento {
+  if (!e.escola && e.escolaId) {
+    const esc = escolas.find((s) => s.id === e.escolaId)
+    return esc ? { ...e, escola: { nome: esc.nome, sigla: esc.sigla } } : e
+  }
+  return e
+}
+
+function filterEquipamento(e: Equipamento, texto: string, status: string): boolean {
+  const nome = (e.nome || e.nomeEquipamento || '').toLowerCase()
+  const matchesText = texto ? (
+    nome.includes(texto) ||
+    (e.usuarioNome || '').toLowerCase().includes(texto) ||
+    (e.escola?.nome || '').toLowerCase().includes(texto) ||
+    (e.escola?.sigla || '').toLowerCase().includes(texto)
+  ) : true
+  const matchesStatus = status === 'ALL' ? true : (e.status || '') === status
+  return matchesText && matchesStatus
+}
+
+function EquipamentoRow({ item, onEdit, onDelete, onViewIdCard }: { readonly item: Equipamento, readonly onEdit: (e: Equipamento) => void, readonly onDelete: (id: string) => void, readonly onViewIdCard: (e: Equipamento) => void }) {
+  return (
+    <tr key={item.id}>
+      <td className="border px-3 py-2 text-center">{item.nome || item.nomeEquipamento || '-'}</td>
+      <td className="border px-3 py-2 text-center">{item.usuarioNome || '-'}</td>
+      <td className="border px-3 py-2 text-center">{item.status || '-'}</td>
+      <td className="border px-3 py-2 text-center">
+        <div className={`flex items-center justify-center gap-1 ${isExpired(item.dataAquisicao) ? 'text-red-600 font-bold' : ''}`}>
+          {formatData(item.dataAquisicao)}
+          {isExpired(item.dataAquisicao) && <span title="Validade vencida"><AlertTriangle size={16} /></span>}
+        </div>
+      </td>
+      <td className="border px-3 py-2 text-center">{item.escola?.nome || '-'}</td>
+      <td className="border px-3 py-2 text-center">
+        <div className="flex justify-center gap-2">
+          <button className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => onViewIdCard(item)} title="Visualizar Identificação">
+            <Barcode size={16} />
+            <span>Identificação</span>
+          </button>
+          <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => onEdit(item)}>
+            <Pencil size={16} />
+            <span>Editar</span>
+          </button>
+          <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => onDelete(item.id)}>
+            <Trash2 size={16} />
+            <span>Excluir</span>
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+function EquipamentoCard({ item, onEdit, onDelete, onViewIdCard }: { readonly item: Equipamento, readonly onEdit: (e: Equipamento) => void, readonly onDelete: (id: string) => void, readonly onViewIdCard: (e: Equipamento) => void }) {
+  return (
+    <div className="p-4">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <h3 className="text-sm font-medium text-gray-900">{item.nome || item.nomeEquipamento || '-'}</h3>
+          <p className="text-xs text-gray-500">{item.status || '-'}</p>
+          <p className={`text-xs ${isExpired(item.dataAquisicao) ? 'text-red-600 font-bold flex items-center gap-1' : 'text-gray-500'}`}>
+            Aquisição: {formatData(item.dataAquisicao)}
+            {isExpired(item.dataAquisicao) && <AlertTriangle size={12} />}
+          </p>
+          <p className="text-xs text-gray-500">Usuário: {item.usuarioNome || '-'}</p>
+        </div>
+        <span className="text-xs text-gray-500">{item.escola?.nome || '-'}</span>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <button className="flex-1 rounded bg-blue-600 px-2 py-1 text-white text-xs hover:bg-blue-700 flex items-center justify-center gap-1" onClick={() => onViewIdCard(item)} title="Visualizar Identificação">
+          <Barcode size={14} />
+          <span>Identificação</span>
+        </button>
+        <button className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => onEdit(item)}>
+          <Pencil size={14} />
+          <span>Editar</span>
+        </button>
+        <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => onDelete(item.id)}>
+          <Trash2 size={14} />
+          <span>Excluir</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function EquipamentosPage() {
   const [lista, setLista] = useState<Equipamento[]>([])
   const [loading, setLoading] = useState(false)
@@ -95,6 +182,8 @@ export default function EquipamentosPage() {
   const [status, setStatus] = useState<string>('DISPONIVEL')
   const nomeInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Visualização de Comprovante (ID Card)
+  const [selectedEquipamento, setSelectedEquipamento] = useState<Equipamento | null>(null)
 
   // Edição
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -113,6 +202,23 @@ export default function EquipamentosPage() {
   const [editEscolaId, setEditEscolaId] = useState('')
   const [editStatus, setEditStatus] = useState<string>('DISPONIVEL')
   const editNomeInputRef = useRef<HTMLInputElement | null>(null)
+
+  function clearCreateForm() {
+    setNome('')
+    setUsuarioNome('')
+    setTipo('OUTRO')
+    setModelo('')
+    setSerial('')
+    setDataAquisicao('')
+    setLocalizacao('')
+    setFabricante('')
+    setProcessador('')
+    setMemoria('')
+    setObservacoes('')
+    setMacAddress('')
+    setEscolaId('')
+    setStatus('DISPONIVEL')
+  }
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -168,20 +274,7 @@ export default function EquipamentosPage() {
       }
       await api.post('/api/equipamentos', payload)
       showSuccessToast('Equipamento criado')
-      setNome('')
-      setUsuarioNome('')
-      setTipo('OUTRO')
-      setModelo('')
-      setSerial('')
-      setDataAquisicao('')
-      setLocalizacao('')
-      setFabricante('')
-      setProcessador('')
-      setMemoria('')
-      setObservacoes('')
-      setMacAddress('')
-      setEscolaId('')
-      setStatus('DISPONIVEL')
+      clearCreateForm()
       await carregar()
     } catch (e: unknown) {
       showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar equipamento')
@@ -270,21 +363,17 @@ export default function EquipamentosPage() {
     }
   }
 
+  function confirmarExclusao(id: string) {
+    showConfirmToast('Tem certeza que deseja excluir este equipamento?', () => excluirEquipamento(id))
+  }
+
   const setExpiredCount = useAppStore((state) => state.setExpiredCount)
 
   // Dados filtrados e paginados
-  const filtrada = useMemo(() => lista.filter((e) => {
-    const nome = (e.nome || e.nomeEquipamento || '').toLowerCase()
+  const filtrada = useMemo(() => {
     const texto = filterText.toLowerCase()
-    const matchesText = filterText ? (
-      nome.includes(texto) ||
-      (e.usuarioNome || '').toLowerCase().includes(texto) ||
-      (e.escola?.nome || '').toLowerCase().includes(texto) ||
-      (e.escola?.sigla || '').toLowerCase().includes(texto)
-    ) : true
-    const matchesStatus = filterStatus === 'ALL' ? true : (e.status || '') === filterStatus
-    return matchesText && matchesStatus
-  }), [lista, filterText, filterStatus])
+    return lista.filter((e) => filterEquipamento(e, texto, filterStatus))
+  }, [lista, filterText, filterStatus])
 
   useEffect(() => {
     const count = filtrada.filter(e => isExpired(e.dataAquisicao)).length
@@ -311,15 +400,7 @@ export default function EquipamentosPage() {
 
   useEffect(() => {
     if (!escolas.length) return
-    setLista((prev) =>
-      prev.map((e) => {
-        if (!e.escola && e.escolaId) {
-          const esc = escolas.find((s) => s.id === e.escolaId)
-          return esc ? { ...e, escola: { nome: esc.nome, sigla: esc.sigla } } : e
-        }
-        return e
-      }),
-    )
+    setLista((prev) => prev.map((e) => mergeEscolaIntoEquipamento(e, escolas)))
   }, [escolas])
 
   useEffect(() => {
@@ -341,12 +422,12 @@ export default function EquipamentosPage() {
           <h2 className="text-lg font-medium">Equipamentos</h2>
           <div className="flex items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
-            {!showCreate ? (
+            {!showCreate && (
               <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} />
                 <span>Criar equipamento</span>
               </button>
-            ) : null}
+            )}
           </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
@@ -373,40 +454,17 @@ export default function EquipamentosPage() {
           <table className="min-w-full border text-sm">
             <thead className="bg-gray-100">
               <tr>
-                <th className="border px-3 py-2 text-left">Nome</th>
-                <th className="border px-3 py-2 text-left">Nome do Usuário</th>
-                <th className="border px-3 py-2 text-left">Status</th>
-                <th className="border px-3 py-2 text-left">Data Aquisição</th>
-                <th className="border px-3 py-2 text-left">Escola</th>
-                <th className="border px-3 py-2 text-left">Ações</th>
+                <th className="border px-3 py-2 text-center">Nome</th>
+                <th className="border px-3 py-2 text-center">Nome do Usuário</th>
+                <th className="border px-3 py-2 text-center">Status</th>
+                <th className="border px-3 py-2 text-center">Data Aquisição</th>
+                <th className="border px-3 py-2 text-center">Escola</th>
+                <th className="border px-3 py-2 text-center">Ações</th>
               </tr>
             </thead>
             <tbody>
               {pagina.map((e) => (
-                <tr key={e.id}>
-                  <td className="border px-3 py-2">{e.nome || e.nomeEquipamento || '-'}</td>
-                  <td className="border px-3 py-2">{e.usuarioNome || '-'}</td>
-                  <td className="border px-3 py-2">{e.status || '-'}</td>
-                  <td className="border px-3 py-2">
-                    <div className={`flex items-center gap-1 ${isExpired(e.dataAquisicao) ? 'text-red-600 font-bold' : ''}`}>
-                      {formatData(e.dataAquisicao)}
-                      {isExpired(e.dataAquisicao) && <span title="Validade vencida"><AlertTriangle size={16} /></span>}
-                    </div>
-                  </td>
-                  <td className="border px-3 py-2">{e.escola?.nome || '-'}</td>
-                  <td className="border px-3 py-2">
-                    <div className="flex gap-2">
-                      <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(e)}>
-                        <Pencil size={16} />
-                        <span>Editar</span>
-                      </button>
-                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este equipamento?', () => excluirEquipamento(e.id))}>
-                        <Trash2 size={16} />
-                        <span>Excluir</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <EquipamentoRow key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} />
               ))}
               {filtrada.length === 0 && !loading && (
                 <tr>
@@ -420,30 +478,7 @@ export default function EquipamentosPage() {
         {/* Cards para mobile */}
         <div className="md:hidden divide-y divide-gray-200 border">
           {pagina.map((e) => (
-            <div key={e.id} className="p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-gray-900">{e.nome || e.nomeEquipamento || '-'}</h3>
-                  <p className="text-xs text-gray-500">{e.status || '-'}</p>
-                  <p className={`text-xs ${isExpired(e.dataAquisicao) ? 'text-red-600 font-bold flex items-center gap-1' : 'text-gray-500'}`}>
-                    Aquisição: {formatData(e.dataAquisicao)}
-                    {isExpired(e.dataAquisicao) && <AlertTriangle size={12} />}
-                  </p>
-                  <p className="text-xs text-gray-500">Usuário: {e.usuarioNome || '-'}</p>
-                </div>
-                <span className="text-xs text-gray-500">{e.escola?.nome || '-'}</span>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => startEdit(e)}>
-                  <Pencil size={14} />
-                  <span>Editar</span>
-                </button>
-                <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este equipamento?', () => excluirEquipamento(e.id))}>
-                  <Trash2 size={14} />
-                  <span>Excluir</span>
-                </button>
-              </div>
-            </div>
+            <EquipamentoCard key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} />
           ))}
           {filtrada.length === 0 && !loading && (
             <div className="p-4 text-center text-sm text-gray-600">Nenhum equipamento encontrado.</div>
@@ -542,7 +577,15 @@ export default function EquipamentosPage() {
               <RotateCcw size={16} />
               <span>Recarregar</span>
             </button>
-            <button type="button" onClick={() => { setShowCreate(false); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50">
+            <button
+              type="button"
+              onClick={() => {
+                clearCreateForm()
+                setShowCreate(false)
+                setTimeout(() => buscarInputRef.current?.focus(), 0)
+              }}
+              className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50"
+            >
               Cancelar
             </button>
           </div>
@@ -658,7 +701,9 @@ export default function EquipamentosPage() {
         </div>
       </div>
 
-      
+      {selectedEquipamento && (
+        <EquipmentIdCard equipamento={selectedEquipamento} onClose={() => setSelectedEquipamento(null)} />
+      )}
     </div>
   )
 }
