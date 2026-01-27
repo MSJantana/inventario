@@ -49,14 +49,14 @@ export default function CentroMidiaPage() {
   const [editModelo, setEditModelo] = useState('')
   const [editSerial, setEditSerial] = useState('')
   const [editEscolaId, setEditEscolaId] = useState('')
+  const [editStatus, setEditStatus] = useState<typeof STATUS[number]>('DISPONIVEL')
   const editNomeInputRef = useRef<HTMLInputElement | null>(null)
 
   const [selectedItem, setSelectedItem] = useState<Item | null>(null)
 
   const setExpiredCount = useAppStore((state) => state.setExpiredCount)
-  useEffect(() => {
-    setExpiredCount(0)
-  }, [setExpiredCount])
+  const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount)
+  const setDiscardedCount = useAppStore((state) => state.setDiscardedCount)
 
   function readLocal(): Item[] {
     try { return JSON.parse(localStorage.getItem('cm_items') || '[]') ?? [] } catch { return [] }
@@ -127,6 +127,7 @@ export default function CentroMidiaPage() {
     setEditModelo(i.modelo || '')
     setEditSerial(i.serial || '')
     setEditEscolaId(i.escolaId || '')
+    setEditStatus((i.status as typeof STATUS[number]) || 'DISPONIVEL')
   }
 
   function cancelEdit() {
@@ -136,6 +137,7 @@ export default function CentroMidiaPage() {
     setEditModelo('')
     setEditSerial('')
     setEditEscolaId('')
+    setEditStatus('DISPONIVEL')
   }
 
   async function salvarEdicao(ev: React.FormEvent) {
@@ -160,6 +162,7 @@ export default function CentroMidiaPage() {
           modelo: editModelo || undefined,
           serial: editSerial || undefined,
           escolaId: editEscolaId || undefined,
+          status: editStatus,
         } : it)
         setLista(next)
         writeLocal(next)
@@ -201,6 +204,14 @@ export default function CentroMidiaPage() {
   const current = Math.min(currentPage, totalPages)
   const startIdx = (current - 1) * pageSize
   const pagina = filtrada.slice(startIdx, startIdx + pageSize)
+
+  useEffect(() => {
+    setExpiredCount(0)
+    const maintCount = filtrada.filter(i => i.status === 'EM_MANUTENCAO').length
+    setMaintenanceCount(maintCount)
+    const discCount = filtrada.filter(i => i.status === 'DESCARTADO').length
+    setDiscardedCount(discCount)
+  }, [filtrada, setExpiredCount, setMaintenanceCount, setDiscardedCount])
 
   useEffect(() => { carregar(); carregarEscolas() }, [carregar, carregarEscolas])
   useEffect(() => { if (showCreate) setTimeout(() => nomeInputRef.current?.focus(), 0) }, [showCreate])
@@ -376,6 +387,12 @@ export default function CentroMidiaPage() {
             <div>
               <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Serial</label>
               <input className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
+            </div>
+            <div>
+              <label htmlFor="editStatus" className="mb-1 block text-sm font-medium">Status</label>
+              <select className="w-full rounded border px-3 py-2" value={editStatus} onChange={(e) => setEditStatus(e.target.value as typeof STATUS[number])}>
+                {STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
               <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">

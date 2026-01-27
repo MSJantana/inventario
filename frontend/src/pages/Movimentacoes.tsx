@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import Pagination from '../components/Pagination'
-import { Plus, Pencil, Trash2, Save, RotateCcw, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, RotateCcw, X, Filter } from 'lucide-react'
 import * as XLSX from 'xlsx-js-style'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
+import { useAppStore } from '../store/useAppStore'
 
 type Mov = {
   id: string
@@ -18,17 +19,22 @@ type Mov = {
   escola?: { nome?: string }
 }
 
-type EquipamentoOption = { id: string; nome?: string; localizacao?: string }
+type EquipamentoOption = { id: string; nome?: string; localizacao?: string; tipo?: string }
 
 const TIPOS = ['ENTRADA','SAIDA','TRANSFERENCIA','MANUTENCAO','DESCARTE'] as const
 
 export default function MovimentacoesPage() {
+  const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount)
+  const setDiscardedCount = useAppStore((state) => state.setDiscardedCount)
+  const setExpiredCount = useAppStore((state) => state.setExpiredCount)
+
   const [lista, setLista] = useState<Mov[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([])
   const [departamentoSel, setDepartamentoSel] = useState<'EQUIPAMENTOS' | 'CENTRO_MIDIA'>('EQUIPAMENTOS')
   const [showCreate, setShowCreate] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
   const equipamentoSelectRef = useRef<HTMLSelectElement | null>(null)
   const buscarInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -38,6 +44,9 @@ export default function MovimentacoesPage() {
   const [destino, setDestino] = useState('')
   const [data, setData] = useState<string>('')
   const [descricao, setDescricao] = useState('')
+
+  // Filtro de tipo de equipamento no cadastro
+  const [filterEquipType, setFilterEquipType] = useState('ALL')
 
   // Filtros e paginação
   const [filterText, setFilterText] = useState('')
@@ -70,20 +79,26 @@ export default function MovimentacoesPage() {
   }
 
   const carregarItens = useCallback(async () => {
+    setFilterEquipType('ALL')
     try {
       if (departamentoSel === 'CENTRO_MIDIA') {
         const resp = await api.get('/api/centro-midia')
-        const data: EquipamentoOption[] = (resp.data || []).map((i: { id: string; nome?: string }) => ({ id: i.id, nome: i.nome }))
+        const data: EquipamentoOption[] = (resp.data || []).map((i: { id: string; nome?: string; tipo?: string }) => ({ id: i.id, nome: i.nome, tipo: i.tipo }))
         setEquipamentos(data)
       } else {
         const resp = await api.get('/api/equipamentos')
-        const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string; localizacao?: string }) => ({ id: e.id, nome: e.nome || e.nomeEquipamento, localizacao: e.localizacao }))
+        const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string; localizacao?: string; tipo?: string }) => ({ id: e.id, nome: e.nome || e.nomeEquipamento, localizacao: e.localizacao, tipo: e.tipo }))
         setEquipamentos(data)
       }
     } catch {
       void 0
     }
   }, [departamentoSel])
+
+  const tiposDisponiveis = useMemo(() => {
+    const t = new Set(equipamentos.map(e => e.tipo).filter(Boolean))
+    return Array.from(t).sort()
+  }, [equipamentos])
 
   const handleEquipamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value
@@ -277,12 +292,13 @@ export default function MovimentacoesPage() {
   }
 
   // Dados filtrados e paginados
-  const filtrada = lista.filter((m) => {
+  const filtrada = useMemo(() => lista.filter((m) => {
     const texto = `${m.equipamento?.nome || ''} ${m.descricao || ''} ${m.origem || ''} ${m.destino || ''} ${m.equipamentoId}`.toLowerCase()
     const matchesText = filterText ? texto.includes(filterText.toLowerCase()) : true
     const matchesTipo = filterTipo === 'ALL' ? true : (m.tipo || '') === filterTipo
     return matchesText && matchesTipo
-  })
+  }), [lista, filterText, filterTipo])
+  
   const totalPages = Math.max(1, Math.ceil(filtrada.length / pageSize))
   const current = Math.min(currentPage, totalPages)
   const startIdx = (current - 1) * pageSize
@@ -290,6 +306,14 @@ export default function MovimentacoesPage() {
 
   useEffect(() => { carregar() }, [])
   useEffect(() => { carregarItens() }, [carregarItens])
+
+  useEffect(() => {
+    const maint = filtrada.filter(m => m.tipo === 'MANUTENCAO').length
+    const disc = filtrada.filter(m => m.tipo === 'DESCARTE').length
+    setMaintenanceCount(maint)
+    setDiscardedCount(disc)
+    setExpiredCount(0)
+  }, [filtrada, setMaintenanceCount, setDiscardedCount, setExpiredCount])
 
   useEffect(() => {
     function handleFocusBuscar() {
@@ -302,24 +326,32 @@ export default function MovimentacoesPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h2 className="text-lg font-medium">Movimentações</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full sm:w-auto items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
-            <button className="rounded bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 flex items-center gap-1" onClick={handleXLSX}>
+            <button className="flex-1 sm:flex-none justify-center rounded bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 flex items-center gap-1" onClick={handleXLSX}>
               <span>📊</span>
               <span className="hidden sm:inline">Exportar Excel</span>
             </button>
             {!showCreate && (
-              <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
+              <button className="flex-1 sm:flex-none justify-center rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} />
-                <span>Registrar movimentação</span>
+                <span className="hidden sm:inline">Registrar movimentação</span>
+                <span className="sm:hidden">Novo</span>
               </button>
             )}
+            <button 
+              className="sm:hidden rounded border px-3 py-1.5 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter size={16} />
+            </button>
           </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
-        <div className="mb-3 grid gap-2 sm:grid-cols-3">
+        
+        <div className={`mb-3 grid gap-2 sm:grid-cols-3 ${showFilters ? 'block' : 'hidden sm:grid'}`}>
           <div>
             <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Buscar</label>
             <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
@@ -470,11 +502,25 @@ export default function MovimentacoesPage() {
               </label>
             </div>
           </div>
+          <div className="md:col-span-2">
+            <label htmlFor="filterEquipType" className="mb-1 block text-sm font-medium">Filtrar Equipamento por Tipo</label>
+            <select 
+              id="filterEquipType"
+              className="w-full rounded border px-3 py-2" 
+              value={filterEquipType} 
+              onChange={(e) => { setFilterEquipType(e.target.value); setEquipamentoId('') }}
+            >
+              <option value="ALL">Todos</option>
+              {tiposDisponiveis.map(t => <option key={t as string} value={t as string}>{t}</option>)}
+            </select>
+          </div>
           <div>
             <label htmlFor="equipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
             <select ref={equipamentoSelectRef} className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={handleEquipamentoChange}>
               <option value="">Selecione...</option>
-              {equipamentos.map((eq) => (
+              {equipamentos
+                .filter(eq => filterEquipType === 'ALL' || eq.tipo === filterEquipType)
+                .map((eq) => (
                 <option key={eq.id} value={eq.id}>{eq.nome || eq.id}</option>
               ))}
             </select>

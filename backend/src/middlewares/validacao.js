@@ -1,5 +1,5 @@
 // Middleware para validação de dados
-import { normalizeToCiscoMac, isValidMacCisco, sanitizeMac } from '../utils/mac.js';
+import { normalizeMacAddress, isValidMacAddress, sanitizeMac } from '../utils/mac.js';
 
 // Validação para equipamentos
 export const validarEquipamento = (req, res, next) => {
@@ -15,9 +15,9 @@ export const validarEquipamento = (req, res, next) => {
     if (sanitized.length !== 12) {
       return res.status(400).json({ error: 'MAC Address deve conter 12 dígitos hexadecimais.' });
     }
-    const normalized = normalizeToCiscoMac(sanitized);
-    if (!normalized || !isValidMacCisco(normalized)) {
-      return res.status(400).json({ error: 'MAC Address inválido. Use 12 dígitos hex (ex: AAAA.BBBB.CCCC).' });
+    const normalized = normalizeMacAddress(sanitized);
+    if (!normalized || !isValidMacAddress(normalized)) {
+      return res.status(400).json({ error: 'MAC Address inválido. Use 12 dígitos hex (ex: AA:BB:CC:DD:EE:FF).' });
     }
     // Substitui pelo formato normalizado
     req.body.macaddress = normalized;

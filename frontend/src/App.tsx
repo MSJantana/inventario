@@ -191,6 +191,8 @@ function Header({
   onOpenWhatsNew,
   version,
   expiredCount,
+  maintenanceCount,
+  discardedCount,
 }: Readonly<{
   onOpenMobile: () => void;
   showUser: boolean;
@@ -201,6 +203,8 @@ function Header({
   onOpenWhatsNew: () => void;
   version: string;
   expiredCount: number;
+  maintenanceCount: number;
+  discardedCount: number;
 }>) {
   return (
     <header className="bg-black text-white px-6 py-4">
@@ -213,6 +217,22 @@ function Header({
           </nav>
         </div>
         <div className="flex items-center gap-4">
+          <div className="relative flex items-center mr-2" title={discardedCount > 0 ? `${discardedCount} computadores descartados` : 'Nenhum computador descartado'}>
+            <span className={`material-symbols-outlined transition-colors duration-500 ${discardedCount > 0 ? 'text-yellow-500' : 'text-green-500'}`} style={{ fontSize: '28px' }}>computer_cancel</span>
+            {discardedCount > 0 && (
+              <span className="absolute -top-1 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-black">
+                {discardedCount}
+              </span>
+            )}
+          </div>
+          <div className="relative flex items-center mr-2" title={maintenanceCount > 0 ? `${maintenanceCount} equipamentos em manutenção` : 'Nenhum equipamento em manutenção'}>
+            <span className={`material-symbols-outlined transition-colors duration-500 ${maintenanceCount > 0 ? 'text-yellow-500' : 'text-green-500'}`} style={{ fontSize: '28px' }}>build</span>
+            {maintenanceCount > 0 && (
+              <span className="absolute -top-1 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ring-2 ring-black">
+                {maintenanceCount}
+              </span>
+            )}
+          </div>
           {expiredCount > 0 && (
             <div className="relative flex items-center mr-2" title={`${expiredCount} equipamentos vencidos`}>
               <span className="material-symbols-outlined text-yellow-500" style={{ fontSize: '28px' }}>warning</span>
@@ -271,7 +291,7 @@ function MobileSidebar({
               </div>
               <div className="ml-6 mt-1 space-y-1">
                 {deptChildren.map(({ to, label, Icon }) => (
-                  <NavLink key={to} to={to} className={navClass}>
+                  <NavLink key={to} to={to} className={navClass} onClick={onClose}>
                     <Icon className="h-4 w-4" strokeWidth={1.75} />
                     <span>{label}</span>
                   </NavLink>
@@ -280,7 +300,7 @@ function MobileSidebar({
             </div>
           )}
           {items.map(({ to, label, Icon }) => (
-            <NavLink key={to} to={to} className={navClass}>
+            <NavLink key={to} to={to} className={navClass} onClick={onClose}>
               <Icon className="h-4 w-4" strokeWidth={1.75} />
               <span>{label}</span>
             </NavLink>
@@ -373,19 +393,27 @@ export default function App() {
 
   const expiredCount = useAppStore((state) => state.expiredCount);
   const setExpiredCount = useAppStore((state) => state.setExpiredCount);
+  const maintenanceCount = useAppStore((state) => state.maintenanceCount);
+  const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount);
+  const discardedCount = useAppStore((state) => state.discardedCount);
+  const setDiscardedCount = useAppStore((state) => state.setDiscardedCount);
 
   useEffect(() => {
-    const excludedPaths = ['/equipamentos', '/relatorios', '/centro-midia', '/'];
+    const excludedPaths = ['/equipamentos', '/relatorios', '/centro-midia', '/movimentacoes', '/'];
     if (authToken && !excludedPaths.includes(location.pathname)) {
       api.get('/api/equipamentos').then((res) => {
         const list = res.data?.data || res.data || [];
         if (Array.isArray(list)) {
           const count = list.filter((item: { dataAquisicao?: string }) => isExpired(item.dataAquisicao)).length;
           setExpiredCount(count);
+          const maintCount = list.filter((item: { status?: string }) => item.status === 'EM_MANUTENCAO').length;
+          setMaintenanceCount(maintCount);
+          const discCount = list.filter((item: { status?: string }) => item.status === 'DESCARTADO').length;
+          setDiscardedCount(discCount);
         }
       }).catch(() => {});
     }
-  }, [authToken, location.pathname, setExpiredCount]);
+  }, [authToken, location.pathname, setExpiredCount, setMaintenanceCount, setDiscardedCount]);
 
   const onLogout = () => {
     localStorage.removeItem('authToken');
@@ -448,6 +476,8 @@ export default function App() {
             onOpenWhatsNew={openWhatsNew}
             version={APP_VERSION}
             expiredCount={expiredCount}
+            maintenanceCount={maintenanceCount}
+            discardedCount={discardedCount}
           />
           <WhatsNewModal open={showWhatsNew} onClose={closeWhatsNew} version={APP_VERSION} items={whatsNewItems} />
           <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} authToken={authToken} onLogout={onLogout} />

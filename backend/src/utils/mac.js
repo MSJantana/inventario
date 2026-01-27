@@ -6,21 +6,21 @@ export const sanitizeMac = (raw) => {
   return raw.replaceAll(/[^0-9a-fA-F]/g, '').toUpperCase();
 };
 
-// Formata para estilo Cisco: AAAA.BBBB.CCCC
-export const formatMacCisco = (raw) => {
+// Formata para estilo padrão: AA:BB:CC:DD:EE:FF
+export const formatMacAddress = (raw) => {
   const s = sanitizeMac(raw);
   if (s.length !== 12) return null;
-  return `${s.slice(0, 4)}.${s.slice(4, 8)}.${s.slice(8, 12)}`;
+  return s.match(/.{1,2}/g).join(':');
 };
 
-// Valida formato Cisco (AAAA.BBBB.CCCC)
-export const isValidMacCisco = (mac) => {
+// Valida formato padrão (AA:BB:CC:DD:EE:FF)
+export const isValidMacAddress = (mac) => {
   if (!mac || typeof mac !== 'string') return false;
-  return /^[0-9A-F]{4}\.[0-9A-F]{4}\.[0-9A-F]{4}$/.test(mac);
+  return /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(mac);
 };
 
-// Normaliza qualquer entrada para formato Cisco; retorna null se inválido
-export const normalizeToCiscoMac = (raw) => {
-  const formatted = formatMacCisco(raw);
+// Normaliza qualquer entrada para formato padrão; retorna null se inválido
+export const normalizeMacAddress = (raw) => {
+  const formatted = formatMacAddress(raw);
   return formatted;
 };

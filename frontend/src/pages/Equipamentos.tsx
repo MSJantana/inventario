@@ -368,6 +368,8 @@ export default function EquipamentosPage() {
   }
 
   const setExpiredCount = useAppStore((state) => state.setExpiredCount)
+  const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount)
+  const setDiscardedCount = useAppStore((state) => state.setDiscardedCount)
 
   // Dados filtrados e paginados
   const filtrada = useMemo(() => {
@@ -378,7 +380,11 @@ export default function EquipamentosPage() {
   useEffect(() => {
     const count = filtrada.filter(e => isExpired(e.dataAquisicao)).length
     setExpiredCount(count)
-  }, [filtrada, setExpiredCount])
+    const maintCount = filtrada.filter(e => e.status === 'EM_MANUTENCAO').length
+    setMaintenanceCount(maintCount)
+    const discCount = filtrada.filter(e => e.status === 'DESCARTADO').length
+    setDiscardedCount(discCount)
+  }, [filtrada, setExpiredCount, setMaintenanceCount, setDiscardedCount])
   const ordenada = filtrada.slice().sort((a, b) => {
     const an = (a.escola?.nome || '').toUpperCase()
     const bn = (b.escola?.nome || '').toUpperCase()

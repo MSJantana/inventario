@@ -2,7 +2,7 @@
 
 /* Material Symbols Outlined */
 .material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
+  font-family: 'Material Symbols Outlined', sans-serif;
   font-weight: normal;
   font-style: normal;
   font-size: 24px;  /* Preferred icon size */
@@ -13,6 +13,7 @@
   word-wrap: normal;
   white-space: nowrap;
   direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 
   /* Support for all WebKit browsers. */
   -webkit-font-smoothing: antialiased;
@@ -35,12 +36,6 @@ body {
   background-color: #f9fafb; /* bg-gray-50 */
   color: #111827; /* text-gray-900 */
 }
-
-/* Desabilitar scroll global da página 
-html, body {
-  overflow: hidden;
-}
-  */
 
 /* Fonte Advent (Advent Pro) para identidade "Inventário" */
 .font-advent {

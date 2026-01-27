@@ -216,6 +216,8 @@ export default function RelatoriosEquipamentosPage() {
   }
 
   const setExpiredCount = useAppStore((state) => state.setExpiredCount)
+  const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount)
+  const setDiscardedCount = useAppStore((state) => state.setDiscardedCount)
 
   const currentFilters = useMemo(() => ({ 
     text: filterText, 
@@ -230,13 +232,22 @@ export default function RelatoriosEquipamentosPage() {
   const filtradosFinal = filterDepartamento === 'CENTRO_MIDIA' ? filtradosCm : filtrados
 
   useEffect(() => {
+    const activeList = filterDepartamento === 'CENTRO_MIDIA' ? filtradosCm : filtrados
+
+    // Calcular contadores baseados na lista filtrada atual
+    const maintCount = activeList.filter(item => (item.status || '') === 'EM_MANUTENCAO').length
+    setMaintenanceCount(maintCount)
+
+    const discCount = activeList.filter(item => (item.status || '') === 'DESCARTADO').length
+    setDiscardedCount(discCount)
+
     if (filterDepartamento === 'EQUIPAMENTOS') {
-      const count = filtrados.filter(e => isExpired((e as Equipamento).dataAquisicao)).length
+      const count = (activeList as Equipamento[]).filter(e => isExpired(e.dataAquisicao)).length
       setExpiredCount(count)
     } else {
       setExpiredCount(0)
     }
-  }, [filtrados, filterDepartamento, setExpiredCount])
+  }, [filtrados, filtradosCm, filterDepartamento, setExpiredCount, setMaintenanceCount, setDiscardedCount])
 
   const handlePrint = () => {
     globalThis.print()
