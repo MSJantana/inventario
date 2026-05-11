@@ -2,9 +2,8 @@ import { Prisma } from '@prisma/client';
 
 const mapPrismaError = (err) => {
   const code = err.code;
-  // Defaults
-  let status = 500;
-  let message = 'Ocorreu um erro interno no servidor.';
+  let status;
+  let message;
 
   const target = err.meta?.target;
 
@@ -51,71 +50,76 @@ const mapPrismaError = (err) => {
   return { status, message };
 };
 
-const errorHandler = (err, req, res, next) => {
-  const isDev = process.env.NODE_ENV !== 'production';
-  const SHOW_STACK = process.env.LOG_STACK === 'true';
-
-  let statusCode = err.statusCode || 500;
-  let message = 'Ocorreu um erro interno no servidor.';
-
-  // Prisma: KnownRequestError
+const resolveHttpError = (err) => {
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     const mapped = mapPrismaError(err);
-    statusCode = mapped.status;
-    message = mapped.message;
-  } else if (err instanceof Prisma.PrismaClientInitializationError) {
-    statusCode = 500;
-    message = 'Falha ao inicializar conexão com o banco de dados.';
-  } else if (err instanceof Prisma.PrismaClientValidationError) {
-    statusCode = 400;
-    message = 'Dados inválidos para a operação solicitada.';
-  } else if (typeof err.message === 'string' && err.message) {
-    message = err.message;
+    return { statusCode: mapped.status, message: mapped.message };
   }
+  if (err instanceof Prisma.PrismaClientInitializationError) {
+    return { statusCode: 500, message: 'Falha ao inicializar conexão com o banco de dados.' };
+  }
+  if (err instanceof Prisma.PrismaClientValidationError) {
+    return { statusCode: 400, message: 'Dados inválidos para a operação solicitada.' };
+  }
+  if (typeof err?.message === 'string' && err.message) {
+    return { statusCode: err.statusCode || 500, message: err.message };
+  }
+  return { statusCode: err?.statusCode || 500, message: 'Ocorreu um erro interno no servidor.' };
+};
 
+const buildErrorResponse = (req, statusCode, message, err, isDev) => {
   const response = {
     status: 'error',
     statusCode,
     message,
+    error: message,
     requestId: req.id,
   };
-
-  // Em dev, retornar um identificador básico para facilitar debug sem expor stack
-  if (isDev && err.code) {
+  if (isDev && err?.code) {
     response.code = err.code;
   }
+  return response;
+};
 
-  // Log estruturado com pino quando disponível
-  const shortMsg = err.message?.split('\n')[0] || message;
+const logHttpError = (req, statusCode, message, err, showStack) => {
+  const shortMsg = err?.message?.split('\n')[0] || message;
   const logPayload = {
     requestId: req.id,
     method: req.method,
     url: req.originalUrl,
     status: statusCode,
-    code: err.code,
+    code: err?.code,
     target: err?.meta?.target,
   };
-  if (err.code === 'EBADCSRFTOKEN' && err.details) {
+  if (err?.code === 'EBADCSRFTOKEN' && err.details) {
     logPayload.csrf = err.details;
   }
   if (req?.log) {
-    if (SHOW_STACK) {
+    if (showStack) {
       req.log.error({ ...logPayload, err }, 'HTTP error');
     } else {
       req.log.error({ ...logPayload, message: shortMsg }, 'HTTP error');
     }
-  } else {
-    // Fallback: console
-    let baseMsg = `[HTTP ERROR] ${req.method} ${req.originalUrl}`;
-    if (err.code) baseMsg += ` code=${err.code}`;
-    if (err.meta?.target) baseMsg += ` target=${err.meta.target}`;
-    console.error(`${baseMsg} - ${shortMsg}`);
-    if (SHOW_STACK && err.stack) {
-      console.error(err.stack);
-    }
+    return;
   }
+  let baseMsg = `[HTTP ERROR] ${req.method} ${req.originalUrl}`;
+  if (err?.code) baseMsg += ` code=${err.code}`;
+  if (err?.meta?.target) baseMsg += ` target=${err.meta.target}`;
+  console.error(`${baseMsg} - ${shortMsg}`);
+  if (showStack && err?.stack) {
+    console.error(err.stack);
+  }
+};
 
-  res.status(statusCode).json(response);
+const errorHandler = (err, req, res, _next) => {
+  const isDev = process.env.NODE_ENV !== 'production';
+  const showStack = process.env.LOG_STACK === 'true';
+
+  const resolved = resolveHttpError(err);
+  const response = buildErrorResponse(req, resolved.statusCode, resolved.message, err, isDev);
+  logHttpError(req, resolved.statusCode, resolved.message, err, showStack);
+
+  res.status(resolved.statusCode).json(response);
 };
 
 export default errorHandler;

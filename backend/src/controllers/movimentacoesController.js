@@ -1,5 +1,28 @@
 import { prisma } from '../index.js';
 
+const safeUpdateEquipamento = async (req, equipamentoId, data, context) => {
+  try {
+    await prisma.equipamento.update({
+      where: { id: equipamentoId },
+      data
+    });
+  } catch (err) {
+    const payload = {
+      requestId: req?.id,
+      equipamentoId,
+      context,
+      code: err?.code,
+      target: err?.meta?.target,
+      message: err?.message,
+    };
+    if (req?.log) {
+      req.log.warn(payload, 'Falha ao atualizar equipamento');
+    } else {
+      console.warn('[movimentacoes] Falha ao atualizar equipamento', payload);
+    }
+  }
+};
+
 const mapTipoToStatus = (tipo) => {
   switch (tipo) {
     case 'ENTRADA':
@@ -21,7 +44,7 @@ const mapTipoToStatus = (tipo) => {
 export const listarMovimentacoes = async (req, res, next) => {
   try {
     const isAdmin = req.usuario?.role === 'ADMIN';
-    const where = !isAdmin ? { escolaId: req.usuario?.escolaId || undefined } : {};
+    const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
     const movimentacoes = await prisma.movimentacao.findMany({
       where,
       include: {
@@ -76,7 +99,7 @@ export const obterMovimentacao = async (req, res, next) => {
 // Criar uma nova movimentação
 export const criarMovimentacao = async (req, res, next) => {
   try {
-    const { equipamentoId, usuarioId, tipo, origem, destino, data, descricao } = req.body;
+    const { equipamentoId,  tipo, origem, destino, data, descricao } = req.body;
 
     // GESTOR só pode criar para a própria escola
     if (req.usuario?.role === 'GESTOR' && req.body.escolaId && req.body.escolaId !== req.usuario?.escolaId) {
@@ -108,22 +131,12 @@ export const criarMovimentacao = async (req, res, next) => {
 
     const novoStatus = mapTipoToStatus(tipo);
     if (novoStatus) {
-      try {
-        await prisma.equipamento.update({
-          where: { id: equipamentoId },
-          data: { status: novoStatus }
-        });
-      } catch (_) {}
+      await safeUpdateEquipamento(req, equipamentoId, { status: novoStatus }, 'criarMovimentacao.status');
     }
 
     const novoLocal = typeof destino === 'string' ? destino.trim() : '';
     if (novoLocal) {
-      try {
-        await prisma.equipamento.update({
-          where: { id: equipamentoId },
-          data: { localizacao: novoLocal }
-        });
-      } catch (_) {}
+      await safeUpdateEquipamento(req, equipamentoId, { localizacao: novoLocal }, 'criarMovimentacao.localizacao');
     }
 
     const response = {
@@ -177,24 +190,18 @@ export const atualizarMovimentacao = async (req, res, next) => {
     const statusAtualizado = mapTipoToStatus(tipoParaStatus);
     const equipamentoAlvo = equipamentoId || movimentacaoExistente.equipamentoId;
     if (statusAtualizado && equipamentoAlvo) {
-      try {
-        await prisma.equipamento.update({
-          where: { id: equipamentoAlvo },
-          data: { status: statusAtualizado }
-        });
-      } catch (_) {}
+      await safeUpdateEquipamento(req, equipamentoAlvo, { status: statusAtualizado }, 'atualizarMovimentacao.status');
     }
 
-    const destinoAtual = typeof req.body.destino === 'string' && req.body.destino.trim()
-      ? req.body.destino.trim()
-      : (typeof movimentacaoExistente.destino === 'string' ? movimentacaoExistente.destino.trim() : '');
+    let destinoAtual = '';
+    if (typeof req.body.destino === 'string') {
+      destinoAtual = req.body.destino.trim();
+    }
+    if (!destinoAtual && typeof movimentacaoExistente.destino === 'string') {
+      destinoAtual = movimentacaoExistente.destino.trim();
+    }
     if (destinoAtual && equipamentoAlvo) {
-      try {
-        await prisma.equipamento.update({
-          where: { id: equipamentoAlvo },
-          data: { localizacao: destinoAtual }
-        });
-      } catch (_) {}
+      await safeUpdateEquipamento(req, equipamentoAlvo, { localizacao: destinoAtual }, 'atualizarMovimentacao.localizacao');
     }
 
     const response = {
