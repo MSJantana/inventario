@@ -1,11 +1,11 @@
 import { prisma } from '../index.js';
 import PDFDocument from 'pdfkit';
 import fs from 'node:fs';
+import { getSchoolScopeWhere } from '../utils/schoolAccess.js';
 
 export const equipamentosPdf = async (req, res, next) => {
   try {
-    const isAdmin = req.usuario?.role === 'ADMIN';
-    const where = !isAdmin ? { escolaId: req.usuario?.escolaId || undefined } : {};
+    const where = getSchoolScopeWhere(req.usuario);
 
     const equipamentos = await prisma.equipamento.findMany({
       where,

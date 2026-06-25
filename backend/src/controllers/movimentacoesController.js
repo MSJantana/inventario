@@ -1,4 +1,5 @@
 import { prisma } from '../index.js';
+import { getSchoolScopeWhere, hasSchoolAccess, resolveManagedSchoolId } from '../utils/schoolAccess.js';
 
 const safeUpdateEquipamento = async (req, equipamentoId, data, context) => {
   try {
@@ -43,8 +44,7 @@ const mapTipoToStatus = (tipo) => {
 // Listar todas as movimentações
 export const listarMovimentacoes = async (req, res, next) => {
   try {
-    const isAdmin = req.usuario?.role === 'ADMIN';
-    const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
+    const where = getSchoolScopeWhere(req.usuario);
     const movimentacoes = await prisma.movimentacao.findMany({
       where,
       include: {
@@ -80,7 +80,7 @@ export const obterMovimentacao = async (req, res, next) => {
       return res.status(404).json({ error: 'Movimentação não encontrada' });
     }
 
-    if (req.usuario?.role !== 'ADMIN' && movimentacao.escolaId !== req.usuario?.escolaId) {
+    if (!hasSchoolAccess(req.usuario, movimentacao.escolaId)) {
       return res.status(403).json({ error: 'Acesso restrito à movimentações da sua escola' });
     }
 
@@ -102,8 +102,13 @@ export const criarMovimentacao = async (req, res, next) => {
     const { equipamentoId,  tipo, origem, destino, data, descricao } = req.body;
 
     // GESTOR só pode criar para a própria escola
-    if (req.usuario?.role === 'GESTOR' && req.body.escolaId && req.body.escolaId !== req.usuario?.escolaId) {
+    if (req.usuario?.role === 'GESTOR' && req.body.escolaId && !hasSchoolAccess(req.usuario, req.body.escolaId)) {
       return res.status(403).json({ error: 'Gestor só pode registrar movimentações na própria escola' });
+    }
+
+    const escolaIdMovimentacao = resolveManagedSchoolId(req.usuario, req.body.escolaId);
+    if (req.usuario?.role === 'GESTOR' && !escolaIdMovimentacao) {
+      return res.status(403).json({ error: 'Gestor nao possui escola vinculada para registrar movimentacoes' });
     }
 
     // Obter nome do usuário que está logado para preencher responsavel
@@ -121,7 +126,7 @@ export const criarMovimentacao = async (req, res, next) => {
         destino,
         dataMovimento: new Date(data),
         observacoes: descricao,
-        escolaId: req.body.escolaId ?? req.usuario?.escolaId
+        escolaId: escolaIdMovimentacao
       },
       include: {
         equipamento: true,        
@@ -166,7 +171,7 @@ export const atualizarMovimentacao = async (req, res, next) => {
       return res.status(404).json({ error: 'Movimentação não encontrada' });
     }
 
-    if (req.usuario?.role === 'GESTOR' && movimentacaoExistente.escolaId !== req.usuario?.escolaId) {
+    if (req.usuario?.role === 'GESTOR' && !hasSchoolAccess(req.usuario, movimentacaoExistente.escolaId)) {
       return res.status(403).json({ error: 'Acesso restrito à movimentações da sua escola' });
     }
 

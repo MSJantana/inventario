@@ -1,0 +1,261 @@
+name: Docker Publish
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      DOCKER_REGISTRY:
+        description: 'Registro Docker, ex.: docker.io'
+        required: false
+        default: 'docker.io'
+        type: string
+      IMAGE_OWNER:
+        description: 'Usuario ou organizacao do registry'
+        required: false
+        default: 'msoftsantana'
+        type: string
+      IMAGE_NAMESPACE:
+        description: 'Base do nome da imagem'
+        required: false
+        default: 'inventario'
+        type: string
+      VITE_API_BASE_URL:
+        description: 'Opcional: URL base para o frontend'
+        required: false
+        default: ''
+        type: string
+      PUSH_IMAGE:
+        description: 'Fazer push das imagens'
+        required: false
+        default: true
+        type: boolean
+      USE_BUILDX:
+        description: 'Usar docker buildx com cache no registry'
+        required: false
+        default: true
+        type: boolean
+  workflow_call:
+    secrets:
+      REGISTRY_USERNAME:
+        required: false
+      REGISTRY_PASSWORD:
+        required: false
+      DOCKERHUB_USERNAME:
+        required: false
+      DOCKERHUB_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY_USERNAME_SECRET_NAME: REGISTRY_USERNAME
+      REGISTRY_PASSWORD_SECRET_NAME: REGISTRY_PASSWORD
+      DOCKERHUB_USERNAME_SECRET_NAME: DOCKERHUB_USERNAME
+      DOCKERHUB_TOKEN_SECRET_NAME: DOCKERHUB_TOKEN
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: backend
+            dockerfile: backend/Dockerfile
+            suffix: backend
+          - name: frontend
+            context: frontend
+            dockerfile: frontend/Dockerfile
+            suffix: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve Parameters
+        id: params
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_DOCKER_REGISTRY: ${{ github.event.inputs.DOCKER_REGISTRY || '' }}
+          INPUT_IMAGE_OWNER: ${{ github.event.inputs.IMAGE_OWNER || '' }}
+          INPUT_IMAGE_NAMESPACE: ${{ github.event.inputs.IMAGE_NAMESPACE || '' }}
+          INPUT_VITE_API_BASE_URL: ${{ github.event.inputs.VITE_API_BASE_URL || '' }}
+          INPUT_PUSH_IMAGE: ${{ github.event.inputs.PUSH_IMAGE || '' }}
+          INPUT_USE_BUILDX: ${{ github.event.inputs.USE_BUILDX || '' }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          resolve_value() {
+            local input_value="$1"
+            local default_value="$2"
+            if [ -n "$input_value" ]; then
+              printf '%s' "$input_value"
+            else
+              printf '%s' "$default_value"
+            fi
+          }
+
+          docker_registry="$(resolve_value "$INPUT_DOCKER_REGISTRY" "docker.io")"
+          image_owner="$(resolve_value "$INPUT_IMAGE_OWNER" "msoftsantana")"
+          image_namespace="$(resolve_value "$INPUT_IMAGE_NAMESPACE" "inventario")"
+          vite_api_base_url="$(resolve_value "$INPUT_VITE_API_BASE_URL" "")"
+          push_image="$(resolve_value "$INPUT_PUSH_IMAGE" "true")"
+          use_buildx="$(resolve_value "$INPUT_USE_BUILDX" "true")"
+
+          branch_safe="$(printf '%s' "${REF_NAME:-local}" | sed 's/[^a-zA-Z0-9_.-]/-/g')"
+          commit_short="${SHA:0:7}"
+          is_main="false"
+          special_tag=""
+
+          if [ "${REF_NAME}" = "main" ] || [ "${REF_NAME}" = "master" ]; then
+            is_main="true"
+          fi
+
+          if [[ "${REF_NAME}" =~ ^release/ ]]; then
+            special_tag="stable"
+          elif [[ "${REF_NAME}" =~ ^hotfix/ ]]; then
+            special_tag="hotfix"
+          fi
+
+          {
+            echo "docker_registry=${docker_registry}"
+            echo "image_owner=${image_owner}"
+            echo "image_namespace=${image_namespace}"
+            echo "vite_api_base_url=${vite_api_base_url}"
+            echo "push_image=${push_image}"
+            echo "use_buildx=${use_buildx}"
+            echo "branch_safe=${branch_safe}"
+            echo "commit_short=${commit_short}"
+            echo "is_main=${is_main}"
+            echo "special_tag=${special_tag}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Preflight Docker
+        run: docker version
+
+      - name: Set up Docker Buildx
+        if: ${{ steps.params.outputs.use_buildx == 'true' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login To Registry
+        if: ${{ steps.params.outputs.push_image == 'true' }}
+        shell: bash
+        env:
+          REGISTRY: ${{ steps.params.outputs.docker_registry }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          username="${REGISTRY_USERNAME:-$DOCKERHUB_USERNAME}"
+          password="${REGISTRY_PASSWORD:-$DOCKERHUB_TOKEN}"
+
+          if [ -z "$username" ] || [ -z "$password" ]; then
+            echo "Credenciais do registry nao configuradas. Defina REGISTRY_USERNAME/REGISTRY_PASSWORD ou DOCKERHUB_USERNAME/DOCKERHUB_TOKEN."
+            exit 1
+          fi
+
+          echo "$password" | docker login -u "$username" --password-stdin "$REGISTRY"
+
+      - name: Compute Image Metadata
+        id: image
+        shell: bash
+        env:
+          DOCKER_REGISTRY: ${{ steps.params.outputs.docker_registry }}
+          IMAGE_OWNER: ${{ steps.params.outputs.image_owner }}
+          IMAGE_NAMESPACE: ${{ steps.params.outputs.image_namespace }}
+          BRANCH_SAFE: ${{ steps.params.outputs.branch_safe }}
+          COMMIT_SHORT: ${{ steps.params.outputs.commit_short }}
+          IS_MAIN: ${{ steps.params.outputs.is_main }}
+          SPECIAL_TAG: ${{ steps.params.outputs.special_tag }}
+          SUFFIX: ${{ matrix.suffix }}
+        run: |
+          image_base="${DOCKER_REGISTRY}/${IMAGE_OWNER}/${IMAGE_NAMESPACE}-${SUFFIX}"
+          tags=("${image_base}:${BRANCH_SAFE}" "${image_base}:${COMMIT_SHORT}")
+
+          if [ -n "${SPECIAL_TAG}" ]; then
+            tags+=("${image_base}:${SPECIAL_TAG}")
+          fi
+          if [ "${IS_MAIN}" = "true" ]; then
+            tags+=("${image_base}:latest")
+          fi
+
+          {
+            echo "image_base=${image_base}"
+            echo "tags_csv=$(IFS=,; echo "${tags[*]}")"
+            echo "tags<<EOF"
+            printf '%s\n' "${tags[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build Args
+        id: build-args
+        shell: bash
+        env:
+          SERVICE_NAME: ${{ matrix.name }}
+          VITE_API_BASE_URL: ${{ steps.params.outputs.vite_api_base_url }}
+        run: |
+          if [ "$SERVICE_NAME" = "frontend" ] && [ -n "$VITE_API_BASE_URL" ]; then
+            {
+              echo "args<<EOF"
+              echo "VITE_API_BASE_URL=${VITE_API_BASE_URL}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build And Push With Buildx
+        if: ${{ steps.params.outputs.use_buildx == 'true' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ steps.params.outputs.push_image == 'true' }}
+          tags: ${{ steps.image.outputs.tags }}
+          build-args: ${{ steps.build-args.outputs.args }}
+          provenance: false
+          cache-from: ${{ steps.params.outputs.push_image == 'true' && format('type=registry,ref={0}:cache', steps.image.outputs.image_base) || '' }}
+          cache-to: ${{ steps.params.outputs.push_image == 'true' && format('type=registry,ref={0}:cache,mode=max', steps.image.outputs.image_base) || '' }}
+
+      - name: Build And Push Without Buildx
+        if: ${{ steps.params.outputs.use_buildx != 'true' }}
+        shell: bash
+        env:
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          CONTEXT: ${{ matrix.context }}
+          TAGS_CSV: ${{ steps.image.outputs.tags_csv }}
+          PUSH_IMAGE: ${{ steps.params.outputs.push_image }}
+          SERVICE_NAME: ${{ matrix.name }}
+          VITE_API_BASE_URL: ${{ steps.params.outputs.vite_api_base_url }}
+        run: |
+          IFS=',' read -r -a tags <<< "$TAGS_CSV"
+          tag_args=()
+          for tag in "${tags[@]}"; do
+            tag_args+=("-t" "$tag")
+          done
+
+          build_args=()
+          if [ "$SERVICE_NAME" = "frontend" ] && [ -n "$VITE_API_BASE_URL" ]; then
+            build_args+=("--build-arg" "VITE_API_BASE_URL=${VITE_API_BASE_URL}")
+          fi
+
+          docker build -f "$DOCKERFILE" "${build_args[@]}" "${tag_args[@]}" "$CONTEXT"
+
+          if [ "$PUSH_IMAGE" = "true" ]; then
+            for tag in "${tags[@]}"; do
+              docker push "$tag"
+            done
+          fi
+
+      - name: List Docker Images
+        if: ${{ always() }}
+        run: docker images | head -n 20 || true

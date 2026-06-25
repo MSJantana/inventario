@@ -1,4 +1,5 @@
 import { prisma } from '../index.js';
+import { getAccessibleSchoolIds, hasSchoolAccess } from '../utils/schoolAccess.js';
 
 // Listar todas as escolas
 export const listarEscolas = async (req, res, next) => {
@@ -8,13 +9,15 @@ export const listarEscolas = async (req, res, next) => {
       return res.json(escolas);
     }
 
-    // Perfis não-admin: ver somente sua escola
-    const escolaId = req.usuario?.escolaId;
-    if (!escolaId) {
+    const escolaIds = getAccessibleSchoolIds(req.usuario);
+    if (escolaIds.length === 0) {
       return res.json([]);
     }
-    const escola = await prisma.escola.findUnique({ where: { id: escolaId } });
-    return res.json(escola ? [escola] : []);
+    const escolas = await prisma.escola.findMany({
+      where: { id: { in: escolaIds } },
+      orderBy: { nome: 'asc' },
+    });
+    return res.json(escolas);
   } catch (error) {
     next(error);
   }
@@ -25,7 +28,7 @@ export const obterEscola = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    if (req.usuario?.role !== 'ADMIN' && req.usuario?.escolaId !== id) {
+    if (!hasSchoolAccess(req.usuario, id)) {
       return res.status(403).json({ error: 'Acesso restrito à sua escola' });
     }
 

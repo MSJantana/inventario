@@ -81,18 +81,19 @@ model Equipamento {
 }
 
 model Usuario {
-  id              String    @id @default(uuid())
-  nome            String
-  email           String    @unique
-  senha           String
-  role            Role      @default(USUARIO)
-  cargo           String?
-  resetToken      String?   @db.VarChar(255)
+  id               String         @id @default(uuid())
+  nome             String
+  email            String         @unique
+  senha            String
+  role             Role           @default(USUARIO)
+  cargo            String?
+  resetToken       String?        @db.VarChar(255)
   resetTokenExpiry DateTime?
-  escolaId        String?
-  escola          Escola?   @relation(fields: [escolaId], references: [id])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  escolaId         String?
+  escola           Escola?        @relation(fields: [escolaId], references: [id])
+  escolasAcesso    UsuarioEscola[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 }
 
 model Movimentacao {
@@ -110,23 +111,36 @@ model Movimentacao {
 }
 
 model Escola {
-  id           String         @id @default(uuid())
-  nome         String
-  sigla        String
-  endereco     String
-  cidade       String
-  estado       String
-  cep          String
-  telefone     String?
-  email        String?
-  diretor      String?
-  observacoes  String?
-  equipamentos Equipamento[]
-  usuarios     Usuario[]
-  movimentacoes Movimentacao[]
-  centroMidia  CentroMidia[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id             String         @id @default(uuid())
+  nome           String
+  sigla          String
+  endereco       String
+  cidade         String
+  estado         String
+  cep            String
+  telefone       String?
+  email          String?
+  diretor        String?
+  observacoes    String?
+  equipamentos   Equipamento[]
+  usuarios       Usuario[]
+  usuariosAcesso UsuarioEscola[]
+  movimentacoes  Movimentacao[]
+  centroMidia    CentroMidia[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model UsuarioEscola {
+  usuarioId String
+  escolaId  String
+  createdAt DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  escola  Escola  @relation(fields: [escolaId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, escolaId])
+  @@index([escolaId])
 }
 
 model CentroMidia {

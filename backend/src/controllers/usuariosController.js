@@ -3,6 +3,41 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { enviarEmailRecuperacaoSenha } from '../utils/emailService.js';
+import { normalizeAdditionalSchoolIds } from '../utils/schoolAccess.js';
+
+const usuarioInclude = {
+  escola: true,
+  escolasAcesso: {
+    include: {
+      escola: true,
+    },
+  },
+};
+
+const syncAdditionalSchoolAccess = async (tx, usuarioId, primarySchoolId, escolaIds) => {
+  const normalizedIds = normalizeAdditionalSchoolIds(primarySchoolId, escolaIds);
+
+  const escolas = normalizedIds.length > 0
+    ? await tx.escola.findMany({
+        where: { id: { in: normalizedIds } },
+        select: { id: true },
+      })
+    : [];
+
+  if (escolas.length !== normalizedIds.length) {
+    throw new Error('Uma ou mais escolas informadas nao existem.');
+  }
+
+  await tx.usuarioEscola.deleteMany({ where: { usuarioId } });
+
+  if (normalizedIds.length === 0) {
+    return;
+  }
+
+  await tx.usuarioEscola.createMany({
+    data: normalizedIds.map((escolaId) => ({ usuarioId, escolaId })),
+  });
+};
 
 // Listar todos os usuários
 export const listarUsuarios = async (req, res, next) => {
@@ -10,7 +45,7 @@ export const listarUsuarios = async (req, res, next) => {
     if (req.usuario?.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Acesso restrito ao ADMIN' });
     }
-    const usuarios = await prisma.usuario.findMany({ include: { escola: true } });
+    const usuarios = await prisma.usuario.findMany({ include: usuarioInclude });
     res.json(usuarios);
   } catch (error) {
     next(error);
@@ -116,7 +151,7 @@ export const obterUsuario = async (req, res, next) => {
     const { id } = req.params;
     const usuario = await prisma.usuario.findUnique({
       where: { id },
-      include: { escola: true },
+      include: usuarioInclude,
     });
 
     if (!usuario) {
@@ -135,7 +170,7 @@ export const criarUsuario = async (req, res, next) => {
     if (req.usuario?.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Acesso restrito ao ADMIN' });
     }
-    const { nome, email, senha, role, cargo, escolaId } = req.body;
+    const { nome, email, senha, role, cargo, escolaId, escolaIds } = req.body;
 
     // Verificar se o usuário já existe
     const usuarioExistente = await prisma.usuario.findUnique({
@@ -151,15 +186,24 @@ export const criarUsuario = async (req, res, next) => {
     const senhaHash = await bcrypt.hash(senha, salt);
 
     // Criar o usuário
-    const usuario = await prisma.usuario.create({
-      data: {
-        nome,
-        email,
-        senha: senhaHash,
-        role: role || 'USUARIO', // Usa o role fornecido ou o padrão USUARIO
-        cargo,
-        escolaId,
-      },
+    const usuario = await prisma.$transaction(async (tx) => {
+      const created = await tx.usuario.create({
+        data: {
+          nome,
+          email,
+          senha: senhaHash,
+          role: role || 'USUARIO',
+          cargo,
+          escolaId,
+        },
+      });
+
+      await syncAdditionalSchoolAccess(tx, created.id, escolaId, escolaIds);
+
+      return tx.usuario.findUnique({
+        where: { id: created.id },
+        include: usuarioInclude,
+      });
     });
 
     res.status(201).json(usuario);
@@ -175,11 +219,12 @@ export const atualizarUsuario = async (req, res, next) => {
       return res.status(403).json({ error: 'Acesso restrito ao ADMIN' });
     }
     const { id } = req.params;
-    const { nome, email, senha, role, cargo, escolaId } = req.body;
+    const { nome, email, senha, role, cargo, escolaId, escolaIds } = req.body;
 
     // Verificar se o usuário existe
     const usuarioExistente = await prisma.usuario.findUnique({
       where: { id },
+      include: usuarioInclude,
     });
 
     if (!usuarioExistente) {
@@ -202,9 +247,53 @@ export const atualizarUsuario = async (req, res, next) => {
     }
 
     // Atualizar o usuário
-    const usuario = await prisma.usuario.update({
+    const usuario = await prisma.$transaction(async (tx) => {
+      await tx.usuario.update({
+        where: { id },
+        data: dadosAtualizacao,
+      });
+
+      if (escolaIds !== undefined) {
+        await syncAdditionalSchoolAccess(tx, id, escolaId, escolaIds);
+      }
+
+      return tx.usuario.findUnique({
+        where: { id },
+        include: usuarioInclude,
+      });
+    });
+
+    res.json(usuario);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const atualizarEscolasUsuario = async (req, res, next) => {
+  try {
+    if (req.usuario?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Acesso restrito ao ADMIN' });
+    }
+
+    const { id } = req.params;
+    const { escolaIds } = req.body;
+
+    const usuarioExistente = await prisma.usuario.findUnique({
       where: { id },
-      data: dadosAtualizacao,
+      include: usuarioInclude,
+    });
+
+    if (!usuarioExistente) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    const usuario = await prisma.$transaction(async (tx) => {
+      await syncAdditionalSchoolAccess(tx, id, usuarioExistente.escolaId, escolaIds);
+
+      return tx.usuario.findUnique({
+        where: { id },
+        include: usuarioInclude,
+      });
     });
 
     res.json(usuario);
@@ -224,7 +313,7 @@ export const excluirUsuario = async (req, res, next) => {
     // Verificar se o usuário existe
     const usuario = await prisma.usuario.findUnique({
       where: { id },
-      include: { escola: true },
+      include: usuarioInclude,
     });
 
     if (!usuario) {
@@ -257,7 +346,7 @@ export const login = async (req, res, next) => {
     // Verificar se o usuário existe
     const usuario = await prisma.usuario.findUnique({
       where: { email },
-      include: { escola: true }
+      include: usuarioInclude,
     });
 
     if (!usuario) {
@@ -286,7 +375,9 @@ export const login = async (req, res, next) => {
         nome: usuario.nome,
         email: usuario.email,
         role: usuario.role,
-        escolaNome: usuario.escola?.nome
+        escolaNome: usuario.escola?.nome,
+        escolaId: usuario.escolaId,
+        escolasAcesso: usuario.escolasAcesso,
       },
     });
   } catch (error) {

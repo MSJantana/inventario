@@ -1,4 +1,5 @@
 import { prisma } from '../index.js';
+import { getSchoolScopeWhere, hasSchoolAccess, resolveManagedSchoolId } from '../utils/schoolAccess.js';
 // Helper simples para formatar data em YYYY-MM-DD sem dependências externas
 const formatDateYYYYMMDD = (dateLike) => {
   if (!dateLike) return '';
@@ -13,8 +14,7 @@ const formatDateYYYYMMDD = (dateLike) => {
 // Listar todos os equipamentos
 export const listarEquipamentos = async (req, res, next) => {
   try {
-    const isAdmin = req.usuario?.role === 'ADMIN';
-    const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
+    const where = getSchoolScopeWhere(req.usuario);
     const equipamentos = await prisma.equipamento.findMany({
       where,
       include: {
@@ -48,7 +48,7 @@ export const obterEquipamento = async (req, res, next) => {
     }
 
     // Restringe acesso por escola para não-admin
-    if (req.usuario?.role !== 'ADMIN' && equipamento.escolaId !== req.usuario?.escolaId) {
+    if (!hasSchoolAccess(req.usuario, equipamento.escolaId)) {
       return res.status(403).json({ error: 'Acesso restrito a equipamentos da sua escola' });
     }
 
@@ -65,8 +65,12 @@ export const criarEquipamento = async (req, res, next) => {
 
     // GESTOR/TECNICO criam sempre na própria escola
     const escolaId = (req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO')
-      ? req.usuario?.escolaId
+      ? resolveManagedSchoolId(req.usuario, req.body.escolaId)
       : req.body.escolaId;
+
+    if ((req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO') && !escolaId) {
+      return res.status(403).json({ error: 'Acesso restrito as escolas vinculadas ao usuario' });
+    }
 
     const equipamento = await prisma.equipamento.create({
       data: {
@@ -109,7 +113,7 @@ export const atualizarEquipamento = async (req, res, next) => {
     }
 
     // Restringe atualização a equipamentos da mesma escola para não-admin
-    if (req.usuario?.role !== 'ADMIN' && equipamentoExistente.escolaId !== req.usuario?.escolaId) {
+    if (!hasSchoolAccess(req.usuario, equipamentoExistente.escolaId)) {
       return res.status(403).json({ error: 'Acesso restrito à sua escola' });
     }
 
@@ -122,6 +126,7 @@ export const atualizarEquipamento = async (req, res, next) => {
         observacoes,
       };
     } else if (req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO') {
+      const escolaIdPermitida = resolveManagedSchoolId(req.usuario, req.body.escolaId) ?? equipamentoExistente.escolaId;
       // GESTOR: atualização completa, mas sempre dentro da própria escola
       dataUpdate = {
         nome,
@@ -137,7 +142,7 @@ export const atualizarEquipamento = async (req, res, next) => {
         dataAquisicao: dataAquisicao ? new Date(dataAquisicao) : undefined,
         status,
         usuarioNome: usuarioNome ?? equipamentoExistente.usuarioNome,
-        escolaId: req.usuario?.escolaId,
+        escolaId: escolaIdPermitida,
       };
     } else {
       // ADMIN: atualização completa (pode mudar escolaId se necessário via body)
@@ -200,7 +205,7 @@ export const excluirEquipamento = async (req, res, next) => {
     if (req.usuario?.role === 'TECNICO') {
       return res.status(403).json({ error: 'TECNICO não pode excluir equipamentos' });
     }
-    if (req.usuario?.role === 'GESTOR' && equipamento.escolaId !== req.usuario?.escolaId) {
+    if (req.usuario?.role === 'GESTOR' && !hasSchoolAccess(req.usuario, equipamento.escolaId)) {
       return res.status(403).json({ error: 'Apenas equipamentos da sua escola podem ser excluídos' });
     }
 
@@ -215,8 +220,7 @@ export const excluirEquipamento = async (req, res, next) => {
 // Exportar equipamentos em CSV
 export const exportarEquipamentosCsv = async (req, res, next) => {
   try {
-    const isAdmin = req.usuario?.role === 'ADMIN';
-    const where = isAdmin ? {} : { escolaId: req.usuario?.escolaId || undefined };
+    const where = getSchoolScopeWhere(req.usuario);
     const equipamentos = await prisma.equipamento.findMany({
       where,
       include: { escola: true },

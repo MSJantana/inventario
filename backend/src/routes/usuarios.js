@@ -17,6 +17,7 @@ router.post('/', auth, csrfProtect, permitRoles('ADMIN'), validarUsuario, usuari
 // Rotas protegidas
 router.get('/', auth, permitRoles('ADMIN'), usuariosController.listarUsuarios);
 router.get('/:id', auth, permitRoles('ADMIN'), usuariosController.obterUsuario);
+router.put('/:id/escolas', auth, csrfProtect, permitRoles('ADMIN'), usuariosController.atualizarEscolasUsuario);
 router.put('/:id', auth, csrfProtect, permitRoles('ADMIN'), validarUsuario, usuariosController.atualizarUsuario);
 router.delete('/:id', auth, csrfProtect, permitRoles('ADMIN'), usuariosController.excluirUsuario);
 

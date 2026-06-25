@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { prisma } from '../index.js';
+import { getAccessibleSchoolIds } from '../utils/schoolAccess.js';
 
 const auth = async (req, res, next) => {
   try {
@@ -17,7 +18,15 @@ const auth = async (req, res, next) => {
     
     // Verificar se o usuário existe
     const usuario = await prisma.usuario.findUnique({
-      where: { id: decoded.id }
+      where: { id: decoded.id },
+      include: {
+        escola: true,
+        escolasAcesso: {
+          include: {
+            escola: true,
+          },
+        },
+      },
     });
 
     if (!usuario) {
@@ -25,7 +34,10 @@ const auth = async (req, res, next) => {
     }
 
     // Adicionar o usuário ao objeto de requisição
-    req.usuario = usuario;
+    req.usuario = {
+      ...usuario,
+      escolasPermitidas: getAccessibleSchoolIds(usuario),
+    };
     req.token = token;
     
     next();

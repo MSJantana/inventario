@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pencil, Trash2, Save, RotateCcw, Plus, Eye, EyeOff } from 'lucide-react'
+import { Pencil, Trash2, Save, RotateCcw, Plus, Eye, EyeOff, Building2 } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
+
+type UsuarioEscolaAcesso = {
+  escolaId: string
+  escola?: { nome: string }
+}
 
 type Usuario = {
   id: string
@@ -11,6 +16,7 @@ type Usuario = {
   cargo?: string
   escolaId?: string
   escola?: { nome: string }
+  escolasAcesso?: UsuarioEscolaAcesso[]
   createdAt: string
   updatedAt: string
 }
@@ -35,6 +41,9 @@ export default function UsuariosPage() {
   const [role, setRole] = useState<'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO'>('USUARIO');
   const [cargo, setCargo] = useState('')
   const [escolaId, setEscolaId] = useState('')
+  const [schoolAccessUser, setSchoolAccessUser] = useState<Usuario | null>(null)
+  const [managedSchoolIds, setManagedSchoolIds] = useState<string[]>([])
+  const [savingSchoolAccess, setSavingSchoolAccess] = useState(false)
   const nomeInputRef = useRef<HTMLInputElement | null>(null)
 
   // Estados para formulário de edição
@@ -152,16 +161,20 @@ export default function UsuariosPage() {
 
 
 
+  async function confirmarExclusaoUsuario(id: string) {
+    try {
+      await api.delete(`/api/usuarios/${id}`)
+      showSuccessToast('Usuário excluído com sucesso!')
+      setUsuarios((prev) => prev.filter((u) => u.id !== id))
+    } catch (e: unknown) {
+      const errorMsg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+      showErrorToast(errorMsg || 'Erro ao excluir usuário')
+    }
+  }
+
   function excluirUsuario(id: string) {
-    showConfirmToast('Tem certeza que deseja excluir este usuário?', async () => {
-      try {
-        await api.delete(`/api/usuarios/${id}`)
-        showSuccessToast('Usuário excluído com sucesso!')
-        setUsuarios(prev => prev.filter(u => u.id !== id))
-      } catch (e: unknown) {
-        const errorMsg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-        showErrorToast(errorMsg || 'Erro ao excluir usuário')
-      }
+    showConfirmToast('Tem certeza que deseja excluir este usuário?', () => {
+      void confirmarExclusaoUsuario(id)
     })
   }
 
@@ -175,6 +188,45 @@ export default function UsuariosPage() {
     setCargo(usuario.cargo || '')
     setEscolaId(usuario.escolaId || '')
     setEditingId(usuario.id) // Guardar o ID para saber que é edição
+  }
+
+  function getAdditionalSchools(usuario: Usuario) {
+    return (usuario.escolasAcesso || []).filter((item) => item.escolaId !== usuario.escolaId)
+  }
+
+  function abrirGestaoEscolas(usuario: Usuario) {
+    setSchoolAccessUser(usuario)
+    setManagedSchoolIds(getAdditionalSchools(usuario).map((item) => item.escolaId))
+  }
+
+  function fecharGestaoEscolas() {
+    setSchoolAccessUser(null)
+    setManagedSchoolIds([])
+  }
+
+  function alternarEscolaGerenciada(id: string) {
+    setManagedSchoolIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  async function salvarEscolasGerenciadas() {
+    if (!schoolAccessUser) return
+
+    setSavingSchoolAccess(true)
+    try {
+      const resp = await api.put(`/api/usuarios/${schoolAccessUser.id}/escolas`, {
+        escolaIds: managedSchoolIds,
+      })
+      showSuccessToast('Escolas adicionais atualizadas com sucesso!')
+      setUsuarios((prev) => prev.map((u) => (u.id === schoolAccessUser.id ? resp.data : u)))
+      fecharGestaoEscolas()
+    } catch (e: unknown) {
+      const errorMsg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+      showErrorToast(errorMsg || 'Erro ao atualizar escolas do usuário')
+    } finally {
+      setSavingSchoolAccess(false)
+    }
   }
 
 
@@ -395,6 +447,11 @@ export default function UsuariosPage() {
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm text-gray-900">
                       {usuario.escola?.nome || '-'}
+                      {getAdditionalSchools(usuario).length > 0 && (
+                        <div className="text-xs text-blue-700">
+                          +{getAdditionalSchools(usuario).length} escola(s) adicional(is)
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
@@ -404,6 +461,15 @@ export default function UsuariosPage() {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm">
                     <div className="flex gap-2">
+                      {usuario.role !== 'ADMIN' && (
+                        <button
+                          onClick={() => abrirGestaoEscolas(usuario)}
+                          className="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-700 flex items-center gap-1"
+                        >
+                          <Building2 size={16} />
+                          <span>Escolas</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => iniciarEdicao(usuario)}
                         className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1"
@@ -461,6 +527,9 @@ export default function UsuariosPage() {
                 <div>
                   <span className="font-medium">Escola:</span>
                   <p>{usuario.escola?.nome || '-'}</p>
+                  {getAdditionalSchools(usuario).length > 0 && (
+                    <p className="text-blue-700">+{getAdditionalSchools(usuario).length} adicional(is)</p>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <span className="font-medium">Criado em:</span>
@@ -468,6 +537,15 @@ export default function UsuariosPage() {
                 </div>
               </div>
               <div className="flex space-x-2">
+                {usuario.role !== 'ADMIN' && (
+                  <button
+                    onClick={() => abrirGestaoEscolas(usuario)}
+                    className="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-center gap-1"
+                  >
+                    <Building2 size={14} />
+                    <span>Escolas</span>
+                  </button>
+                )}
                 <button
                   onClick={() => iniciarEdicao(usuario)}
                   className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-1"
@@ -492,6 +570,72 @@ export default function UsuariosPage() {
           )}
         </div>
       </div>
+
+      {schoolAccessUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Escolas adicionais do usuário</h2>
+                <p className="text-sm text-gray-600">{schoolAccessUser.nome}</p>
+                <p className="text-sm text-gray-500">
+                  Escola principal: {schoolAccessUser.escola?.nome || 'Não definida'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={fecharGestaoEscolas}
+                className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="mt-4 rounded border bg-gray-50 p-3 text-sm text-gray-700">
+              Selecione as escolas adicionais que esse usuário também pode administrar.
+            </div>
+
+            <div className="mt-4 max-h-80 space-y-2 overflow-y-auto">
+              {escolas.filter((escola) => escola.id !== schoolAccessUser.escolaId).map((escola) => (
+                <label
+                  key={escola.id}
+                  className="flex items-center gap-3 rounded border px-3 py-2 hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={managedSchoolIds.includes(escola.id)}
+                    onChange={() => alternarEscolaGerenciada(escola.id)}
+                  />
+                  <span className="text-sm text-gray-900">{escola.nome}</span>
+                </label>
+              ))}
+              {escolas.filter((escola) => escola.id !== schoolAccessUser.escolaId).length === 0 && (
+                <div className="rounded border border-dashed p-4 text-sm text-gray-500">
+                  Nenhuma outra escola disponível para vincular.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex gap-2">
+              <button
+                type="button"
+                onClick={salvarEscolasGerenciadas}
+                disabled={savingSchoolAccess}
+                className="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {savingSchoolAccess ? 'Salvando...' : 'Salvar escolas'}
+              </button>
+              <button
+                type="button"
+                onClick={fecharGestaoEscolas}
+                className="rounded border px-4 py-2 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

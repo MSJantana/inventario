@@ -17,7 +17,7 @@ import { useAppStore } from './store/useAppStore';
 import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.8';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.9';
 
 // ---------- Helpers ----------
 const navItems = [
@@ -274,7 +274,12 @@ function MobileSidebar({
 
   return (
     <div className="md:hidden">
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <button
+        type="button"
+        className="fixed inset-0 z-40 bg-black/50"
+        onClick={onClose}
+        aria-label="Fechar menu lateral"
+      />
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-64 bg-black text-white">
         <div className="flex items-center justify-between px-4 py-4 text-sm font-semibold">
           <span className="font-advent">7inventory</span>
@@ -331,7 +336,12 @@ function WhatsNewModal({ open, onClose, version, items }: Readonly<{ open: boole
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-100">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-label="Fechar modal de novidades"
+      />
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-xl rounded-lg bg-white shadow-lg">
         <div className="border-b px-4 py-3">
           <h3 className="text-lg font-semibold">Novidades na versão {version}</h3>
@@ -437,8 +447,8 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Na tela de Equipamentos, botão com informações do equipamento e exibido e um QR Code.',
-    'Na tela de Equipamentos, ao cancelar limpa os dados do formulário.',    
+    'Fixados bugs e melhorias na interface do usuário.',
+    'Administradores podem acrescentar outras escolas para outros usuários.',    
     'No header agora exibi a quantidade de equipamentos em manutenção com um icone de aviso.',
   ];
 
