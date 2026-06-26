@@ -1,7 +1,7 @@
 services:
   backend:
     image: ${DOCKER_REGISTRY:-docker.io}/${IMAGE_OWNER:-msoftsantana}/${IMAGE_NAMESPACE:-inventario}-backend:${IMAGE_TAG:-latest}
-    container_name: backend
+    container_name: backend-inventario
     environment:
       PORT: ${BACKEND_PORT:-3002}
       DATABASE_URL: mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DB_HOST}:${MYSQL_PORT:-3306}/${DATABASE_NAME}
@@ -21,10 +21,10 @@ services:
 
   frontend:
     image: ${DOCKER_REGISTRY:-docker.io}/${IMAGE_OWNER:-msoftsantana}/${IMAGE_NAMESPACE:-inventario}-frontend:${IMAGE_TAG:-latest}
-    container_name: frontend
+    container_name: frontend-inventario
     depends_on:
-      backend:
-        condition: service_healthy
+        - backend
+    condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-8081}:80"
     restart: unless-stopped
