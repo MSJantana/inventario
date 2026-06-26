@@ -1,0 +1,30 @@
+services:
+  backend:
+    image: ${DOCKER_REGISTRY:-docker.io}/${IMAGE_OWNER:-msoftsantana}/${IMAGE_NAMESPACE:-inventario}-backend:${IMAGE_TAG:-latest}
+    container_name: backend
+    environment:
+      PORT: ${BACKEND_PORT:-3002}
+      DATABASE_URL: mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DB_HOST}:${MYSQL_PORT:-3306}/${DATABASE_NAME}
+      JWT_SECRET: ${JWT_SECRET}
+      CSRF_SECRET: ${CSRF_SECRET}
+      NODE_ENV: production
+      REPORT_LOGO_PATH: /app/assets/Logo_ASRS.svg
+      REPORT_LOGO_FOOTER_PATH: /app/assets/Logo_EA.svg
+    volumes:
+      - ./backend/assets:/app/assets:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:${BACKEND_PORT:-3002}/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: ${DOCKER_REGISTRY:-docker.io}/${IMAGE_OWNER:-msoftsantana}/${IMAGE_NAMESPACE:-inventario}-frontend:${IMAGE_TAG:-latest}
+    container_name: frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8081}:80"
+    restart: unless-stopped

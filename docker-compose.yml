@@ -11,7 +11,7 @@ services:
       MYSQL_USER: ${DATABASE_USER}
       MYSQL_PASSWORD: ${DATABASE_PASSWORD}
     ports:
-      - "${MYSQL_PORT}:3306" # opcional para acessar via host
+      - "${MYSQL_PORT:-3306}:3306" # opcional para acessar via host
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -28,7 +28,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      PORT: ${BACKEND_PORT}
+      PORT: ${BACKEND_PORT:-3002}
       DATABASE_URL: mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@db:3306/${DATABASE_NAME}
       JWT_SECRET: ${JWT_SECRET}
       CSRF_SECRET: ${CSRF_SECRET}
@@ -51,7 +51,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_PORT}:80"
+      - "${FRONTEND_PORT:-8080}:80"
     restart: unless-stopped
 
 volumes:

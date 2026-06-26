@@ -95,7 +95,8 @@ app.get('/', (req, res) => {
 });
 
 // Iniciar servidor
-const PORT = Number(process.env.PORT ?? 3002);
+const parsedPort = Number.parseInt(process.env.PORT || '3002', 10);
+const PORT = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3002;
 app.listen(PORT, '0.0.0.0', () => {
   logger.info({ port: PORT, host: '0.0.0.0' }, '[server] listening');
 });
