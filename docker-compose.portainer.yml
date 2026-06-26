@@ -23,8 +23,7 @@ services:
     image: ${DOCKER_REGISTRY:-docker.io}/${IMAGE_OWNER:-msoftsantana}/${IMAGE_NAMESPACE:-inventario}-frontend:${IMAGE_TAG:-latest}
     container_name: frontend-inventario
     depends_on:
-        - backend
-    condition: service_healthy
+      - backend
     ports:
       - "${FRONTEND_PORT:-8081}:80"
     restart: unless-stopped
