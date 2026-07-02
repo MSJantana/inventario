@@ -24,7 +24,7 @@ on:
       VITE_API_BASE_URL:
         description: 'Opcional: URL base para o frontend'
         required: false
-        default: ''
+        default: '/api'
         type: string
       PUSH_IMAGE:
         description: 'Fazer push das imagens'
@@ -106,7 +106,7 @@ jobs:
           docker_registry="$(resolve_value "$INPUT_DOCKER_REGISTRY" "docker.io")"
           image_owner="$(resolve_value "$INPUT_IMAGE_OWNER" "msoftsantana")"
           image_namespace="$(resolve_value "$INPUT_IMAGE_NAMESPACE" "inventario")"
-          vite_api_base_url="$(resolve_value "$INPUT_VITE_API_BASE_URL" "")"
+          vite_api_base_url="$(resolve_value "$INPUT_VITE_API_BASE_URL" "/api")"
           push_image="$(resolve_value "$INPUT_PUSH_IMAGE" "true")"
           use_buildx="$(resolve_value "$INPUT_USE_BUILDX" "true")"
 
