@@ -273,6 +273,7 @@ export default function UsuariosPage() {
             <div>
               <label htmlFor="nome" className="mb-1 block text-sm font-medium">Nome *</label>
               <input
+                id="nome"
                 type="text"
                 className="w-full rounded border px-3 py-2"
                 ref={nomeInputRef}
@@ -284,6 +285,7 @@ export default function UsuariosPage() {
             <div>
               <label htmlFor="email" className="mb-1 block text-sm font-medium">Email *</label>
               <input
+                id="email"
                 type="email"
                 className="w-full rounded border px-3 py-2"
                 value={email}
@@ -323,6 +325,7 @@ export default function UsuariosPage() {
             <div>
               <label htmlFor="role" className="mb-1 block text-sm font-medium">Função</label>
               <select
+                id="role"
                 className="w-full rounded border px-3 py-2"
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO')}
@@ -336,6 +339,7 @@ export default function UsuariosPage() {
             <div>
               <label htmlFor="cargo" className="mb-1 block text-sm font-medium">Cargo</label>
               <input
+                id="cargo"
                 type="text"
                 className="w-full rounded border px-3 py-2"
                 value={cargo}
@@ -346,6 +350,7 @@ export default function UsuariosPage() {
             <div>
               <label htmlFor="escolaId" className="mb-1 block text-sm font-medium">Escola</label>
               <select
+                id="escolaId"
                 className="w-full rounded border px-3 py-2"
                 value={escolaId}
                 onChange={(e) => setEscolaId(e.target.value)}

@@ -236,17 +236,17 @@ export default function CentroMidiaPage() {
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
           <div>
             <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome</label>
-            <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
+            <input id="filterText" ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
           </div>
           <div>
             <label htmlFor="filterStatus" className="mb-1 block text-sm font-medium">Status</label>
-            <select className="w-full rounded border px-3 py-2" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1) }}>
+            <select id="filterStatus" className="w-full rounded border px-3 py-2" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1) }}>
               {(['ALL', ...STATUS] as string[]).map(s => <option key={s} value={s}>{s === 'ALL' ? 'Todos' : s}</option>)}
             </select>
           </div>
           <div>
             <label htmlFor="pageSize" className="mb-1 block text-sm font-medium">Itens por página</label>
-            <select className="w-full rounded border px-3 py-2" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
+            <select id="pageSize" className="w-full rounded border px-3 py-2" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
               {[5,10,20,50].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
@@ -309,11 +309,11 @@ export default function CentroMidiaPage() {
         <form onSubmit={criarItem} className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           <div>
             <label htmlFor="nome" className="mb-1 block text-sm font-medium">Nome</label>
-            <input ref={nomeInputRef} className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <input id="nome" ref={nomeInputRef} className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
           <div>
             <label htmlFor="escolaId" className="mb-1 block text-sm font-medium">Escola</label>
-            <select className="w-full rounded border px-3 py-2" value={escolaId} onChange={(e) => setEscolaId(e.target.value)}>
+            <select id="escolaId" className="w-full rounded border px-3 py-2" value={escolaId} onChange={(e) => setEscolaId(e.target.value)}>
               <option value="">Selecione...</option>
               {escolas.map((esc) => (
                 <option key={esc.id} value={esc.id}>{esc.nome}</option>
@@ -322,21 +322,21 @@ export default function CentroMidiaPage() {
           </div>
           <div>
             <label htmlFor="tipo" className="mb-1 block text-sm font-medium">Tipo</label>
-            <select className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value as typeof TIPOS[number])}>
+            <select id="tipo" className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value as typeof TIPOS[number])}>
               {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
             <label htmlFor="modelo" className="mb-1 block text-sm font-medium">Modelo</label>
-            <input className="w-full rounded border px-3 py-2" value={modelo} onChange={(e) => setModelo(e.target.value.toUpperCase())} />
+            <input id="modelo" className="w-full rounded border px-3 py-2" value={modelo} onChange={(e) => setModelo(e.target.value.toUpperCase())} />
           </div>
           <div>
             <label htmlFor="serial" className="mb-1 block text-sm font-medium">Serial</label>
-            <input className="w-full rounded border px-3 py-2" value={serial} onChange={(e) => setSerial(e.target.value.toUpperCase())} />
+            <input id="serial" className="w-full rounded border px-3 py-2" value={serial} onChange={(e) => setSerial(e.target.value.toUpperCase())} />
           </div>
           <div>
             <label htmlFor="status" className="mb-1 block text-sm font-medium">Status</label>
-            <select className="w-full rounded border px-3 py-2" value={statusSel} onChange={(e) => setStatusSel(e.target.value as typeof STATUS[number])}>
+            <select id="status" className="w-full rounded border px-3 py-2" value={statusSel} onChange={(e) => setStatusSel(e.target.value as typeof STATUS[number])}>
               {STATUS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -363,11 +363,11 @@ export default function CentroMidiaPage() {
           <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <div>
               <label htmlFor="editNome" className="mb-1 block text-sm font-medium">Nome</label>
-              <input ref={editNomeInputRef} className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
+              <input id="editNome" ref={editNomeInputRef} className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
             </div>
             <div>
               <label htmlFor="editEscolaId" className="mb-1 block text-sm font-medium">Escola</label>
-              <select className="w-full rounded border px-3 py-2" value={editEscolaId} onChange={(e) => setEditEscolaId(e.target.value)}>
+              <select id="editEscolaId" className="w-full rounded border px-3 py-2" value={editEscolaId} onChange={(e) => setEditEscolaId(e.target.value)}>
                 <option value="">Selecione...</option>
                 {escolas.map((esc) => (
                   <option key={esc.id} value={esc.id}>{esc.nome}</option>
@@ -376,21 +376,21 @@ export default function CentroMidiaPage() {
             </div>
             <div>
               <label htmlFor="editTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-              <select className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value as typeof TIPOS[number])}>
+              <select id="editTipo" className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value as typeof TIPOS[number])}>
                 {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label htmlFor="editModelo" className="mb-1 block text-sm font-medium">Modelo</label>
-              <input className="w-full rounded border px-3 py-2" value={editModelo} onChange={(e) => setEditModelo(e.target.value.toUpperCase())} />
+              <input id="editModelo" className="w-full rounded border px-3 py-2" value={editModelo} onChange={(e) => setEditModelo(e.target.value.toUpperCase())} />
             </div>
             <div>
               <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Serial</label>
-              <input className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
+              <input id="editSerial" className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
             </div>
             <div>
               <label htmlFor="editStatus" className="mb-1 block text-sm font-medium">Status</label>
-              <select className="w-full rounded border px-3 py-2" value={editStatus} onChange={(e) => setEditStatus(e.target.value as typeof STATUS[number])}>
+              <select id="editStatus" className="w-full rounded border px-3 py-2" value={editStatus} onChange={(e) => setEditStatus(e.target.value as typeof STATUS[number])}>
                 {STATUS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>

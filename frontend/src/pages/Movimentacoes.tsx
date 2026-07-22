@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import Pagination from '../components/Pagination'
 import { Plus, Pencil, Trash2, Save, RotateCcw, X, Filter } from 'lucide-react'
-import * as XLSX from 'xlsx-js-style'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
 import { useAppStore } from '../store/useAppStore'
@@ -20,6 +19,7 @@ type Mov = {
 }
 
 type EquipamentoOption = { id: string; nome?: string; localizacao?: string; tipo?: string }
+type EscolaOption = { id: string; nome: string; sigla?: string }
 
 const TIPOS = ['ENTRADA','SAIDA','TRANSFERENCIA','MANUTENCAO','DESCARTE'] as const
 
@@ -32,6 +32,7 @@ export default function MovimentacoesPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([])
+  const [escolas, setEscolas] = useState<EscolaOption[]>([])
   const [departamentoSel, setDepartamentoSel] = useState<'EQUIPAMENTOS' | 'CENTRO_MIDIA'>('EQUIPAMENTOS')
   const [showCreate, setShowCreate] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -51,6 +52,7 @@ export default function MovimentacoesPage() {
   // Filtros e paginação
   const [filterText, setFilterText] = useState('')
   const [filterTipo, setFilterTipo] = useState<'ALL' | typeof TIPOS[number]>('ALL')
+  const [filterEscolaId, setFilterEscolaId] = useState('ALL')
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -95,10 +97,35 @@ export default function MovimentacoesPage() {
     }
   }, [departamentoSel])
 
+  const carregarEscolas = useCallback(async () => {
+    try {
+      const resp = await api.get('/api/escolas')
+      setEscolas(resp.data || [])
+    } catch {
+      setEscolas([])
+    }
+  }, [])
+
   const tiposDisponiveis = useMemo(() => {
     const t = new Set(equipamentos.map(e => e.tipo).filter(Boolean))
     return Array.from(t).sort()
   }, [equipamentos])
+
+  const escolasDisponiveis = useMemo(() => {
+    const merged = new Map<string, EscolaOption>()
+    escolas.forEach((escola) => {
+      merged.set(escola.id, escola)
+    })
+    lista.forEach((mov) => {
+      if (mov.escolaId && mov.escola?.nome && !merged.has(mov.escolaId)) {
+        merged.set(mov.escolaId, {
+          id: mov.escolaId,
+          nome: mov.escola.nome,
+        })
+      }
+    })
+    return Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome))
+  }, [escolas, lista])
 
   const handleEquipamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value
@@ -225,9 +252,11 @@ export default function MovimentacoesPage() {
 
   async function handleXLSX() {
     try {
-      const headers = ['Equipamento','Tipo','Origem','Destino','Data','Descrição']
+      const XLSX = await import('xlsx-js-style')
+      const headers = ['Equipamento','Escola','Tipo','Origem','Destino','Data','Descrição']
       const rows = filtrada.map((m) => [
         m.equipamento?.nome || m.equipamentoId,
+        m.escola?.nome || '-',
         m.tipo || '-',
         m.origem || '-',
         m.destino || '-',
@@ -237,7 +266,7 @@ export default function MovimentacoesPage() {
       const wb = XLSX.utils.book_new()
       const aoa = [headers, ...rows]
       const ws = XLSX.utils.aoa_to_sheet(aoa)
-      ws['!cols'] = [28,12,18,18,20,36].map(w => ({ wch: w }))
+      ws['!cols'] = [28,24,12,18,18,20,36].map(w => ({ wch: w }))
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
       for (let c = range.s.c; c <= range.e.c; c++) {
         const addr = XLSX.utils.encode_cell({ r: 0, c })
@@ -260,7 +289,7 @@ export default function MovimentacoesPage() {
           const addr = XLSX.utils.encode_cell({ r, c })
           const cell = ws[addr]
           if (!cell) continue
-          const isCenter = c === 1 || c === 4
+          const isCenter = c === 2 || c === 5
           cell.s = {
             alignment: { horizontal: isCenter ? 'center' : 'left', vertical: 'center' },
             border: {
@@ -293,11 +322,12 @@ export default function MovimentacoesPage() {
 
   // Dados filtrados e paginados
   const filtrada = useMemo(() => lista.filter((m) => {
-    const texto = `${m.equipamento?.nome || ''} ${m.descricao || ''} ${m.origem || ''} ${m.destino || ''} ${m.equipamentoId}`.toLowerCase()
+    const texto = `${m.equipamento?.nome || ''} ${m.descricao || ''} ${m.origem || ''} ${m.destino || ''} ${m.equipamentoId} ${m.escola?.nome || ''}`.toLowerCase()
     const matchesText = filterText ? texto.includes(filterText.toLowerCase()) : true
     const matchesTipo = filterTipo === 'ALL' ? true : (m.tipo || '') === filterTipo
-    return matchesText && matchesTipo
-  }), [lista, filterText, filterTipo])
+    const matchesEscola = filterEscolaId === 'ALL' ? true : (m.escolaId || '') === filterEscolaId
+    return matchesText && matchesTipo && matchesEscola
+  }), [lista, filterText, filterTipo, filterEscolaId])
   
   const totalPages = Math.max(1, Math.ceil(filtrada.length / pageSize))
   const current = Math.min(currentPage, totalPages)
@@ -306,6 +336,7 @@ export default function MovimentacoesPage() {
 
   useEffect(() => { carregar() }, [])
   useEffect(() => { carregarItens() }, [carregarItens])
+  useEffect(() => { carregarEscolas() }, [carregarEscolas])
 
   useEffect(() => {
     const maint = filtrada.filter(m => m.tipo === 'MANUTENCAO').length
@@ -351,20 +382,29 @@ export default function MovimentacoesPage() {
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         
-        <div className={`mb-3 grid gap-2 sm:grid-cols-3 ${showFilters ? 'block' : 'hidden sm:grid'}`}>
+        <div className={`mb-3 grid gap-2 sm:grid-cols-4 ${showFilters ? 'block' : 'hidden sm:grid'}`}>
           <div>
             <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Buscar</label>
-            <input ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
+            <input id="filterText" ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
           </div>
           <div>
             <label htmlFor="filterTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-            <select className="w-full rounded border px-3 py-2" value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value as typeof TIPOS[number] | 'ALL'); setCurrentPage(1) }}>
+            <select id="filterTipo" className="w-full rounded border px-3 py-2" value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value as typeof TIPOS[number] | 'ALL'); setCurrentPage(1) }}>
               {['ALL', ...TIPOS].map(t => <option key={t} value={t}>{t === 'ALL' ? 'Todos' : t}</option>)}
             </select>
           </div>
           <div>
+            <label htmlFor="filterEscola" className="mb-1 block text-sm font-medium">Escola</label>
+            <select id="filterEscola" className="w-full rounded border px-3 py-2" value={filterEscolaId} onChange={(e) => { setFilterEscolaId(e.target.value); setCurrentPage(1) }}>
+              <option value="ALL">Todas</option>
+              {escolasDisponiveis.map((escola) => (
+                <option key={escola.id} value={escola.id}>{escola.nome}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="pageSize" className="mb-1 block text-sm font-medium">Itens por página</label>
-            <select className="w-full rounded border px-3 py-2" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
+            <select id="pageSize" className="w-full rounded border px-3 py-2" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}>
               {[5,10,20,50].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
@@ -375,6 +415,7 @@ export default function MovimentacoesPage() {
             <thead className="bg-gray-100">
               <tr>
                 <th className="border px-3 py-2 text-left">Equipamento</th>
+                <th className="border px-3 py-2 text-left">Escola</th>
                 <th className="border px-3 py-2 text-left">Tipo</th>
                 <th className="border px-3 py-2 text-left">Origem</th>
                 <th className="border px-3 py-2 text-left">Destino</th>
@@ -387,6 +428,7 @@ export default function MovimentacoesPage() {
               {pagina.map((m) => (
                 <tr key={m.id}>
                   <td className="border px-3 py-2">{m.equipamento?.nome || m.equipamentoId}</td>
+                  <td className="border px-3 py-2">{m.escola?.nome || '-'}</td>
                   <td className="border px-3 py-2">{m.tipo}</td>
                   <td className="border px-3 py-2">{m.origem || '-'}</td>
                   <td className="border px-3 py-2">{m.destino || '-'}</td>
@@ -410,7 +452,7 @@ export default function MovimentacoesPage() {
               ))}
               {filtrada.length === 0 && !loading && (
                 <tr>
-                  <td className="border px-3 py-4 text-center" colSpan={7}>Nenhuma movimentação encontrada.</td>
+                  <td className="border px-3 py-4 text-center" colSpan={8}>Nenhuma movimentação encontrada.</td>
                 </tr>
               )}
             </tbody>
@@ -425,6 +467,10 @@ export default function MovimentacoesPage() {
                 <div className="flex justify-between items-start">
                   <span className="font-medium">Equipamento:</span>
                   <span className="text-gray-600">{m.equipamento?.nome || m.equipamentoId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Escola:</span>
+                  <span className="text-gray-600">{m.escola?.nome || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Tipo:</span>
@@ -488,8 +534,8 @@ export default function MovimentacoesPage() {
       {showCreate && (
       <section className="rounded-lg border bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-medium">Registrar Movimentação</h2>
-        <form onSubmit={criar} className="grid gap-3 grid-cols-1 md:grid-cols-2">
-          <div className="md:col-span-2">
+        <form onSubmit={criar} className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+          <div className="md:col-span-2 xl:col-span-4">
             <span className="mb-1 block text-sm font-medium">Departamento</span>
             <div className="flex gap-4">
               <label className="flex items-center gap-2">
@@ -502,7 +548,7 @@ export default function MovimentacoesPage() {
               </label>
             </div>
           </div>
-          <div className="md:col-span-2">
+          <div>
             <label htmlFor="filterEquipType" className="mb-1 block text-sm font-medium">Filtrar Equipamento por Tipo</label>
             <select 
               id="filterEquipType"
@@ -516,7 +562,7 @@ export default function MovimentacoesPage() {
           </div>
           <div>
             <label htmlFor="equipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
-            <select ref={equipamentoSelectRef} className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={handleEquipamentoChange}>
+            <select id="equipamentoId" ref={equipamentoSelectRef} className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={handleEquipamentoChange}>
               <option value="">Selecione...</option>
               {equipamentos
                 .filter(eq => filterEquipType === 'ALL' || eq.tipo === filterEquipType)
@@ -527,13 +573,14 @@ export default function MovimentacoesPage() {
           </div>
           <div>
             <label htmlFor="createTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-            <select className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <select id="createTipo" className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value)}>
               {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
             <label htmlFor="origem" className="mb-1 block text-sm font-medium">Origem</label>
             <input 
+              id="origem"
               className="w-full rounded border px-3 py-2 bg-gray-100 cursor-not-allowed" 
               value={origem} 
               readOnly
@@ -542,17 +589,17 @@ export default function MovimentacoesPage() {
           </div>
           <div>
             <label htmlFor="destino" className="mb-1 block text-sm font-medium">Destino</label>
-            <input className="w-full rounded border px-3 py-2" value={destino} onChange={(e) => setDestino(e.target.value)} />
+            <input id="destino" className="w-full rounded border px-3 py-2" value={destino} onChange={(e) => setDestino(e.target.value)} />
           </div>
           <div>
             <label htmlFor="createData" className="mb-1 block text-sm font-medium">Data</label>
-            <input type="datetime-local" className="w-full rounded border px-3 py-2" value={data} onChange={(e) => setData(e.target.value)} />
+            <input id="createData" type="datetime-local" className="w-full rounded border px-3 py-2" value={data} onChange={(e) => setData(e.target.value)} />
           </div>
-          <div>
+          <div className="xl:col-span-2">
             <label htmlFor="createDescricao" className="mb-1 block text-sm font-medium">Descrição</label>
-            <input className="w-full rounded border px-3 py-2" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+            <input id="createDescricao" className="w-full rounded border px-3 py-2" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
           </div>
-          <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
+          <div className="md:col-span-2 xl:col-span-4 flex flex-col sm:flex-row gap-2">
             <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
               <Save size={16} />
               <span>Salvar</span>
@@ -573,10 +620,10 @@ export default function MovimentacoesPage() {
       {editingId && (
         <section className="rounded-lg border bg-white p-4 shadow-sm">
           <h2 className="mb-3 text-lg font-medium">Editar Movimentação</h2>
-          <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2">
+          <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             <div>
               <label htmlFor="editEquipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
-              <select className="w-full rounded border px-3 py-2" value={editEquipamentoId} onChange={(e) => setEditEquipamentoId(e.target.value)}>
+              <select id="editEquipamentoId" className="w-full rounded border px-3 py-2" value={editEquipamentoId} onChange={(e) => setEditEquipamentoId(e.target.value)}>
                 <option value="">Selecione...</option>
                 {equipamentos.map((eq) => (
                   <option key={eq.id} value={eq.id}>{eq.nome || eq.id}</option>
@@ -585,27 +632,27 @@ export default function MovimentacoesPage() {
             </div>
             <div>
               <label htmlFor="editTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-              <select className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value)}>
+              <select id="editTipo" className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value)}>
                 {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label htmlFor="editOrigem" className="mb-1 block text-sm font-medium">Origem</label>
-              <input className="w-full rounded border px-3 py-2" value={editOrigem} onChange={(e) => setEditOrigem(e.target.value)} />
+              <input id="editOrigem" className="w-full rounded border px-3 py-2" value={editOrigem} onChange={(e) => setEditOrigem(e.target.value)} />
             </div>
           <div>
             <label htmlFor="editDestino" className="mb-1 block text-sm font-medium">Destino</label>
-            <input className="w-full rounded border px-3 py-2" value={editDestino} onChange={(e) => setEditDestino(e.target.value)} />
+            <input id="editDestino" className="w-full rounded border px-3 py-2" value={editDestino} onChange={(e) => setEditDestino(e.target.value)} />
           </div>
             <div>
               <label htmlFor="editData" className="mb-1 block text-sm font-medium">Data</label>
-              <input type="datetime-local" className="w-full rounded border px-3 py-2" value={editData} onChange={(e) => setEditData(e.target.value)} />
+              <input id="editData" type="datetime-local" className="w-full rounded border px-3 py-2" value={editData} onChange={(e) => setEditData(e.target.value)} />
             </div>
             <div>
               <label htmlFor="editDescricao" className="mb-1 block text-sm font-medium">Descrição</label>
-              <input className="w-full rounded border px-3 py-2" value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} />
+              <input id="editDescricao" className="w-full rounded border px-3 py-2" value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} />
             </div>
-            <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
+            <div className="md:col-span-2 xl:col-span-3 flex flex-col sm:flex-row gap-2">
               <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
                 <Save size={16} />
                 <span>Salvar alterações</span>

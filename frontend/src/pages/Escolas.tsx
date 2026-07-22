@@ -169,6 +169,7 @@ export default function EscolasPage() {
         <div className="flex items-center gap-2">
           <label htmlFor="searchInput" className="text-sm text-gray-700">Buscar:</label>
           <input
+            id="searchInput"
             ref={buscarInputRef}
             className="w-64 rounded border px-3 py-2"
             placeholder="Nome, sigla, cidade, estado"
@@ -179,6 +180,7 @@ export default function EscolasPage() {
         <div className="flex items-center gap-2">
           <label htmlFor="pageSizeSelect" className="text-sm text-gray-700">Itens por página:</label>
           <select
+            id="pageSizeSelect"
             className="rounded border px-2 py-2"
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
@@ -308,19 +310,19 @@ export default function EscolasPage() {
         <form onSubmit={criarEscola} className="grid gap-3 grid-cols-1 md:grid-cols-2">
           <div>
             <label htmlFor="nome" className="mb-1 block text-sm font-medium">Nome</label>
-            <input ref={nomeInputRef} className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <input id="nome" ref={nomeInputRef} className="w-full rounded border px-3 py-2" value={nome} onChange={(e) => setNome(e.target.value)} />
           </div>
           <div>
             <label htmlFor="sigla" className="mb-1 block text-sm font-medium">Sigla</label>
-            <input className="w-full rounded border px-3 py-2" value={sigla} onChange={(e) => setSigla(e.target.value.toUpperCase())} />
+            <input id="sigla" className="w-full rounded border px-3 py-2" value={sigla} onChange={(e) => setSigla(e.target.value.toUpperCase())} />
           </div>
           <div className="md:col-span-2">
             <label htmlFor="endereco" className="mb-1 block text-sm font-medium">Endereço</label>
-            <input className="w-full rounded border px-3 py-2" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+            <input id="endereco" className="w-full rounded border px-3 py-2" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
           </div>
           <div>
             <label htmlFor="estado" className="mb-1 block text-sm font-medium">Estado</label>
-            <select className="w-full rounded border px-3 py-2" value={estado} onChange={(e) => { const uf = e.target.value; setEstado(uf); setCidade(''); carregarCidadesByUF(uf) }}>
+            <select id="estado" className="w-full rounded border px-3 py-2" value={estado} onChange={(e) => { const uf = e.target.value; setEstado(uf); setCidade(''); carregarCidadesByUF(uf) }}>
               <option value="">Selecione o estado (UF)</option>
               {estados.map((uf) => (
                 <option key={uf.id} value={uf.sigla}>{uf.sigla} - {uf.nome}</option>
@@ -329,7 +331,7 @@ export default function EscolasPage() {
           </div>
           <div>
             <label htmlFor="cidade" className="mb-1 block text-sm font-medium">Cidade</label>
-            <select className="w-full rounded border px-3 py-2" value={cidade} onChange={(e) => setCidade(e.target.value)} disabled={!estado}>
+            <select id="cidade" className="w-full rounded border px-3 py-2" value={cidade} onChange={(e) => setCidade(e.target.value)} disabled={!estado}>
               <option value="">Selecione a cidade</option>
               {cidades.map((c) => (
                 <option key={c.id} value={c.nome}>{c.nome}</option>
@@ -338,23 +340,23 @@ export default function EscolasPage() {
           </div>
           <div>
             <label htmlFor="cep" className="mb-1 block text-sm font-medium">CEP</label>
-            <input className="w-full rounded border px-3 py-2" value={cep} onChange={(e) => setCep(formatCep(e.target.value))} placeholder="00000-000" />
+            <input id="cep" className="w-full rounded border px-3 py-2" value={cep} onChange={(e) => setCep(formatCep(e.target.value))} placeholder="00000-000" />
           </div>
           <div>
             <label htmlFor="telefone" className="mb-1 block text-sm font-medium">Telefone</label>
-            <input className="w-full rounded border px-3 py-2" value={telefone} onChange={(e) => setTelefone(formatTelefone(e.target.value))} placeholder="(DD) XXXXX-XXXX" />
+            <input id="telefone" className="w-full rounded border px-3 py-2" value={telefone} onChange={(e) => setTelefone(formatTelefone(e.target.value))} placeholder="(DD) XXXXX-XXXX" />
           </div>
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium">Email</label>
-            <input className="w-full rounded border px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@dominio.com" />
+            <input id="email" className="w-full rounded border px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@dominio.com" />
           </div>
           <div>
             <label htmlFor="diretor" className="mb-1 block text-sm font-medium">Diretor</label>
-            <input className="w-full rounded border px-3 py-2" value={diretor} onChange={(e) => setDiretor(e.target.value)} />
+            <input id="diretor" className="w-full rounded border px-3 py-2" value={diretor} onChange={(e) => setDiretor(e.target.value)} />
           </div>
           <div className="md:col-span-2">
             <label htmlFor="observacoes" className="mb-1 block text-sm font-medium">Observações</label>
-            <textarea className="w-full rounded border px-3 py-2" rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+            <textarea id="observacoes" className="w-full rounded border px-3 py-2" rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
             <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
@@ -377,19 +379,19 @@ export default function EscolasPage() {
           <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2">
           <div>
             <label htmlFor="editNome" className="mb-1 block text-sm font-medium">Nome</label>
-            <input className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
+            <input id="editNome" className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
           </div>
           <div>
             <label htmlFor="editSigla" className="mb-1 block text-sm font-medium">Sigla</label>
-            <input className="w-full rounded border px-3 py-2" value={editSigla} onChange={(e) => setEditSigla(e.target.value.toUpperCase())} />
+            <input id="editSigla" className="w-full rounded border px-3 py-2" value={editSigla} onChange={(e) => setEditSigla(e.target.value.toUpperCase())} />
           </div>
           <div className="md:col-span-2">
             <label htmlFor="editEndereco" className="mb-1 block text-sm font-medium">Endereço</label>
-            <input className="w-full rounded border px-3 py-2" value={editEndereco} onChange={(e) => setEditEndereco(e.target.value)} />
+            <input id="editEndereco" className="w-full rounded border px-3 py-2" value={editEndereco} onChange={(e) => setEditEndereco(e.target.value)} />
           </div>
           <div>
             <label htmlFor="editEstado" className="mb-1 block text-sm font-medium">Estado</label>
-            <select className="w-full rounded border px-3 py-2" value={editEstado} onChange={(e) => { const uf = e.target.value; setEditEstado(uf); setEditCidade(''); carregarCidadesByUF(uf) }}>
+            <select id="editEstado" className="w-full rounded border px-3 py-2" value={editEstado} onChange={(e) => { const uf = e.target.value; setEditEstado(uf); setEditCidade(''); carregarCidadesByUF(uf) }}>
               <option value="">Selecione o estado (UF)</option>
               {estados.map((uf) => (
                 <option key={uf.id} value={uf.sigla}>{uf.sigla} - {uf.nome}</option>
@@ -398,7 +400,7 @@ export default function EscolasPage() {
           </div>
           <div>
             <label htmlFor="editCidade" className="mb-1 block text-sm font-medium">Cidade</label>
-            <select className="w-full rounded border px-3 py-2" value={editCidade} onChange={(e) => setEditCidade(e.target.value)} disabled={!editEstado}>
+            <select id="editCidade" className="w-full rounded border px-3 py-2" value={editCidade} onChange={(e) => setEditCidade(e.target.value)} disabled={!editEstado}>
               <option value="">Selecione a cidade</option>
               {cidades.map((c) => (
                 <option key={c.id} value={c.nome}>{c.nome}</option>
@@ -407,23 +409,23 @@ export default function EscolasPage() {
           </div>
           <div>
             <label htmlFor="editCep" className="mb-1 block text-sm font-medium">CEP</label>
-            <input className="w-full rounded border px-3 py-2" value={editCep} onChange={(e) => setEditCep(formatCep(e.target.value))} placeholder="00000-000" />
+            <input id="editCep" className="w-full rounded border px-3 py-2" value={editCep} onChange={(e) => setEditCep(formatCep(e.target.value))} placeholder="00000-000" />
           </div>
           <div>
             <label htmlFor="editTelefone" className="mb-1 block text-sm font-medium">Telefone</label>
-            <input className="w-full rounded border px-3 py-2" value={editTelefone} onChange={(e) => setEditTelefone(formatTelefone(e.target.value))} placeholder="(DD) XXXXX-XXXX" />
+            <input id="editTelefone" className="w-full rounded border px-3 py-2" value={editTelefone} onChange={(e) => setEditTelefone(formatTelefone(e.target.value))} placeholder="(DD) XXXXX-XXXX" />
           </div>
           <div>
             <label htmlFor="editEmail" className="mb-1 block text-sm font-medium">Email</label>
-            <input className="w-full rounded border px-3 py-2" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="email@dominio.com" />
+            <input id="editEmail" className="w-full rounded border px-3 py-2" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="email@dominio.com" />
           </div>
           <div>
             <label htmlFor="editDiretor" className="mb-1 block text-sm font-medium">Diretor</label>
-            <input className="w-full rounded border px-3 py-2" value={editDiretor} onChange={(e) => setEditDiretor(e.target.value)} />
+            <input id="editDiretor" className="w-full rounded border px-3 py-2" value={editDiretor} onChange={(e) => setEditDiretor(e.target.value)} />
           </div>
           <div className="md:col-span-2">
             <label htmlFor="editObservacoes" className="mb-1 block text-sm font-medium">Observações</label>
-            <textarea className="w-full rounded border px-3 py-2" rows={3} value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
+            <textarea id="editObservacoes" className="w-full rounded border px-3 py-2" rows={3} value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
             <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">

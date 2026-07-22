@@ -8,6 +8,7 @@ type Equipamento = {
   id: string;
   nome?: string;
   nomeEquipamento?: string;
+  patrimonio?: string;
   usuarioNome?: string;
   tipo?: string;
   modelo?: string;
@@ -32,26 +33,19 @@ interface EquipmentIdCardProps {
 export default function EquipmentIdCard({ equipamento, onClose }: Readonly<EquipmentIdCardProps>) {
   const expired = isExpired(equipamento.dataAquisicao);
   const dataAquisicaoFmt = formatDate(equipamento.dataAquisicao);
+  const reportPath = `/equipamentos/${encodeURIComponent(equipamento.id)}/relatorio`;
+  const reportUrl = globalThis.location?.origin ? `${globalThis.location.origin}${reportPath}` : reportPath;
   
   // Dados fictícios ou reais
   const escolaNome = equipamento.escola?.nome || 'Escola não definida';
   const usuario = equipamento.usuarioNome || 'Não atribuído';
   const modelo = equipamento.modelo || 'Modelo não especificado';
+  const patrimonio = equipamento.patrimonio?.trim() || '00000';
   const fabricante = equipamento.fabricante || '-';
   const processador = equipamento.processador || '-';
   const memoria = equipamento.memoria || '-';
   const statusLabel = expired ? 'VENCIDO' : (equipamento.status || 'ATIVO');
   
-  // Dados para o QR Code
-  const qrData = JSON.stringify({
-    id: equipamento.id,
-    usuario,
-    modelo,
-    fabricante,
-    processador,
-    memoria
-  });
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
@@ -83,6 +77,11 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">MODELO</p>
               <h3 className="text-xl font-semibold text-slate-800">{modelo}</h3>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">PATRIMONIO</p>
+              <h3 className="text-xl font-semibold text-slate-800">{patrimonio}</h3>
             </div>
 
             <div>
@@ -146,7 +145,7 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
                    <div className="flex flex-col items-center gap-2">
                       <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
                          <QRCode
-                            value={qrData}
+                            value={reportUrl}
                             size={200}
                             logoImage={IconSystem}
                             logoWidth={50}
@@ -166,6 +165,9 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
                             logoPaddingStyle="square"
                          />
                       </div>
+                      <p className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
+                        Escaneie para abrir o relatório do equipamento
+                      </p>
                       <p className="text-xs text-gray-400 font-mono mt-2">ID: {equipamento.id}</p>
                    </div>
                 </div>

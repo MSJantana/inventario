@@ -84,10 +84,11 @@ export default function ResetPassword() {
           <h2 className="mb-4 text-center text-base font-semibold tracking-wide">REDEFINIR SENHA</h2>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label htmlFor="novaSenha" className="mb-1 block text-xs">Nova Senha</label>
+              <label htmlFor="novaSenhaDesktop" className="mb-1 block text-xs">Nova Senha</label>
               <div className="flex items-center gap-2">
                 <span className="text-black">▸</span>
                 <input
+                  id="novaSenhaDesktop"
                   type={showNovaSenha ? 'text' : 'password'}
                   className="w-full border-b border-black bg-transparent px-2 py-2 focus:outline-none"
                   value={novaSenha}
@@ -105,10 +106,11 @@ export default function ResetPassword() {
               </div>
             </div>
             <div>
-              <label htmlFor="confirmarSenha" className="mb-1 block text-xs">Confirmar Nova Senha</label>
+              <label htmlFor="confirmarSenhaDesktop" className="mb-1 block text-xs">Confirmar Nova Senha</label>
               <div className="flex items-center gap-2">
                 <span className="text-black">▸</span>
                 <input
+                  id="confirmarSenhaDesktop"
                   type={showConfirmarSenha ? 'text' : 'password'}
                   className="w-full border-b border-black bg-transparent px-2 py-2 focus:outline-none"
                   value={confirmarSenha}
@@ -163,8 +165,9 @@ export default function ResetPassword() {
             <h2 className="mb-2 text-center text-base font-semibold">Redefinir Senha</h2>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label htmlFor="novaSenha" className="mb-1 block text-xs font-medium">Nova Senha</label>
+                <label htmlFor="novaSenhaMobile" className="mb-1 block text-xs font-medium">Nova Senha</label>
                 <input
+                  id="novaSenhaMobile"
                   type={showNovaSenha ? 'text' : 'password'}
                   className="w-full rounded-lg border px-3 py-2"
                   value={novaSenha}
@@ -181,8 +184,9 @@ export default function ResetPassword() {
                 </button>
               </div>
               <div>
-                <label htmlFor="confirmarSenha" className="mb-1 block text-xs font-medium">Confirmar Nova Senha</label>
+                <label htmlFor="confirmarSenhaMobile" className="mb-1 block text-xs font-medium">Confirmar Nova Senha</label>
                 <input
+                  id="confirmarSenhaMobile"
                   type={showConfirmarSenha ? 'text' : 'password'}
                   className="w-full rounded-lg border px-3 py-2"
                   value={confirmarSenha}
