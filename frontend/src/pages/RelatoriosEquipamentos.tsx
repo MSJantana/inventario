@@ -1,8 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast } from '../utils/toast'
-import { pdf } from '@react-pdf/renderer'
-import { RelatoriosPDF } from '../components/relatorios/RelatoriosPDF'
 import { toDataUrl } from '../utils/imageUtils'
 import LogoEa from '../assets/Logo_EA.svg'
 import LogoAsrs from '../assets/Logo_ASRS.svg'
@@ -364,10 +362,11 @@ export default function RelatoriosEquipamentosPage() {
       const isCm = filterDepartamento === 'CENTRO_MIDIA'
       const data = isCm ? filtradosCm : filtrados
       
-      // Carregar logos
-      const [logoTop, logoBottom] = await Promise.all([
+      const [logoTop, logoBottom, { pdf }, { RelatoriosPDF }] = await Promise.all([
         toDataUrl(LogoAsrs),
-        toDataUrl(LogoEa)
+        toDataUrl(LogoEa),
+        import('@react-pdf/renderer'),
+        import('../components/relatorios/RelatoriosPDF'),
       ])
 
       const blob = await pdf(

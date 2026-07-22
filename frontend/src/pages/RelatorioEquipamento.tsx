@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, BadgeInfo, CalendarDays, MapPin, PackageSearch, ShieldCheck, UserRound } from 'lucide-react'
-import { pdf } from '@react-pdf/renderer'
 import api from '../lib/axios'
 import { formatDate, isExpired } from '../utils/validity'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
 import { toDataUrl } from '../utils/imageUtils'
 import LogoAsrs from '../assets/Logo_ASRS.svg'
 import LogoEa from '../assets/Logo_EA.svg'
-import { RelatorioEquipamentoPDF } from '../components/relatorios/RelatorioEquipamentoPDF'
 
 type Escola = {
   nome?: string
@@ -170,7 +168,12 @@ export default function RelatorioEquipamentoPage() {
 
     try {
       setIsGeneratingPdf(true)
-      const [logoTop, logoBottom] = await Promise.all([toDataUrl(LogoAsrs), toDataUrl(LogoEa)])
+      const [{ pdf }, { RelatorioEquipamentoPDF }, logoTop, logoBottom] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('../components/relatorios/RelatorioEquipamentoPDF'),
+        toDataUrl(LogoAsrs),
+        toDataUrl(LogoEa),
+      ])
 
       const blob = await pdf(
         <RelatorioEquipamentoPDF
