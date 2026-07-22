@@ -24,6 +24,7 @@ export default function ConfigPage() {
         <div>
           <label htmlFor="apiBaseUrl" className="mb-1 block text-sm font-medium">API Base URL</label>
           <input
+            id="apiBaseUrl"
             className="w-full rounded border px-3 py-2"
             placeholder="http://localhost:3002"
             value={apiBaseUrl}
@@ -34,6 +35,7 @@ export default function ConfigPage() {
           <label htmlFor="authToken" className="mb-1 block text-sm font-medium">Auth Token (Bearer)</label>
           <div className="relative">
             <input
+              id="authToken"
               type={showToken ? 'text' : 'password'}
               className="w-full rounded border px-3 py-2 pr-10"
               placeholder="JWT..."
@@ -52,6 +54,7 @@ export default function ConfigPage() {
         <div>
           <label htmlFor="validityYears" className="mb-1 block text-sm font-medium">Tempo de Validade (anos)</label>
           <input
+            id="validityYears"
             type="number"
             min="1"
             className="w-full rounded border px-3 py-2"

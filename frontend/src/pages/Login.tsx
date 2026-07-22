@@ -83,8 +83,9 @@ export default function LoginPage() {
             <h2 className="mb-3 text-center text-lg font-semibold">Login</h2>
             <form onSubmit={onLogin} className="space-y-4">
               <div>
-                <label htmlFor="email" className="mb-1 block text-sm font-medium">E-mail</label>
+                <label htmlFor="emailMobile" className="mb-1 block text-sm font-medium">E-mail</label>
                 <input
+                  id="emailMobile"
                   type="email"
                   className="w-full rounded-lg border px-3 py-2"
                   placeholder="Hello@dream.com"
@@ -93,9 +94,10 @@ export default function LoginPage() {
                 />
               </div>
               <div>
-                <label htmlFor="senha" className="mb-1 block text-sm font-medium">Senha</label>
+                <label htmlFor="senhaMobile" className="mb-1 block text-sm font-medium">Senha</label>
                 <div className="relative">
                   <input
+                    id="senhaMobile"
                     type={showPassword ? 'text' : 'password'}
                     className="w-full rounded-lg border px-3 py-2 pr-10"
                     value={senha}
@@ -132,10 +134,11 @@ export default function LoginPage() {
           <h2 className="mb-6 text-center text-lg font-semibold tracking-wide">SIGN IN</h2>
           <form onSubmit={onLogin} className="space-y-4">
             <div>
-              <label htmlFor="email" className="mb-1 block text-sm">Email</label>
+              <label htmlFor="emailDesktop" className="mb-1 block text-sm">Email</label>
               <div className="flex items-center gap-2">
                 <span className="text-black">▸</span>
                 <input
+                  id="emailDesktop"
                   type="email"
                   className="w-full border-b border-black bg-transparent px-2 py-2 focus:outline-none"
                   value={email}
@@ -144,10 +147,11 @@ export default function LoginPage() {
               </div>
             </div>
             <div>
-              <label htmlFor="senha" className="mb-1 block text-sm">Senha</label>
+              <label htmlFor="senhaDesktop" className="mb-1 block text-sm">Senha</label>
               <div className="flex items-center gap-2 relative">
                 <span className="text-black">▸</span>
                 <input
+                  id="senhaDesktop"
                   type={showPassword ? 'text' : 'password'}
                   className="w-full border-b border-black bg-transparent px-2 py-2 focus:outline-none pr-10"
                   value={senha}

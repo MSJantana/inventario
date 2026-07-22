@@ -1,23 +1,25 @@
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, lazy, useEffect, useState, useRef } from 'react';
 import type { ComponentType } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
 import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle, Building2 } from 'lucide-react';
 import LogoSystem from './assets/Logo_System.svg';
 import './index.css';
 import EquipamentosPage from './pages/Equipamentos';
-import MovimentacoesPage from './pages/Movimentacoes';
 import EscolasPage from './pages/Escolas';
 import ConfigPage from './pages/Config';
 import LoginPage from './pages/Login';
-import RelatoriosEquipamentosPage from './pages/RelatoriosEquipamentos';
 import UsuariosPage from './pages/Usuarios';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
-import CentroMidiaPage from './pages/CentroMidia';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.1.9';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.0';
+
+const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
+const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
+const RelatorioEquipamentoPage = lazy(() => import('./pages/RelatorioEquipamento'));
+const CentroMidiaPage = lazy(() => import('./pages/CentroMidia'));
 
 // ---------- Helpers ----------
 const navItems = [
@@ -48,6 +50,14 @@ const canAccessPath = (role: Role, path: string) => {
 function RequireAuth() {
   const authToken = useAppStore((s) => s.authToken);
   return authToken ? <Outlet /> : <Navigate to="/login" replace />;
+}
+
+function RouteFallback() {
+  return (
+    <div className="rounded-lg border bg-white p-4 shadow-sm">
+      <span className="text-sm text-gray-500">Carregando página...</span>
+    </div>
+  );
 }
 
 function RoleGuard({ allowed, children }: Readonly<{ allowed: Role[]; children: React.ReactElement }>) {
@@ -447,13 +457,17 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Fixados bugs e melhorias na interface do usuário.',
-    'Administradores podem acrescentar outras escolas para outros usuários.',    
-    'No header agora exibi a quantidade de equipamentos em manutenção com um icone de aviso.',
+    'Movimentações: Adicionado filtro para trazer o nome da escola.',
+    'Histórico de Movimentações: Adicionado filtro para trazer o nome da escola.',
+    'Fixados bugs e melhorias para gerar relatorios no Excel.',
+    'Criado campo para registrar número do patrimônio.',
+    'Fixados melhorias na inteface do cadastro de equipamentos e movimentação.',
+    'Ajustado leitura do QR do equipamento.'    
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const hasWhatsNew = (localStorage.getItem('lastSeenVersion') !== APP_VERSION);
+  const isEquipmentReportRoute = /^\/equipamentos\/[^/]+\/relatorio$/.test(location.pathname);
   useEffect(() => {
     if (isAuthRoute) return;
     const lastVersion = localStorage.getItem('lastSeenVersion');
@@ -467,7 +481,7 @@ export default function App() {
     setShowWhatsNew(false);
     localStorage.setItem('lastSeenVersion', APP_VERSION);
   };
-  const canScroll = location.pathname === '/relatorios';
+  const canScroll = location.pathname === '/relatorios' || isEquipmentReportRoute;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -496,7 +510,7 @@ export default function App() {
             <div className="mb-4 flex items-baseline justify-between">
               <div>
                 <h2 className="text-xl font-semibold">{userName ? `Bem-vindo, ${userName}` : 'Bem-vindo'}</h2>
-                <p className="text-xs text-gray-500">{routeLabels[location.pathname] || 'Página'}</p>
+                <p className="text-xs text-gray-500">{isEquipmentReportRoute ? 'Relatório do Equipamento' : (routeLabels[location.pathname] || 'Página')}</p>
               </div>
               <div className="flex items-center gap-4">
                 {dbIsDev && (
@@ -512,12 +526,13 @@ export default function App() {
               <Route element={<RequireAuth />}>
                 <Route path="/" element={<EquipamentosPage />} />
                 <Route path="/equipamentos" element={<EquipamentosPage />} />
-                <Route path="/movimentacoes" element={<MovimentacoesPage />} />
+                <Route path="/equipamentos/:id/relatorio" element={<Suspense fallback={<RouteFallback />}><RelatorioEquipamentoPage /></Suspense>} />
+                <Route path="/movimentacoes" element={<Suspense fallback={<RouteFallback />}><MovimentacoesPage /></Suspense>} />
                 <Route path="/escolas" element={<EscolasPage />} />
-                <Route path="/relatorios" element={<RelatoriosEquipamentosPage />} />
+                <Route path="/relatorios" element={<Suspense fallback={<RouteFallback />}><RelatoriosEquipamentosPage /></Suspense>} />
                 <Route path="/usuarios" element={<RoleGuard allowed={['ADMIN','GESTOR']}><UsuariosPage /></RoleGuard>} />
                 <Route path="/config" element={<RoleGuard allowed={['ADMIN','GESTOR']}><ConfigPage /></RoleGuard>} />
-                <Route path="/centro-midia" element={<CentroMidiaPage />}/>
+                <Route path="/centro-midia" element={<Suspense fallback={<RouteFallback />}><CentroMidiaPage /></Suspense>}/>
               </Route>
 
               {/* Rotas de auth (fallback caso usuário acesse fora do bloco AuthLayout) */}

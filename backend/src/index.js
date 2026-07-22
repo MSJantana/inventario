@@ -7,8 +7,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuração - deve ser a primeira coisa
-const envPath = path.resolve(__dirname, '../.env');
-dotenv.config({ path: envPath });
+const defaultEnvPath = path.resolve(__dirname, '../.env');
+const devEnvPath = path.resolve(__dirname, '../.env-dev');
+const isDevelopmentMode =
+  process.env.NODE_ENV === 'development' ||
+  process.env.npm_lifecycle_event === 'dev';
+
+dotenv.config({ path: defaultEnvPath });
+
+if (isDevelopmentMode) {
+  dotenv.config({ path: devEnvPath, override: true });
+}
 
 import express from 'express';
 import cors from 'cors';

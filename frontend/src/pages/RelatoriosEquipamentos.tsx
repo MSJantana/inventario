@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
-import * as XLSX from 'xlsx-js-style'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast } from '../utils/toast'
 import { pdf } from '@react-pdf/renderer'
@@ -13,6 +12,8 @@ import { RelatoriosContent } from '../components/relatorios/RelatoriosContent'
 import type { Equipamento, CmItem } from '../components/relatorios/types'
 import { isExpired, formatDate } from '../utils/validity'
 import { useAppStore } from '../store/useAppStore'
+
+type XlsxModule = typeof import('xlsx-js-style')
 
 // Helper functions for XLSX
 function getXlsxData(isCm: boolean, filtrados: Equipamento[], filtradosCm: CmItem[]) {
@@ -49,9 +50,9 @@ function getXlsxData(isCm: boolean, filtrados: Equipamento[], filtradosCm: CmIte
   return { headers, rows, colWidths }
 }
 
-function applyHeaderStyles(ws: XLSX.WorkSheet, range: XLSX.Range, headers: string[]) {
+function applyHeaderStyles(xlsx: XlsxModule, ws: import('xlsx-js-style').WorkSheet, range: import('xlsx-js-style').Range, headers: string[]) {
   for (let c = range.s.c; c <= range.e.c; c++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: 0, c })
+    const cellAddress = xlsx.utils.encode_cell({ r: 0, c })
     const cell = ws[cellAddress] || { t: 's', v: headers[c] }
     cell.s = {
       font: { bold: true, color: { rgb: 'FFFFFF' } },
@@ -68,10 +69,10 @@ function applyHeaderStyles(ws: XLSX.WorkSheet, range: XLSX.Range, headers: strin
   }
 }
 
-function applyDataStyles(ws: XLSX.WorkSheet, range: XLSX.Range) {
+function applyDataStyles(xlsx: XlsxModule, ws: import('xlsx-js-style').WorkSheet, range: import('xlsx-js-style').Range) {
   for (let r = range.s.r + 1; r <= range.e.r; r++) {
     for (let c = range.s.c; c <= range.e.c; c++) {
-      const addr = XLSX.utils.encode_cell({ r, c })
+      const addr = xlsx.utils.encode_cell({ r, c })
       const cell = ws[addr]
       if (!cell) continue
       const isCenter = c === 1 || c === 2
@@ -89,9 +90,9 @@ function applyDataStyles(ws: XLSX.WorkSheet, range: XLSX.Range) {
   }
 }
 
-function addTotalRow(ws: XLSX.WorkSheet, range: XLSX.Range, headers: string[], count: number) {
+function addTotalRow(xlsx: XlsxModule, ws: import('xlsx-js-style').WorkSheet, range: import('xlsx-js-style').Range, headers: string[], count: number) {
   const finalStartRow = range.e.r + 2
-  const totalAddr = XLSX.utils.encode_cell({ r: finalStartRow, c: 0 })
+  const totalAddr = xlsx.utils.encode_cell({ r: finalStartRow, c: 0 })
   ws[totalAddr] = {
     t: 's',
     v: `Total: ${count}`,
@@ -327,6 +328,7 @@ export default function RelatoriosEquipamentosPage() {
 
   async function handleXLSX() {
     try {
+      const XLSX = await import('xlsx-js-style')
       const isCm = filterDepartamento === 'CENTRO_MIDIA'
       const { headers, rows, colWidths } = getXlsxData(isCm, filtrados, filtradosCm)
       
@@ -337,9 +339,9 @@ export default function RelatoriosEquipamentosPage() {
       ws['!cols'] = colWidths.map(w => ({ wch: w }))
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
       
-      applyHeaderStyles(ws, range, headers)
-      applyDataStyles(ws, range)
-      addTotalRow(ws, range, headers, rows.length)
+      applyHeaderStyles(XLSX, ws, range, headers)
+      applyDataStyles(XLSX, ws, range)
+      addTotalRow(XLSX, ws, range, headers, rows.length)
 
       XLSX.utils.book_append_sheet(wb, ws, isCm ? 'CentroMidia' : 'Equipamentos')
       const filename = `${isCm ? 'centro_midia' : 'equipamentos'}_${new Date().toISOString().split('T')[0]}.xlsx`

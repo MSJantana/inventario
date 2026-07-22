@@ -32,7 +32,7 @@ export function RelatoriosFilters({
   const status = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO']
 
   return (
-    <div className="mb-4 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <div>
         <label htmlFor="departamentoSelect" className="mb-1 block text-sm font-medium">Departamento</label>
         <select

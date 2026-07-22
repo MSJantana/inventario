@@ -61,7 +61,7 @@ export const obterEquipamento = async (req, res, next) => {
 // Criar um novo equipamento
 export const criarEquipamento = async (req, res, next) => {
   try {
-    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes, usuarioNome } = req.body;
+    const { nome, patrimonio, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes, usuarioNome } = req.body;
 
     // GESTOR/TECNICO criam sempre na própria escola
     const escolaId = (req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO')
@@ -75,6 +75,7 @@ export const criarEquipamento = async (req, res, next) => {
     const equipamento = await prisma.equipamento.create({
       data: {
         nome,
+        patrimonio: patrimonio || undefined,
         tipo,
         modelo,
         localizacao,
@@ -101,7 +102,7 @@ export const criarEquipamento = async (req, res, next) => {
 export const atualizarEquipamento = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nome, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes, usuarioNome } = req.body;
+    const { nome, patrimonio, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes, usuarioNome } = req.body;
 
     // Verificar se o equipamento existe
     const equipamentoExistente = await prisma.equipamento.findUnique({
@@ -130,6 +131,7 @@ export const atualizarEquipamento = async (req, res, next) => {
       // GESTOR: atualização completa, mas sempre dentro da própria escola
       dataUpdate = {
         nome,
+        patrimonio,
         tipo,
         modelo,
         localizacao,
@@ -148,6 +150,7 @@ export const atualizarEquipamento = async (req, res, next) => {
       // ADMIN: atualização completa (pode mudar escolaId se necessário via body)
       dataUpdate = {
         nome,
+        patrimonio,
         tipo,
         modelo,
         localizacao,
@@ -232,7 +235,7 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
 
     // Cabeçalho CSV
     const headers = [
-      'id','nome','tipo','modelo','serial','macaddress','status','localizacao','fabricante','processador','memoria','dataAquisicao','observacoes','usuarioNome','escolaId','escolaNome'
+      'id','nome','patrimonio','tipo','modelo','serial','macaddress','status','localizacao','fabricante','processador','memoria','dataAquisicao','observacoes','usuarioNome','escolaId','escolaNome'
     ];
 
     const escapeCsv = (value) => {
@@ -248,6 +251,7 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
     const rows = equipamentos.map((e) => [
       e.id,
       e.nome,
+      e.patrimonio ?? '',
       e.tipo,
       e.modelo,
       e.serial,
