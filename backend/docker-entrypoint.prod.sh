@@ -16,17 +16,7 @@ case "$DATABASE_URL" in
     fi
 
     export DB_USER_VALUE DB_PASSWORD_VALUE DB_NAME_VALUE DB_HOST_VALUE DB_PORT_VALUE
-    export DATABASE_URL="$(node - <<'NODE'
-const user = process.env.DB_USER_VALUE || '';
-const password = process.env.DB_PASSWORD_VALUE || '';
-const database = process.env.DB_NAME_VALUE || '';
-const host = process.env.DB_HOST_VALUE || 'db';
-const port = process.env.DB_PORT_VALUE || '3306';
-const encode = encodeURIComponent;
-
-process.stdout.write(`mysql://${encode(user)}:${encode(password)}@${host}:${port}/${encode(database)}`);
-NODE
-)"
+    export DATABASE_URL="$(node -e "const user = process.env.DB_USER_VALUE || ''; const password = process.env.DB_PASSWORD_VALUE || ''; const database = process.env.DB_NAME_VALUE || ''; const host = process.env.DB_HOST_VALUE || 'db'; const port = process.env.DB_PORT_VALUE || '3306'; const encode = encodeURIComponent; process.stdout.write('mysql://' + encode(user) + ':' + encode(password) + '@' + host + ':' + port + '/' + encode(database));")"
 
     echo "[entrypoint:prod] DATABASE_URL construída: mysql://${DB_USER_VALUE}:***@${DB_HOST_VALUE}:${DB_PORT_VALUE}/${DB_NAME_VALUE}"
     ;;
