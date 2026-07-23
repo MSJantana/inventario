@@ -37,14 +37,53 @@ import relatoriosRoutes from './routes/relatorios.js';
 import centroMidiaRoutes from './routes/centroMidia.js';
 import errorHandler from './middlewares/errorHandler.js';
 const app = express();
+app.disable('x-powered-by');
 const prisma = new PrismaClient({
   log: process.env.NODE_ENV !== 'production'
     ? ['query', 'warn']
     : ['warn']
 });
 
+const getAllowedCorsOrigins = () => {
+  const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  if (configuredOrigins.length > 0) {
+    return configuredOrigins;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:4173',
+      'http://127.0.0.1:4173',
+      'http://localhost:8080',
+      'http://127.0.0.1:8080',
+      'http://localhost:8081',
+      'http://127.0.0.1:8081'
+    ];
+  }
+
+  return [];
+};
+
+const allowedCorsOrigins = new Set(getAllowedCorsOrigins());
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedCorsOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('CORS origin not allowed'));
+  },
+};
+
 // Middlewares
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(pinoHttp({
   logger,
