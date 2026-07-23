@@ -2,11 +2,10 @@ services:
   backend:
     image: ${DOCKER_REGISTRY:-docker.io}/${IMAGE_OWNER:-msoftsantana}/${IMAGE_NAMESPACE:-inventario}-backend:${IMAGE_TAG:-latest}
     container_name: backend-inventario
+    env_file:
+      - ./backend/.env
     environment:
       PORT: ${BACKEND_PORT:-3002}
-      DATABASE_URL: mysql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DB_HOST}:${MYSQL_PORT:-3306}/${DATABASE_NAME}
-      JWT_SECRET: ${JWT_SECRET}
-      CSRF_SECRET: ${CSRF_SECRET}
       NODE_ENV: production
       SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-false}
       REPORT_LOGO_PATH: /app/assets/Logo_ASRS.svg
