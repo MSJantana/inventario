@@ -2,19 +2,36 @@ services:
   backend:
     image: ${DOCKER_REGISTRY:-docker.io}/${IMAGE_OWNER:-msoftsantana}/${IMAGE_NAMESPACE:-inventario}-backend:${IMAGE_TAG:-latest}
     container_name: backend-inventario
-    env_file:
-      - ./backend/.env
     environment:
-      PORT: ${BACKEND_PORT:-3002}
+      PORT: ${PORT:-3002}
+      LOG_STACK: ${LOG_STACK:-false}
       NODE_ENV: production
-      SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-false}
+      SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-true}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME}
+      DATABASE_URL: ${DATABASE_URL:-}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      CSRF_SECRET: ${CSRF_SECRET}
+      CSRF_TTL_SECONDS: ${CSRF_TTL_SECONDS:-1800}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://inventario.asr.org.br}
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_SECURE: ${EMAIL_SECURE:-false}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM:-Sistema de Inventario <api.plenario@gmail.com>}
+      DB_DEV_HOSTS: ${DB_DEV_HOSTS:-10.12.3.231,mysql,172.20.0.2,db,localhost,127.0.0.1}
       REPORT_LOGO_PATH: /app/assets/Logo_ASRS.svg
       REPORT_LOGO_FOOTER_PATH: /app/assets/Logo_EA.svg
     volumes:
       - ./backend/assets:/app/assets:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:${BACKEND_PORT:-3002}/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:${PORT:-3002}/api/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
