@@ -7,12 +7,7 @@ services:
       LOG_STACK: ${LOG_STACK:-false}
       NODE_ENV: production
       SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-true}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_NAME: ${DB_NAME}
-      DATABASE_URL: ${DATABASE_URL:-}
+      DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
       CSRF_SECRET: ${CSRF_SECRET}
