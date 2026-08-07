@@ -67,7 +67,7 @@ export default function ConfigPage() {
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button onClick={salvar} className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar</button>
+        <button type="button" onClick={salvar} className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar</button>
       </div>
     </section>
   )

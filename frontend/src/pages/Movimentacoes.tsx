@@ -108,7 +108,11 @@ export default function MovimentacoesPage() {
 
   const tiposDisponiveis = useMemo(() => {
     const t = new Set(equipamentos.map(e => e.tipo).filter(Boolean))
-    return Array.from(t).sort()
+    return Array.from(t).sort((a, b) => {
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return String(a).localeCompare(String(b), 'pt-BR');
+    })
   }, [equipamentos])
 
   const escolasDisponiveis = useMemo(() => {
@@ -133,7 +137,7 @@ export default function MovimentacoesPage() {
     
     if (departamentoSel === 'EQUIPAMENTOS') {
       const selectedEquip = equipamentos.find(eq => eq.id === selectedId)
-      if (selectedEquip && selectedEquip.localizacao) {
+      if (selectedEquip?.localizacao) {
         setOrigem(selectedEquip.localizacao)
       } else {
         setOrigem('')
@@ -361,18 +365,19 @@ export default function MovimentacoesPage() {
           <h2 className="text-lg font-medium">Movimentações</h2>
           <div className="flex w-full sm:w-auto items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
-            <button className="flex-1 sm:flex-none justify-center rounded bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 flex items-center gap-1" onClick={handleXLSX}>
+            <button type="button" className="flex-1 sm:flex-none justify-center rounded bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 flex items-center gap-1" onClick={handleXLSX}>
               <span>📊</span>
               <span className="hidden sm:inline">Exportar Excel</span>
             </button>
             {!showCreate && (
-              <button className="flex-1 sm:flex-none justify-center rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
+              <button type="button" className="flex-1 sm:flex-none justify-center rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} />
                 <span className="hidden sm:inline">Registrar movimentação</span>
                 <span className="sm:hidden">Novo</span>
               </button>
             )}
             <button 
+              type="button"
               className="sm:hidden rounded border px-3 py-1.5 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
               onClick={() => setShowFilters(!showFilters)}
             >
@@ -436,12 +441,12 @@ export default function MovimentacoesPage() {
                   <td className="border px-3 py-2">{m.descricao || '-'}</td>
                   <td className="border px-3 py-2">
                     <div className="flex gap-2">
-                      <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)}>
+                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)}>
                         <Pencil size={16} />
                         <span>Editar</span>
                       </button>
                       {isAdmin && (
-                        <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))}>
+                        <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))}>
                           <Trash2 size={16} />
                           <span>Excluir</span>
                         </button>
@@ -507,12 +512,12 @@ export default function MovimentacoesPage() {
                   </div>
                 )}
                 <div className="flex gap-2 pt-2">
-                  <button className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 text-xs flex items-center justify-center gap-1" onClick={() => startEdit(m)}>
+                  <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 text-xs flex items-center justify-center gap-1" onClick={() => startEdit(m)}>
                     <Pencil size={14} />
                     <span>Editar</span>
                   </button>
                   {isAdmin && (
-                    <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))}>
+                    <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))}>
                       <Trash2 size={14} />
                       <span>Excluir</span>
                     </button>

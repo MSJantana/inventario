@@ -216,9 +216,9 @@ export function RelatoriosContent({
         <div className="fixed bottom-3 left-3 right-3 z-20">
           <div className="rounded-lg border bg-white shadow-md px-3 py-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <button onClick={handleXLSX} className="rounded bg-emerald-600 px-3 py-1 text-white text-xs">XLSX</button>
-              <button onClick={handlePDF} className="rounded bg-red-600 px-3 py-1 text-white text-xs">PDF</button>
-              <button onClick={handlePrint} className="rounded bg-blue-600 px-3 py-1 text-white text-xs">Imprimir</button>
+              <button type="button" onClick={handleXLSX} className="rounded bg-emerald-600 px-3 py-1 text-white text-xs">XLSX</button>
+              <button type="button" onClick={handlePDF} className="rounded bg-red-600 px-3 py-1 text-white text-xs">PDF</button>
+              <button type="button" onClick={handlePrint} className="rounded bg-blue-600 px-3 py-1 text-white text-xs">Imprimir</button>
             </div>
           </div>
         </div>

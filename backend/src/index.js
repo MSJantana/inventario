@@ -44,6 +44,30 @@ const prisma = new PrismaClient({
     : ['warn']
 });
 
+const isDevRuntime = () =>
+  process.env.NODE_ENV !== 'production' ||
+  process.env.npm_lifecycle_event === 'dev';
+
+const isLocalOrPrivateOrigin = (origin) => {
+  if (!origin) return false;
+  try {
+    const url = new URL(origin);
+    const host = url.hostname.toLowerCase();
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host === '[::1]' ||
+      host.startsWith('10.') ||
+      host.startsWith('192.168.') ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+      host.endsWith('.local')
+    );
+  } catch {
+    return false;
+  }
+};
+
 const getAllowedCorsOrigins = () => {
   const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
     .split(',')
@@ -54,16 +78,18 @@ const getAllowedCorsOrigins = () => {
     return configuredOrigins;
   }
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (isDevRuntime()) {
     return [
       'http://localhost:5173',
       'http://127.0.0.1:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5174',
       'http://localhost:4173',
       'http://127.0.0.1:4173',
       'http://localhost:8080',
       'http://127.0.0.1:8080',
       'http://localhost:8081',
-      'http://127.0.0.1:8081'
+      'http://127.0.0.1:8081',
     ];
   }
 
@@ -78,8 +104,30 @@ const corsOptions = {
       return;
     }
 
-    callback(new Error('CORS origin not allowed'));
+    if (isDevRuntime() && isLocalOrPrivateOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('CORS origin not allowed: ' + origin));
   },
+};
+
+const generateRequestId = () => {
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const bytes = crypto.randomBytes(16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return (
+    hex.slice(0, 8) + '-' +
+    hex.slice(8, 12) + '-' +
+    hex.slice(12, 16) + '-' +
+    hex.slice(16, 20) + '-' +
+    hex.slice(20, 32)
+  );
 };
 
 // Middlewares
@@ -91,7 +139,7 @@ app.use(pinoHttp({
     const incomingId = req.headers['x-request-id'];
     const id = typeof incomingId === 'string' && incomingId.trim().length > 0
       ? incomingId
-      : (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+      : generateRequestId();
     res.setHeader('X-Request-Id', id);
     return id;
   },
@@ -123,12 +171,17 @@ app.get('/api/health', async (req, res) => {
       const parsed = new URL(dbUrl);
       dbHost = parsed.hostname || null;
     } catch {}
+
     const hostsEnv = process.env.DB_DEV_HOSTS || '';
-    const devDefaults = ['10.12.3.231', 'mysql', '172.20.0.2', 'db', 'localhost', '127.0.0.1'];
-    const configured = hostsEnv.split(',').map((s) => s.trim()).filter(Boolean);
-    const devHosts = Array.from(new Set([...configured, ...devDefaults]));
+    const fromEnv = hostsEnv
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const safeDefaults = ['mysql', 'db', 'mariadb', 'postgres', 'localhost', '127.0.0.1'];
+    const devHosts = Array.from(new Set([...fromEnv, ...safeDefaults]));
     const dbIsDev = dbHost ? devHosts.includes(dbHost) : false;
-    res.json({ status: 'ok', db: 'ok', dbHost, dbIsDev });  
+    res.json({ status: 'ok', db: 'ok', dbHost, dbIsDev });
   } catch (err) {
     res.status(500).json({ status: 'error', db: 'error', error: err.message });
   }

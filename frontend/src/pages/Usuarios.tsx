@@ -26,6 +26,19 @@ type Escola = {
   nome: string
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/
+
+function isEmailValido(input: string): boolean {
+  if (!input) return false
+  const trimmed = input.trim()
+  if (!trimmed) return false
+  if (trimmed.length > 254) return false
+  if (trimmed.includes('..')) return false
+  const atIndex = trimmed.lastIndexOf('@')
+  if (atIndex <= 0 || atIndex === trimmed.length - 1) return false
+  return EMAIL_REGEX.test(trimmed)
+}
+
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [escolas, setEscolas] = useState<Escola[]>([])
@@ -87,8 +100,7 @@ export default function UsuariosPage() {
     }
 
     // Validação de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    if (!isEmailValido(email)) {
       showWarningToast('Email inválido')
       return
     }
@@ -248,6 +260,7 @@ export default function UsuariosPage() {
         <h1 className="text-2xl font-bold">Usuários</h1>
         {!showCreate ? (
           <button
+            type="button"
             onClick={() => setShowCreate(true)}
             className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2"
           >
@@ -468,6 +481,7 @@ export default function UsuariosPage() {
                     <div className="flex gap-2">
                       {usuario.role !== 'ADMIN' && (
                         <button
+                          type="button"
                           onClick={() => abrirGestaoEscolas(usuario)}
                           className="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-700 flex items-center gap-1"
                         >
@@ -476,6 +490,7 @@ export default function UsuariosPage() {
                         </button>
                       )}
                       <button
+                        type="button"
                         onClick={() => iniciarEdicao(usuario)}
                         className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1"
                       >
@@ -483,6 +498,7 @@ export default function UsuariosPage() {
                         <span>Editar</span>
                       </button>
                       <button
+                        type="button"
                         onClick={() => excluirUsuario(usuario.id)}
                         className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1"
                       >
@@ -544,6 +560,7 @@ export default function UsuariosPage() {
               <div className="flex space-x-2">
                 {usuario.role !== 'ADMIN' && (
                   <button
+                    type="button"
                     onClick={() => abrirGestaoEscolas(usuario)}
                     className="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-center gap-1"
                   >
@@ -552,6 +569,7 @@ export default function UsuariosPage() {
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => iniciarEdicao(usuario)}
                   className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-1"
                 >
@@ -559,6 +577,7 @@ export default function UsuariosPage() {
                   <span>Editar</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => excluirUsuario(usuario.id)}
                   className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1"
                 >

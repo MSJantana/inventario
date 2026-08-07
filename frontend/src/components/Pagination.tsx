@@ -23,10 +23,11 @@ function Pagination({ current, totalPages, onChange, windowSize = 5 }: Readonly<
   }
   return (
     <div className="flex items-center gap-2">
-      <button className="rounded border px-3 py-1" disabled={current <= 1} onClick={() => onChange(Math.max(1, current - 1))}>Anterior</button>
+      <button type="button" className="rounded border px-3 py-1" disabled={current <= 1} onClick={() => onChange(Math.max(1, current - 1))}>Anterior</button>
       {items.map((it) => (
         typeof it === 'number' ? (
           <button
+            type="button"
             key={it}
             className={`rounded border px-3 py-1 ${it === current ? 'bg-blue-600 text-white border-blue-600' : ''}`}
             onClick={() => onChange(it)}
@@ -37,7 +38,7 @@ function Pagination({ current, totalPages, onChange, windowSize = 5 }: Readonly<
           <span key={it} className="px-2 text-gray-500">…</span>
         )
       ))}
-      <button className="rounded border px-3 py-1" disabled={current >= totalPages} onClick={() => onChange(Math.min(totalPages, current + 1))}>Próxima</button>
+      <button type="button" className="rounded border px-3 py-1" disabled={current >= totalPages} onClick={() => onChange(Math.min(totalPages, current + 1))}>Próxima</button>
     </div>
   )
 }

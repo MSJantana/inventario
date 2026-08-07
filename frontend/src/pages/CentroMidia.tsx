@@ -225,7 +225,7 @@ export default function CentroMidiaPage() {
           <div className="flex items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
             {showCreate ? null : (
-              <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
+              <button type="button" className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} />
                 <span>Criar item</span>
               </button>
@@ -272,15 +272,15 @@ export default function CentroMidiaPage() {
                   <td className="border px-3 py-2 text-center">{i.escola?.nome || '-'}</td>
                   <td className="border px-3 py-2 text-center">
                     <div className="flex justify-center gap-2">
-                      <button className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => setSelectedItem(i)} title="Visualizar Identificação">
+                      <button type="button" className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => setSelectedItem(i)} title="Visualizar Identificação">
                         <Barcode size={16} />
                         <span>Identificação</span>
                       </button>
-                      <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(i)}>
+                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(i)}>
                         <Pencil size={16} />
                         <span>Editar</span>
                       </button>
-                      <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este item?', () => excluirItem(i.id))}>
+                      <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este item?', () => excluirItem(i.id))}>
                         <Trash2 size={16} />
                         <span>Excluir</span>
                       </button>
