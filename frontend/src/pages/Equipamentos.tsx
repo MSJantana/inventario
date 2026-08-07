@@ -102,15 +102,15 @@ function EquipamentoRow({ item, onEdit, onDelete, onViewIdCard }: { readonly ite
       <td className="border px-3 py-2 text-center">{item.escola?.nome || '-'}</td>
       <td className="border px-3 py-2 text-center">
         <div className="flex justify-center gap-2">
-          <button className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => onViewIdCard(item)} title="Visualizar Identificação">
+          <button type="button" className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => onViewIdCard(item)} title="Visualizar Identificação">
             <Barcode size={16} />
             <span>Identificação</span>
           </button>
-          <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => onEdit(item)}>
+          <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => onEdit(item)}>
             <Pencil size={16} />
             <span>Editar</span>
           </button>
-          <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => onDelete(item.id)}>
+          <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => onDelete(item.id)}>
             <Trash2 size={16} />
             <span>Excluir</span>
           </button>
@@ -136,15 +136,15 @@ function EquipamentoCard({ item, onEdit, onDelete, onViewIdCard }: { readonly it
         <span className="text-xs text-gray-500">{item.escola?.nome || '-'}</span>
       </div>
       <div className="flex gap-2 pt-2">
-        <button className="flex-1 rounded bg-blue-600 px-2 py-1 text-white text-xs hover:bg-blue-700 flex items-center justify-center gap-1" onClick={() => onViewIdCard(item)} title="Visualizar Identificação">
+        <button type="button" className="flex-1 rounded bg-blue-600 px-2 py-1 text-white text-xs hover:bg-blue-700 flex items-center justify-center gap-1" onClick={() => onViewIdCard(item)} title="Visualizar Identificação">
           <Barcode size={14} />
           <span>Identificação</span>
         </button>
-        <button className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => onEdit(item)}>
+        <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => onEdit(item)}>
           <Pencil size={14} />
           <span>Editar</span>
         </button>
-        <button className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => onDelete(item.id)}>
+        <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => onDelete(item.id)}>
           <Trash2 size={14} />
           <span>Excluir</span>
         </button>
@@ -437,7 +437,7 @@ export default function EquipamentosPage() {
           <div className="flex items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
             {!showCreate && (
-              <button className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
+              <button type="button" className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} />
                 <span>Criar equipamento</span>
               </button>
@@ -717,6 +717,7 @@ export default function EquipamentosPage() {
           <span className="text-xs text-gray-700">Total: {filtrada.length}</span>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               className="rounded border px-2 py-1 text-xs"
               disabled={current <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -725,6 +726,7 @@ export default function EquipamentosPage() {
               {current}
             </span>
             <button
+              type="button"
               className="rounded border px-2 py-1 text-xs"
               disabled={current >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}

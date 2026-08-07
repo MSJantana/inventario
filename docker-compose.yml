@@ -34,6 +34,10 @@ services:
       CSRF_SECRET: ${CSRF_SECRET}
       NODE_ENV: production
       SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-false}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:8080}
+      # Hosts de banco que devem ser tratados como "ambiente de desenvolvimento" no healthcheck.
+      # Deixe vazio para usar os defaults seguros (mysql, db, mariadb, postgres, localhost, 127.0.0.1).
+      DB_DEV_HOSTS: ${DB_DEV_HOSTS:-}
       # Opcional: caminhos de logos de relatório, se usados
       REPORT_LOGO_PATH: /app/assets/Logo_ASRS.svg
       REPORT_LOGO_FOOTER_PATH: /app/assets/Logo_EA.svg

@@ -1,27 +1,47 @@
 import nodemailer from 'nodemailer';
 
-// Configuração do transporter do nodemailer
+const isDevRuntime = () =>
+  process.env.NODE_ENV !== 'production' ||
+  process.env.npm_lifecycle_event === 'dev';
+
 const createTransporter = () => {
-  // Para ambiente de desenvolvimento, use um serviço de teste como Ethereal
-  // Para produção, configure com seus dados reais de SMTP
-  return nodemailer.createTransport({
+  const rejectUnauthorizedEnv = process.env.EMAIL_TLS_REJECT_UNAUTHORIZED;
+  const rejectUnauthorized = rejectUnauthorizedEnv !== undefined
+    ? rejectUnauthorizedEnv === 'true'
+    : !isDevRuntime();
+
+  const baseConfig = {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: process.env.EMAIL_PORT || 587,
+    port: Number(process.env.EMAIL_PORT || 587),
     secure: process.env.EMAIL_SECURE === 'true',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
-  });
+  };
+
+  if (!baseConfig.secure) {
+    baseConfig.requireTLS = true;
+  }
+  baseConfig.tls = {
+    rejectUnauthorized,
+    minVersion: 'TLSv1.2',
+  };
+
+  return nodemailer.createTransport(baseConfig);
 };
 
 // Função para enviar email de recuperação de senha
 export const enviarEmailRecuperacaoSenha = async (email, token, baseUrl) => {
   try {
     const transporter = createTransporter();
-    
-    // URL para redefinição de senha
-    const resetUrl = `http://localhost:5174/reset-password?token=${token}`;
+
+    const publicUrl =
+      process.env.APP_PUBLIC_URL ||
+      baseUrl ||
+      'http://localhost:5173';
+
+    const resetUrl = `${publicUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
     
     // Configuração do email
     const mailOptions = {

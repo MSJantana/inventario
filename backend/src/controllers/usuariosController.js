@@ -1,7 +1,7 @@
 import { prisma } from '../index.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { enviarEmailRecuperacaoSenha } from '../utils/emailService.js';
 import { normalizeAdditionalSchoolIds } from '../utils/schoolAccess.js';
 
@@ -79,8 +79,29 @@ export const recuperarSenha = async (req, res, next) => {
       },
     });
 
-    // Obter a URL base da requisição
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Obter a URL base do frontend para gerar o link de recuperacao.
+    // Prioridade:
+    // 1. Variavel APP_PUBLIC_URL (producao / configuracao explicita)
+    // 2. Header X-Frontend-Origin (quando o frontend quiser sobrescrever)
+    // 3. Header Origin da requisicao (endereco do navegador em dev)
+    // 4. Header Referer da requisicao
+    // 5. Fallback para o host da requisicao (backend)
+    const frontendOrigin =
+      process.env.APP_PUBLIC_URL ||
+      req.get('X-Frontend-Origin') ||
+      req.get('Origin') ||
+      (() => {
+        const ref = req.get('Referer');
+        if (!ref) return undefined;
+        try {
+          const u = new URL(ref);
+          return `${u.protocol}//${u.host}`;
+        } catch {
+          return undefined;
+        }
+      })() ||
+      `${req.protocol}://${req.get('host')}`;
+    const baseUrl = frontendOrigin.replace(/\/$/, '');
     
     // Enviar email com o link de recuperação
     const emailEnviado = await enviarEmailRecuperacaoSenha(

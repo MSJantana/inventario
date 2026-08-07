@@ -57,6 +57,7 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
             <p className="text-xs font-medium tracking-wider text-gray-400 uppercase">IDENTIFICADOR DO EQUIPAMENTO • 7INVENTORY</p>
           </div>
           <button 
+            type="button"
             onClick={onClose} 
             className="absolute right-4 top-4 rounded-full bg-white/10 p-2 hover:bg-white/20"
           >

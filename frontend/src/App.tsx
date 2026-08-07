@@ -14,7 +14,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.0';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.1';
 
 const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
 const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
@@ -126,6 +126,7 @@ function UserDropdown({
   return (
     <div className="relative" ref={ref}>
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center space-x-2 rounded px-3 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg.white/10 hover:bg-white/10"
       >
@@ -163,6 +164,7 @@ function UserDropdown({
             )}
 
             <button
+              type="button"
               onClick={() => {
                 onOpenWhatsNew();
                 setOpen(false);
@@ -175,6 +177,7 @@ function UserDropdown({
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 onLogout();
                 setOpen(false);
@@ -252,7 +255,7 @@ function Header({
             </div>
           )}
           {showUser && <UserDropdown userName={userName} userEmail={userEmail} onLogout={onLogout} hasWhatsNew={hasWhatsNew} onOpenWhatsNew={onOpenWhatsNew} />}
-          <button className="md:hidden rounded border px-2 py-2" onClick={onOpenMobile} aria-label="Abrir menu">
+          <button type="button" className="md:hidden rounded border px-2 py-2" onClick={onOpenMobile} aria-label="Abrir menu">
             <Menu className="h-5 w-5" />
           </button>
         </div>
@@ -293,7 +296,7 @@ function MobileSidebar({
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-64 bg-black text-white">
         <div className="flex items-center justify-between px-4 py-4 text-sm font-semibold">
           <span className="font-advent">7inventory</span>
-          <button className="rounded bg-white/10 px-2 py-1" onClick={onClose}>
+          <button type="button" className="rounded bg-white/10 px-2 py-1" onClick={onClose}>
             Fechar
           </button>
         </div>
@@ -324,6 +327,7 @@ function MobileSidebar({
         <div className="px-2 pb-4 pt-2">
           {authToken ? (
             <button
+              type="button"
               className="w-full flex items-center gap-2 rounded bg-white px-3 py-2 text-black hover:opacity-90 text-sm"
               onClick={onLogout}
             >
@@ -365,7 +369,7 @@ function WhatsNewModal({ open, onClose, version, items }: Readonly<{ open: boole
           </ul>
         </div>
         <div className="flex justify-end gap-2 border-t px-4 py-3">
-          <button onClick={onClose} className="rounded bg-black px-4 py-2 text-white hover:opacity-90">Entendi</button>
+          <button type="button" onClick={onClose} className="rounded bg-black px-4 py-2 text-white hover:opacity-90">Entendi</button>
         </div>
       </div>
     </div>
@@ -398,16 +402,16 @@ export default function App() {
   }, [location.pathname]);
 
   const [dbIsDev, setDbIsDev] = useState(false);
+  const [dbHost, setDbHost] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if running on specific IP
-    const isDevIp = globalThis.location.hostname === '10.12.3.231';
-    
     api.get('/api/health').then((resp) => {
-      setDbIsDev(isDevIp || Boolean(resp?.data?.dbIsDev));
+      const payload = resp?.data ?? {};
+      setDbIsDev(Boolean(payload.dbIsDev));
+      setDbHost(typeof payload.dbHost === 'string' ? payload.dbHost : null);
     }).catch(() => {
-      // Even if API fails, if IP matches, show warning
-      setDbIsDev(isDevIp);
+      setDbIsDev(false);
+      setDbHost(null);
     });
   }, []);
 
@@ -457,12 +461,8 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Movimentações: Adicionado filtro para trazer o nome da escola.',
-    'Histórico de Movimentações: Adicionado filtro para trazer o nome da escola.',
-    'Fixados bugs e melhorias para gerar relatorios no Excel.',
-    'Criado campo para registrar número do patrimônio.',
-    'Fixados melhorias na inteface do cadastro de equipamentos e movimentação.',
-    'Ajustado leitura do QR do equipamento.'    
+    'Bug Fixed: Ao redefinir a senha estava o usuário estava sendo direcionado para localhost:5174.',
+    'Bug Fixed: Melhorias internas no sistema.'    
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -514,8 +514,8 @@ export default function App() {
               </div>
               <div className="flex items-center gap-4">
                 {dbIsDev && (
-                  <span className="text-red-400 font-bold ml-3">
-                    (Conectado ao banco de dados de desenvolvimento - 10.12.3.231)
+                  <span className="text-red-400 font-bold ml-3" title={dbHost ? `Host do banco: ${dbHost}` : undefined}>
+                    {'Conectado ao banco de dados de desenvolvimento' + (dbHost ? ` - ${dbHost}` : '')}
                   </span>
                 )}
               </div>
@@ -566,7 +566,7 @@ function NavDropdown({ label, Icon, items }: Readonly<{ label: string; Icon: Com
   }, []);
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen((v) => !v)} className={navClass({ isActive: isGroupActive })}>
+      <button type="button" onClick={() => setOpen((v) => !v)} className={navClass({ isActive: isGroupActive })}>
         <Icon className="h-4 w-4" strokeWidth={1.75} />
         <span>{label}</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.75} />

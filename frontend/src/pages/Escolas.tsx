@@ -19,6 +19,43 @@ type Escola = {
 type EstadoOption = { id: number; sigla: string; nome: string }
 type CidadeOption = { id: number; nome: string }
 
+function formatTelefone(input: string) {
+  const digits = input.replaceAll(/\D/g, '').slice(0, 11)
+  if (digits.length <= 2) return `(${digits}`
+  const ddd = digits.slice(0, 2)
+  const resto = digits.slice(2)
+  if (resto.length <= 4) return `(${ddd}) ${resto}`
+  if (digits.length >= 11) {
+    const a = resto.slice(0, 5)
+    const b = resto.slice(5)
+    return `(${ddd}) ${a}-${b}`
+  } else {
+    const a = resto.slice(0, 4)
+    const b = resto.slice(4)
+    return `(${ddd}) ${a}-${b}`
+  }
+}
+
+function isTelefoneValido(input: string) {
+  const digits = input.replaceAll(/\D/g, '')
+  return digits.length === 10 || digits.length === 11
+}
+
+function formatCep(input: string) {
+  const digits = input.replaceAll(/\D/g, '').slice(0, 8)
+  if (digits.length <= 5) return digits
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`
+}
+
+function isCepValido(input: string) {
+  return /^\d{5}-\d{3}$/.test(input)
+}
+
+function isEmailValido(input: string) {
+  if (!input.trim()) return true
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)
+}
+
 export default function EscolasPage() {
   const [lista, setLista] = useState<Escola[]>([])
   const [loading, setLoading] = useState(false)
@@ -57,40 +94,6 @@ export default function EscolasPage() {
   const [editEmail, setEditEmail] = useState('')
   const [editDiretor, setEditDiretor] = useState('')
   const [editObservacoes, setEditObservacoes] = useState('')
-
-  // helpers de máscara/validação
-  function formatTelefone(input: string) {
-    const digits = input.replaceAll(/\D/g, '').slice(0, 11)
-    if (digits.length <= 2) return `(${digits}`
-    const ddd = digits.slice(0, 2)
-    const resto = digits.slice(2)
-    if (resto.length <= 4) return `(${ddd}) ${resto}`
-    if (digits.length >= 11) {
-      const a = resto.slice(0, 5)
-      const b = resto.slice(5)
-      return `(${ddd}) ${a}-${b}`
-    } else {
-      const a = resto.slice(0, 4)
-      const b = resto.slice(4)
-      return `(${ddd}) ${a}-${b}`
-    }
-  }
-  function isTelefoneValido(input: string) {
-    const digits = input.replaceAll(/\D/g, '')
-    return digits.length === 10 || digits.length === 11
-  }
-  function formatCep(input: string) {
-    const digits = input.replaceAll(/\D/g, '').slice(0, 8)
-    if (digits.length <= 5) return digits
-    return `${digits.slice(0, 5)}-${digits.slice(5)}`
-  }
-  function isCepValido(input: string) {
-    return /^\d{5}-\d{3}$/.test(input)
-  }
-  function isEmailValido(input: string) {
-    if (!input.trim()) return true
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)
-  }
 
   async function carregar() {
     setLoading(true)
@@ -223,11 +226,11 @@ export default function EscolasPage() {
                 <td className="border px-3 py-2">{e.estado}</td>
                 <td className="border px-3 py-2">
                   <div className="flex gap-2">
-                    <button className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(e)}>
+                    <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(e)}>
                       <Pencil size={16} />
                       <span>Editar</span>
                     </button>
-                    <button className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))}>
+                    <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))}>
                       <Trash2 size={16} />
                       <span>Excluir</span>
                     </button>
@@ -266,6 +269,7 @@ export default function EscolasPage() {
             </div>
             <div className="flex space-x-2">
               <button 
+                type="button"
                 className="flex-1 bg-yellow-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 flex items-center justify-center gap-1" 
                 onClick={() => startEdit(e)}
               >
@@ -273,6 +277,7 @@ export default function EscolasPage() {
                 <span>Editar</span>
               </button>
               <button 
+                type="button"
                 className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1" 
                 onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))}
               >
@@ -292,11 +297,13 @@ export default function EscolasPage() {
         <div className="text-sm text-gray-700">Página {currentPage} de {totalPages}</div>
         <div className="flex gap-2">
           <button
+            type="button"
             className="rounded border px-3 py-1 text-sm disabled:opacity-50"
             disabled={currentPage <= 1}
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
           >Anterior</button>
           <button
+            type="button"
             className="rounded border px-3 py-1 text-sm disabled:opacity-50"
             disabled={currentPage >= totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
