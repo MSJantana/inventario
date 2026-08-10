@@ -182,7 +182,15 @@ app.get('/api/health', async (req, res) => {
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const safeDefaults = ['mysql', 'db', 'mariadb', 'postgres', 'localhost', '127.0.0.1'];
+    const safeDefaults = [
+      'mysql',
+      'db',
+      'mariadb',
+      'postgres',
+      'localhost',
+      '127.0.0.1',
+      '10.12.3.231',
+    ];
     const devHosts = Array.from(new Set([...fromEnv, ...safeDefaults]));
     const dbIsDev = dbHost ? devHosts.includes(dbHost) : false;
     res.json({ status: 'ok', db: 'ok', dbHost, dbIsDev });
