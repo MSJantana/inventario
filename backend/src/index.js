@@ -74,26 +74,30 @@ const getAllowedCorsOrigins = () => {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  if (configuredOrigins.length > 0) {
-    return configuredOrigins;
+  const extraOrigins = (process.env.CORS_EXTRA_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const fromEnv = Array.from(new Set([...configuredOrigins, ...extraOrigins]));
+  if (fromEnv.length > 0 && !isDevRuntime()) {
+    return fromEnv;
   }
 
-  if (isDevRuntime()) {
-    return [
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'http://localhost:5174',
-      'http://127.0.0.1:5174',
-      'http://localhost:4173',
-      'http://127.0.0.1:4173',
-      'http://localhost:8080',
-      'http://127.0.0.1:8080',
-      'http://localhost:8081',
-      'http://127.0.0.1:8081',
-    ];
-  }
+  const devDefaults = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+    'http://localhost:4173',
+    'http://127.0.0.1:4173',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:8081',
+    'http://127.0.0.1:8081',
+  ];
 
-  return [];
+  return Array.from(new Set([...fromEnv, ...devDefaults]));
 };
 
 const allowedCorsOrigins = new Set(getAllowedCorsOrigins());
@@ -104,7 +108,7 @@ const corsOptions = {
       return;
     }
 
-    if (isDevRuntime() && isLocalOrPrivateOrigin(origin)) {
+    if (isLocalOrPrivateOrigin(origin)) {
       callback(null, true);
       return;
     }
