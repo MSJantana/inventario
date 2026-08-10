@@ -514,8 +514,11 @@ export default function App() {
               </div>
               <div className="flex items-center gap-4">
                 {dbIsDev && (
-                  <span className="text-red-400 font-bold ml-3" title={dbHost ? `Host do banco: ${dbHost}` : undefined}>
-                    {'Conectado ao banco de dados de desenvolvimento' + (dbHost ? ` - ${dbHost}` : '')}
+                  <span
+                    className="text-red-400 font-bold ml-3"
+                    title={dbHost ? `Host do banco: ${dbHost}` : undefined}
+                  >
+                    (Conectado ao banco de dados de desenvolvimento{dbHost ? ` - ${dbHost}` : ''})
                   </span>
                 )}
               </div>
