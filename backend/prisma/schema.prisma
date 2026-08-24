@@ -58,43 +58,53 @@ enum Role {
   USUARIO
 }
 
+// Enum para logs de importação WinAudit
+enum StatusImportacao {
+  PREVIEW_GERADO
+  SUCESSO
+  CANCELADO
+  ERRO
+}
+
 model Equipamento {
-  id            String            @id @default(uuid())
+  id            String                 @id @default(uuid())
   nome          String
   patrimonio    String?
   tipo          TipoEquipamento
   modelo        String
-  serial        String            @unique
-  status        StatusEquipamento @default(EM_USO)
+  serial        String                 @unique
+  status        StatusEquipamento      @default(EM_USO)
   localizacao   String?
   fabricante    String?
-  dataAquisicao DateTime  
+  dataAquisicao DateTime
   processador   String?
   memoria       String?
   macaddress    String?
   observacoes   String?
   usuarioNome   String?
   escolaId      String?
-  escola        Escola?           @relation(fields: [escolaId], references: [id])
+  escola        Escola?                @relation(fields: [escolaId], references: [id])
   movimentacoes Movimentacao[]
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  importacoesWinAudit ImportacaoWinAudit[]
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
 }
 
 model Usuario {
-  id               String         @id @default(uuid())
+  id               String               @id @default(uuid())
   nome             String
-  email            String         @unique
+  email            String               @unique
   senha            String
-  role             Role           @default(USUARIO)
+  role             Role                 @default(USUARIO)
   cargo            String?
-  resetToken       String?        @db.VarChar(255)
+  resetToken       String?              @db.VarChar(255)
   resetTokenExpiry DateTime?
   escolaId         String?
-  escola           Escola?        @relation(fields: [escolaId], references: [id])
+  escola           Escola?              @relation(fields: [escolaId], references: [id])
   escolasAcesso    UsuarioEscola[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  importacoesWinAudit ImportacaoWinAudit[] @relation("UsuarioImportacoes")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 }
 
 model Movimentacao {
@@ -112,7 +122,7 @@ model Movimentacao {
 }
 
 model Escola {
-  id             String         @id @default(uuid())
+  id             String               @id @default(uuid())
   nome           String
   sigla          String
   endereco       String
@@ -128,8 +138,9 @@ model Escola {
   usuariosAcesso UsuarioEscola[]
   movimentacoes  Movimentacao[]
   centroMidia    CentroMidia[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  importacoesWinAudit ImportacaoWinAudit[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 }
 
 model UsuarioEscola {
@@ -155,4 +166,29 @@ model CentroMidia {
   escola    Escola?          @relation(fields: [escolaId], references: [id])
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+}
+
+// Logs de importacao de arquivo WinAudit (auditoria + confirmacao de preview)
+model ImportacaoWinAudit {
+  id                     String           @id @default(uuid())
+  usuarioId              String
+  usuario                Usuario          @relation("UsuarioImportacoes", fields: [usuarioId], references: [id])
+  dataHora               DateTime         @default(now())
+  arquivoOriginal        String           @db.VarChar(512)
+  tamanhoBytes           Int?
+  status                 StatusImportacao
+  equipamentoId          String?
+  equipamento            Equipamento?     @relation(fields: [equipamentoId], references: [id])
+  camposEncontrados      Json
+  camposNaoEncontrados   Json
+  duplicidadesDetectadas Json
+  erros                  Json?
+  dadosBrutos            Json?
+  escolaId               String?
+  escola                 Escola?              @relation(fields: [escolaId], references: [id])
+
+  @@index([usuarioId])
+  @@index([equipamentoId])
+  @@index([escolaId])
+  @@index([status, dataHora])
 }

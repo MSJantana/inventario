@@ -75,8 +75,12 @@ const buildErrorResponse = (req, statusCode, message, err, isDev) => {
     error: message,
     requestId: req.id,
   };
-  if (isDev && err?.code) {
-    response.code = err.code;
+  if (isDev) {
+    if (err?.code) response.code = err.code;
+    if (err?.duplicidades) response.duplicidades = err.duplicidades;
+    if (err?.previewId) response.previewId = err.previewId;
+    if (err?.meta) response.meta = err.meta;
+    if (err?.stack) response.stack = err.stack;
   }
   return response;
 };
@@ -90,6 +94,8 @@ const logHttpError = (req, statusCode, message, err, showStack) => {
     status: statusCode,
     code: err?.code,
     target: err?.meta?.target,
+    previewId: err?.previewId,
+    duplicidadesCount: Array.isArray(err?.duplicidades) ? err.duplicidades.length : undefined,
   };
   if (err?.code === 'EBADCSRFTOKEN' && err.details) {
     logPayload.csrf = err.details;

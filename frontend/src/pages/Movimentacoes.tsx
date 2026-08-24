@@ -23,6 +23,19 @@ type EscolaOption = { id: string; nome: string; sigla?: string }
 
 const TIPOS = ['ENTRADA','SAIDA','TRANSFERENCIA','MANUTENCAO','DESCARTE'] as const
 
+const TIPO_BADGE_CLASSES: Readonly<Record<string, string>> = {
+  ENTRADA: 'bg-green-100 text-green-800',
+  SAIDA: 'bg-red-100 text-red-800',
+  TRANSFERENCIA: 'bg-blue-100 text-blue-800',
+  MANUTENCAO: 'bg-yellow-100 text-yellow-800',
+  DESCARTE: 'bg-gray-100 text-gray-800',
+} as const
+
+function getClasseBadgeTipo(tipo?: string): string {
+  if (!tipo) return 'bg-gray-100 text-gray-800'
+  return TIPO_BADGE_CLASSES[tipo] ?? 'bg-gray-100 text-gray-800'
+}
+
 export default function MovimentacoesPage() {
   const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount)
   const setDiscardedCount = useAppStore((state) => state.setDiscardedCount)
@@ -109,9 +122,9 @@ export default function MovimentacoesPage() {
   const tiposDisponiveis = useMemo(() => {
     const t = new Set(equipamentos.map(e => e.tipo).filter(Boolean))
     return Array.from(t).sort((a, b) => {
-      if (a == null) return 1;
-      if (b == null) return -1;
-      return String(a).localeCompare(String(b), 'pt-BR');
+      if (a === null || a === undefined) return 1
+      if (b === null || b === undefined) return -1
+      return String(a).localeCompare(String(b), 'pt-BR')
     })
   }, [equipamentos])
 
@@ -328,8 +341,8 @@ export default function MovimentacoesPage() {
   const filtrada = useMemo(() => lista.filter((m) => {
     const texto = `${m.equipamento?.nome || ''} ${m.descricao || ''} ${m.origem || ''} ${m.destino || ''} ${m.equipamentoId} ${m.escola?.nome || ''}`.toLowerCase()
     const matchesText = filterText ? texto.includes(filterText.toLowerCase()) : true
-    const matchesTipo = filterTipo === 'ALL' ? true : (m.tipo || '') === filterTipo
-    const matchesEscola = filterEscolaId === 'ALL' ? true : (m.escolaId || '') === filterEscolaId
+    const matchesTipo = filterTipo === 'ALL' || (m.tipo || '') === filterTipo
+    const matchesEscola = filterEscolaId === 'ALL' || (m.escolaId || '') === filterEscolaId
     return matchesText && matchesTipo && matchesEscola
   }), [lista, filterText, filterTipo, filterEscolaId])
   
@@ -479,13 +492,7 @@ export default function MovimentacoesPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Tipo:</span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    m.tipo === 'ENTRADA' ? 'bg-green-100 text-green-800' :
-                    m.tipo === 'SAIDA' ? 'bg-red-100 text-red-800' :
-                    m.tipo === 'TRANSFERENCIA' ? 'bg-blue-100 text-blue-800' :
-                    m.tipo === 'MANUTENCAO' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>{m.tipo}</span>
+                  <span className={`px-2 py-1 rounded text-xs ${getClasseBadgeTipo(m.tipo)}`}>{m.tipo}</span>
                 </div>
                 {m.origem && (
                   <div className="flex justify-between">

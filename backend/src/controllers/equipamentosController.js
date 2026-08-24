@@ -1,5 +1,6 @@
 import { prisma } from '../index.js';
-import { getSchoolScopeWhere, hasSchoolAccess, resolveManagedSchoolId } from '../utils/schoolAccess.js';
+import { getSchoolScopeWhere, hasSchoolAccess } from '../utils/schoolAccess.js';
+import EquipamentoService from '../services/EquipamentoService.js';
 // Helper simples para formatar data em YYYY-MM-DD sem dependências externas
 const formatDateYYYYMMDD = (dateLike) => {
   if (!dateLike) return '';
@@ -61,38 +62,12 @@ export const obterEquipamento = async (req, res, next) => {
 // Criar um novo equipamento
 export const criarEquipamento = async (req, res, next) => {
   try {
-    const { nome, patrimonio, tipo, modelo, localizacao, fabricante, processador, memoria, serial, macaddress, dataAquisicao, status, observacoes, usuarioNome } = req.body;
-
-    // GESTOR/TECNICO criam sempre na própria escola
-    const escolaId = (req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO')
-      ? resolveManagedSchoolId(req.usuario, req.body.escolaId)
-      : req.body.escolaId;
-
-    if ((req.usuario?.role === 'GESTOR' || req.usuario?.role === 'TECNICO') && !escolaId) {
-      return res.status(403).json({ error: 'Acesso restrito as escolas vinculadas ao usuario' });
-    }
-
-    const equipamento = await prisma.equipamento.create({
-      data: {
-        nome,
-        patrimonio: patrimonio || undefined,
-        tipo,
-        modelo,
-        localizacao,
-        fabricante,
-        processador,
-        memoria,
-        serial,
-        macaddress,
-        dataAquisicao: new Date(dataAquisicao),
-        status,
-        observacoes,
-        usuarioNome: usuarioNome || undefined,
-        escolaId
-      }
+    const resultado = await EquipamentoService.criarEquipamento({
+      payload: req.body,
+      usuario: req.usuario,
+      prisma,
     });
-
-    res.status(201).json(equipamento);
+    res.status(201).json(resultado.equipamento);
   } catch (error) {
     next(error);
   }

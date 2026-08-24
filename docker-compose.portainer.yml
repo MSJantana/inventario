@@ -22,6 +22,7 @@ services:
       EMAIL_PASSWORD: ${EMAIL_PASSWORD}
       EMAIL_FROM: ${EMAIL_FROM:-Sistema de Inventario <api.plenario@gmail.com>}
       DB_DEV_HOSTS: ${DB_DEV_HOSTS:-}
+      WINAUDIT_MAX_MB: ${WINAUDIT_MAX_MB:-5}
       REPORT_LOGO_PATH: /app/assets/Logo_ASRS.svg
       REPORT_LOGO_FOOTER_PATH: /app/assets/Logo_EA.svg
     volumes:

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Trash2, Save, RotateCcw, Plus, Eye, EyeOff, Building2 } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
@@ -27,6 +27,13 @@ type Escola = {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/
+
+const ROLE_LABELS: Readonly<Record<Usuario['role'], string>> = {
+  ADMIN: 'Administrador',
+  GESTOR: 'Gestor',
+  TECNICO: 'Técnico',
+  USUARIO: 'Usuário',
+} as const
 
 function isEmailValido(input: string): boolean {
   if (!input) return false
@@ -202,8 +209,9 @@ export default function UsuariosPage() {
     setEditingId(usuario.id) // Guardar o ID para saber que é edição
   }
 
-  function getAdditionalSchools(usuario: Usuario) {
-    return (usuario.escolasAcesso || []).filter((item) => item.escolaId !== usuario.escolaId)
+  function getAdditionalSchools(usuario: Usuario): UsuarioEscolaAcesso[] {
+    const escolaPrincipalId = usuario.escolaId
+    return (usuario.escolasAcesso || []).filter((item) => item.escolaId !== escolaPrincipalId)
   }
 
   function abrirGestaoEscolas(usuario: Usuario) {
@@ -215,6 +223,8 @@ export default function UsuariosPage() {
     setSchoolAccessUser(null)
     setManagedSchoolIds([])
   }
+
+  const managedSchoolIdsSet = useMemo(() => new Set(managedSchoolIds), [managedSchoolIds])
 
   function alternarEscolaGerenciada(id: string) {
     setManagedSchoolIds((prev) =>
@@ -240,8 +250,6 @@ export default function UsuariosPage() {
       setSavingSchoolAccess(false)
     }
   }
-
-
 
   function cancelarCriacao() {
     setShowCreate(false)
@@ -435,7 +443,9 @@ export default function UsuariosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {usuarios.map((usuario) => (
+              {usuarios.map((usuario) => {
+                const qtdEscolasAdicionais = getAdditionalSchools(usuario).length
+                return (
                 <tr key={usuario.id}>
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">
@@ -451,10 +461,7 @@ export default function UsuariosPage() {
                         ? 'bg-red-100 text-red-800' 
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {usuario.role === 'ADMIN' ? 'Administrador' : 
-                       usuario.role === 'GESTOR' ? 'Gestor' :
-                       usuario.role === 'TECNICO' ? 'Técnico' :
-                       'Usuário'}
+                      {ROLE_LABELS[usuario.role]}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
@@ -465,9 +472,9 @@ export default function UsuariosPage() {
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm text-gray-900">
                       {usuario.escola?.nome || '-'}
-                      {getAdditionalSchools(usuario).length > 0 && (
+                      {qtdEscolasAdicionais > 0 && (
                         <div className="text-xs text-blue-700">
-                          +{getAdditionalSchools(usuario).length} escola(s) adicional(is)
+                          +{qtdEscolasAdicionais} escola(s) adicional(is)
                         </div>
                       )}
                     </div>
@@ -508,7 +515,8 @@ export default function UsuariosPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
               {usuarios.length === 0 && (
                 <tr>
                   <td className="px-6 py-4 text-center text-gray-500" colSpan={7}>
@@ -522,7 +530,9 @@ export default function UsuariosPage() {
 
         {/* Cards para mobile */}
         <div className="md:hidden divide-y divide-gray-200">
-          {usuarios.map((usuario) => (
+          {usuarios.map((usuario) => {
+            const qtdEscolasAdicionais = getAdditionalSchools(usuario).length
+            return (
             <div key={usuario.id} className="p-4">
               <div className="flex justify-between items-start mb-2">
                 <div className="flex-1">
@@ -534,10 +544,7 @@ export default function UsuariosPage() {
                     ? 'bg-red-100 text-red-800' 
                     : 'bg-green-100 text-green-800'
                 }`}>
-                  {usuario.role === 'ADMIN' ? 'Administrador' : 
-                   usuario.role === 'GESTOR' ? 'Gestor' :
-                   usuario.role === 'TECNICO' ? 'Técnico' :
-                   'Usuário'}
+                  {ROLE_LABELS[usuario.role]}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-3">
@@ -548,8 +555,8 @@ export default function UsuariosPage() {
                 <div>
                   <span className="font-medium">Escola:</span>
                   <p>{usuario.escola?.nome || '-'}</p>
-                  {getAdditionalSchools(usuario).length > 0 && (
-                    <p className="text-blue-700">+{getAdditionalSchools(usuario).length} adicional(is)</p>
+                  {qtdEscolasAdicionais > 0 && (
+                    <p className="text-blue-700">+{qtdEscolasAdicionais} adicional(is)</p>
                   )}
                 </div>
                 <div className="col-span-2">
@@ -586,7 +593,8 @@ export default function UsuariosPage() {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
           {usuarios.length === 0 && (
             <div className="p-4 text-center text-sm text-gray-600">
               {loading ? 'Carregando...' : 'Nenhum usuário encontrado'}
@@ -620,24 +628,28 @@ export default function UsuariosPage() {
             </div>
 
             <div className="mt-4 max-h-80 space-y-2 overflow-y-auto">
-              {escolas.filter((escola) => escola.id !== schoolAccessUser.escolaId).map((escola) => (
-                <label
-                  key={escola.id}
-                  className="flex items-center gap-3 rounded border px-3 py-2 hover:bg-gray-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={managedSchoolIds.includes(escola.id)}
-                    onChange={() => alternarEscolaGerenciada(escola.id)}
-                  />
-                  <span className="text-sm text-gray-900">{escola.nome}</span>
-                </label>
-              ))}
-              {escolas.filter((escola) => escola.id !== schoolAccessUser.escolaId).length === 0 && (
-                <div className="rounded border border-dashed p-4 text-sm text-gray-500">
-                  Nenhuma outra escola disponível para vincular.
-                </div>
-              )}
+              {(() => {
+                const escolasDisponiveisGestao = escolas.filter((escola) => escola.id !== schoolAccessUser.escolaId)
+                return escolasDisponiveisGestao.length === 0 ? (
+                  <div className="rounded border border-dashed p-4 text-sm text-gray-500">
+                    Nenhuma outra escola disponível para vincular.
+                  </div>
+                ) : (
+                  escolasDisponiveisGestao.map((escola) => (
+                    <label
+                      key={escola.id}
+                      className="flex items-center gap-3 rounded border px-3 py-2 hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={managedSchoolIdsSet.has(escola.id)}
+                        onChange={() => alternarEscolaGerenciada(escola.id)}
+                      />
+                      <span className="text-sm text-gray-900">{escola.nome}</span>
+                    </label>
+                  ))
+                )
+              })()}
             </div>
 
             <div className="mt-6 flex gap-2">
