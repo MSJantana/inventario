@@ -14,7 +14,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.1';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.2';
 
 const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
 const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
@@ -461,7 +461,7 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Bug Fixed: Ao redefinir a senha estava o usuário estava sendo direcionado para localhost:5174.',
+    'Importação de arquivos pelo Winaudit.',
     'Bug Fixed: Melhorias internas no sistema.'    
   ];
 

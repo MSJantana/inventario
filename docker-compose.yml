@@ -40,6 +40,8 @@ services:
       # Hosts de banco que devem ser tratados como "ambiente de desenvolvimento" no healthcheck.
       # Deixe vazio para usar os defaults seguros (mysql, db, mariadb, postgres, localhost, 127.0.0.1).
       DB_DEV_HOSTS: ${DB_DEV_HOSTS:-}
+      # Importacao WinAudit (upload de HTML). Tamanho maximo do arquivo em MB (default 5).
+      WINAUDIT_MAX_MB: ${WINAUDIT_MAX_MB:-5}
       # Opcional: caminhos de logos de relatório, se usados
       REPORT_LOGO_PATH: /app/assets/Logo_ASRS.svg
       REPORT_LOGO_FOOTER_PATH: /app/assets/Logo_EA.svg
