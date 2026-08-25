@@ -67,6 +67,16 @@ const resolveHttpError = (err) => {
   return { statusCode: err?.statusCode || 500, message: 'Ocorreu um erro interno no servidor.' };
 };
 
+const CAMPOS_PUBLICOS = new Set([
+  'code',
+  'duplicidades',
+  'previewId',
+  'meta',
+  'detalhes',
+  'camposInvalidos',
+  'statusCampos',
+]);
+
 const buildErrorResponse = (req, statusCode, message, err, isDev) => {
   const response = {
     status: 'error',
@@ -75,11 +85,19 @@ const buildErrorResponse = (req, statusCode, message, err, isDev) => {
     error: message,
     requestId: req.id,
   };
+  if (err?.code) response.code = err.code;
+  if (err?.duplicidades) response.duplicidades = err.duplicidades;
+  if (err?.previewId) response.previewId = err.previewId;
+  if (err?.meta) response.meta = err.meta;
+  if (err?.detalhes) response.detalhes = err.detalhes;
+  if (err?.camposInvalidos) response.camposInvalidos = err.camposInvalidos;
+  if (err?.statusCampos) response.statusCampos = err.statusCampos;
   if (isDev) {
-    if (err?.code) response.code = err.code;
-    if (err?.duplicidades) response.duplicidades = err.duplicidades;
-    if (err?.previewId) response.previewId = err.previewId;
-    if (err?.meta) response.meta = err.meta;
+    for (const [chave, valor] of Object.entries(err || {})) {
+      if (!CAMPOS_PUBLICOS.has(chave) && response[chave] === undefined) {
+        response[chave] = valor;
+      }
+    }
     if (err?.stack) response.stack = err.stack;
   }
   return response;

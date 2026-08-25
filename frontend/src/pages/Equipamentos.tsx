@@ -276,6 +276,61 @@ function EquipamentoCard({ item, onEdit, onDelete, onViewIdCard }: { readonly it
   )
 }
 
+type ErroApiData = {
+  readonly error?: string
+  readonly message?: string
+  readonly code?: string
+  readonly statusCode?: number
+  readonly requestId?: string
+}
+
+type ErroApiShape = {
+  readonly response?: {
+    readonly data?: ErroApiData
+    readonly status?: number
+    readonly statusText?: string
+  }
+  readonly message?: string
+}
+
+const LABEL_POR_STATUS_HTTP: Readonly<Record<number, string>> = {
+  400: 'Solicitação inválida',
+  401: 'Não autenticado',
+  403: 'Acesso negado',
+  404: 'Não encontrado',
+  409: 'Conflito',
+  413: 'Arquivo muito grande',
+  415: 'Tipo de arquivo não suportado',
+  422: 'Dados inválidos',
+  500: 'Erro no servidor',
+  502: 'Gateway inválido',
+  503: 'Serviço indisponível',
+  504: 'Tempo limite de gateway',
+} as const
+
+const formatarMensagemErro = (e: unknown, mensagemPadrao: string): string => {
+  const erro = e as ErroApiShape
+  const resp = erro?.response
+  const data = resp?.data
+  const status = resp?.status ?? data?.statusCode
+  const motivo = data?.error || data?.message || erro?.message
+
+  const partes: string[] = []
+  if (typeof status === 'number' && status > 0) {
+    const label = LABEL_POR_STATUS_HTTP[status] || `Erro HTTP ${status}`
+    partes.push(`${label} (${status})`)
+  }
+  if (data?.code && String(data.code).trim().length > 0) {
+    partes.push(`[${String(data.code).trim()}]`)
+  }
+  if (typeof motivo === 'string' && motivo.trim().length > 0) {
+    partes.push(motivo.trim())
+  } else {
+    partes.push(mensagemPadrao)
+  }
+  return partes.join(' · ')
+}
+
 export default function EquipamentosPage() {
   const [lista, setLista] = useState<Equipamento[]>([])
   const [loading, setLoading] = useState(false)
@@ -439,12 +494,7 @@ export default function EquipamentosPage() {
         showWarningToast('Possível equipamento já cadastrado detectado. Verifique a conferência antes de continuar.')
       }
     } catch (e: unknown) {
-      showErrorToast(
-        ((e as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.error) ||
-        ((e as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.message) ||
-        (e as Error)?.message ||
-        'Falha ao importar relatório WinAudit.',
-      )
+      showErrorToast(formatarMensagemErro(e, 'Falha ao importar relatório WinAudit.'))
       clearWinauditState()
     }
   }
@@ -521,7 +571,7 @@ export default function EquipamentosPage() {
       if (dadosErr?.duplicidades && dadosErr.duplicidades.length > 0) {
         showWarningToast('Duplicidade detectada; veja a lista abaixo do formulário.')
       }
-      showErrorToast(dadosErr?.error || dadosErr?.message || (e as Error)?.message || 'Falha ao confirmar importação.')
+      showErrorToast(formatarMensagemErro(e, 'Falha ao confirmar importação.'))
     } finally {
       setWinauditConfirming(false)
     }
@@ -581,7 +631,7 @@ export default function EquipamentosPage() {
       setLista(data)
       setCurrentPage(1)
     } catch (e: unknown) {
-      setError((e as Error)?.message || 'Erro ao carregar equipamentos')
+      setError(formatarMensagemErro(e, 'Erro ao carregar equipamentos'))
     } finally {
       setLoading(false)
     }
@@ -630,7 +680,7 @@ export default function EquipamentosPage() {
       clearCreateForm()
       await carregar()
     } catch (e: unknown) {
-      showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao criar equipamento')
+      showErrorToast(formatarMensagemErro(e, 'Falha ao criar equipamento'))
     }
   }
 
@@ -705,7 +755,7 @@ export default function EquipamentosPage() {
       await carregar()
       cancelEdit()
     } catch (e: unknown) {
-      showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao atualizar equipamento')
+      showErrorToast(formatarMensagemErro(e, 'Falha ao atualizar equipamento'))
     }
   }
 
@@ -715,7 +765,7 @@ export default function EquipamentosPage() {
       showSuccessToast('Equipamento excluído')
       setLista((prev) => prev.filter((e) => e.id !== id))
     } catch (e: unknown) {
-      showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir equipamento')
+      showErrorToast(formatarMensagemErro(e, 'Falha ao excluir equipamento'))
     }
   }
 
@@ -1036,7 +1086,7 @@ export default function EquipamentosPage() {
                   <p className="text-xs text-slate-600">
                     Opção rápida: selecione um relatório <span className="font-semibold">.html</span> ou{' '}
                     <span className="font-semibold">.htm</span> gerado pelo WinAudit. Os campos serão preenchidos
-                    automaticamente para você conferir.
+                    automaticamente para você conferir, tamanho máximo do arquivo 5MB.
                   </p>
                   {winauditFile && (
                     <p className="mt-1 text-xs text-slate-700">

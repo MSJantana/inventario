@@ -462,7 +462,8 @@ export default function App() {
 
   const whatsNewItems = [
     'Importação de arquivos pelo Winaudit.',
-    'Bug Fixed: Melhorias internas no sistema.'    
+    'Bug Fixed: Melhorias internas no sistema.',
+    'Melhorias no tratamentos de erros.'    
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
