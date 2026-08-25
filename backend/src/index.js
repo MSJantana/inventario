@@ -134,9 +134,12 @@ const generateRequestId = () => {
   );
 };
 
+const REQUEST_LIMIT_BYTES = 50 * 1024 * 1024;
+
 // Middlewares
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: REQUEST_LIMIT_BYTES }));
+app.use(express.urlencoded({ extended: true, limit: REQUEST_LIMIT_BYTES }));
 app.use(pinoHttp({
   logger,
   genReqId: (req, res) => {
