@@ -176,6 +176,7 @@ model ImportacaoWinAudit {
   dataHora               DateTime         @default(now())
   arquivoOriginal        String           @db.VarChar(512)
   tamanhoBytes           Int?
+  tipoArquivo            String?          @db.VarChar(32)
   status                 StatusImportacao
   equipamentoId          String?
   equipamento            Equipamento?     @relation(fields: [equipamentoId], references: [id])
@@ -184,8 +185,14 @@ model ImportacaoWinAudit {
   duplicidadesDetectadas Json
   erros                  Json?
   dadosBrutos            Json?
+  erroMotivo             String?          @db.Text
   escolaId               String?
   escola                 Escola?              @relation(fields: [escolaId], references: [id])
+  ipOrigem               String?          @db.VarChar(64)
+  versaoImportador       String?          @db.VarChar(32)
+  duracaoMs              Int?
+  qtdCamposEncontrados   Int?
+  qtdCamposImportados    Int?
 
   @@index([usuarioId])
   @@index([equipamentoId])

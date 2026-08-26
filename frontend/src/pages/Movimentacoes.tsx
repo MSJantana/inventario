@@ -379,28 +379,31 @@ export default function MovimentacoesPage() {
           <div className="flex w-full sm:w-auto items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
             <button type="button" className="flex-1 sm:flex-none justify-center rounded bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700 flex items-center gap-1" onClick={handleXLSX}>
-              <span>📊</span>
+              <span aria-hidden>📊</span>
               <span className="hidden sm:inline">Exportar Excel</span>
             </button>
             {!showCreate && (
               <button type="button" className="flex-1 sm:flex-none justify-center rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
-                <Plus size={16} />
+                <Plus size={16} aria-hidden />
                 <span className="hidden sm:inline">Registrar movimentação</span>
                 <span className="sm:hidden">Novo</span>
               </button>
             )}
             <button 
               type="button"
+              aria-expanded={showFilters}
+              aria-controls="movimentacoes-filters"
+              aria-label={showFilters ? 'Ocultar filtros de busca' : 'Mostrar filtros de busca'}
               className="sm:hidden rounded border px-3 py-1.5 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
               onClick={() => setShowFilters(!showFilters)}
             >
-              <Filter size={16} />
+              <Filter size={16} aria-hidden />
             </button>
           </div>
         </div>
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         
-        <div className={`mb-3 grid gap-2 sm:grid-cols-4 ${showFilters ? 'block' : 'hidden sm:grid'}`}>
+        <div id="movimentacoes-filters" className={`mb-3 grid gap-2 sm:grid-cols-4 ${showFilters ? 'block' : 'hidden sm:grid'}`}>
           <div>
             <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Buscar</label>
             <input id="filterText" ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} />
@@ -454,13 +457,13 @@ export default function MovimentacoesPage() {
                   <td className="border px-3 py-2">{m.descricao || '-'}</td>
                   <td className="border px-3 py-2">
                     <div className="flex gap-2">
-                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)}>
-                        <Pencil size={16} />
+                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)} aria-label={`Editar a movimentação de ${m.equipamento?.nome || m.equipamentoId}`}>
+                        <Pencil size={16} aria-hidden />
                         <span>Editar</span>
                       </button>
                       {isAdmin && (
-                        <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))}>
-                          <Trash2 size={16} />
+                        <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))} aria-label={`Excluir a movimentação de ${m.equipamento?.nome || m.equipamentoId}`}>
+                          <Trash2 size={16} aria-hidden />
                           <span>Excluir</span>
                         </button>
                       )}

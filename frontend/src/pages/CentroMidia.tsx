@@ -226,7 +226,7 @@ export default function CentroMidiaPage() {
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
             {showCreate ? null : (
               <button type="button" className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
-                <Plus size={16} />
+                <Plus size={16} aria-hidden />
                 <span>Criar item</span>
               </button>
             )}
@@ -272,16 +272,16 @@ export default function CentroMidiaPage() {
                   <td className="border px-3 py-2 text-center">{i.escola?.nome || '-'}</td>
                   <td className="border px-3 py-2 text-center">
                     <div className="flex justify-center gap-2">
-                      <button type="button" className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => setSelectedItem(i)} title="Visualizar Identificação">
-                        <Barcode size={16} />
+                      <button type="button" className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => setSelectedItem(i)} aria-label={`Visualizar cartão de identificação do item ${i.nome || 'de mídia'}`}>
+                        <Barcode size={16} aria-hidden />
                         <span>Identificação</span>
                       </button>
-                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(i)}>
-                        <Pencil size={16} />
+                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(i)} aria-label={`Editar dados do item ${i.nome || 'de mídia'}`}>
+                        <Pencil size={16} aria-hidden />
                         <span>Editar</span>
                       </button>
-                      <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este item?', () => excluirItem(i.id))}>
-                        <Trash2 size={16} />
+                      <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este item?', () => excluirItem(i.id))} aria-label={`Excluir o item ${i.nome || 'de mídia'}`}>
+                        <Trash2 size={16} aria-hidden />
                         <span>Excluir</span>
                       </button>
                     </div>
@@ -342,11 +342,11 @@ export default function CentroMidiaPage() {
           </div>
           <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
             <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
-              <Save size={16} />
+              <Save size={16} aria-hidden />
               <span>Salvar</span>
             </button>
             <button type="button" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2">
-              <RotateCcw size={16} />
+              <RotateCcw size={16} aria-hidden />
               <span>Recarregar</span>
             </button>
             <button type="button" onClick={() => { setShowCreate(false); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50">

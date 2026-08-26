@@ -408,7 +408,7 @@ export default function RelatoriosEquipamentosPage() {
   return (
     <div className="rounded-lg border bg-white p-4 pb-24 lg:pb-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-medium">Relatório de Equipamentos</h2>
+        <h1 className="text-lg font-medium">Relatório de Equipamentos</h1>
         {loading && <span className="text-sm text-gray-500">Carregando...</span>}
       </div>
       

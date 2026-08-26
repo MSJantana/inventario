@@ -72,7 +72,7 @@ export default function LoginPage() {
         <div className="w-[340px] rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 overflow-hidden">
           <div className="relative bg-black h-36">
             <div className="absolute inset-0 flex items-center justify-center">
-              <User size={48} color="#fff" />
+              <User size={48} color="#fff" aria-hidden />
             </div>
             {/* Curva inferior branca */}
             <svg className="absolute bottom-0 left-0 h-12 w-full" viewBox="0 0 320 48" preserveAspectRatio="none" aria-hidden>
@@ -80,7 +80,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <div className="px-6 py-6">
-            <h2 className="mb-3 text-center text-lg font-semibold">Login</h2>
+            <h1 className="mb-3 text-center text-lg font-semibold">Login</h1>
             <form onSubmit={onLogin} className="space-y-4">
               <div>
                 <label htmlFor="emailMobile" className="mb-1 block text-sm font-medium">E-mail</label>
@@ -105,10 +105,13 @@ export default function LoginPage() {
                   />
                   <button
                     type="button"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    aria-pressed={showPassword}
+                    aria-controls="senhaMobile"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showPassword ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
                   </button>
                 </div>
                 <div className="mt-1 text-right text-xs text-gray-500">
@@ -131,12 +134,12 @@ export default function LoginPage() {
       {/* Conteúdo Desktop/Tablet */}
       <div className="relative z-10 hidden md:flex min-h-screen items-center justify-end">
         <div className="w-full max-w-md px-8 py-10">
-          <h2 className="mb-6 text-center text-lg font-semibold tracking-wide">SIGN IN</h2>
+          <h1 className="mb-6 text-center text-lg font-semibold tracking-wide">SIGN IN</h1>
           <form onSubmit={onLogin} className="space-y-4">
             <div>
               <label htmlFor="emailDesktop" className="mb-1 block text-sm">Email</label>
               <div className="flex items-center gap-2">
-                <span className="text-black">▸</span>
+                <span className="text-black" aria-hidden>▸</span>
                 <input
                   id="emailDesktop"
                   type="email"
@@ -149,7 +152,7 @@ export default function LoginPage() {
             <div>
               <label htmlFor="senhaDesktop" className="mb-1 block text-sm">Senha</label>
               <div className="flex items-center gap-2 relative">
-                <span className="text-black">▸</span>
+                <span className="text-black" aria-hidden>▸</span>
                 <input
                   id="senhaDesktop"
                   type={showPassword ? 'text' : 'password'}
@@ -159,10 +162,13 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showPassword}
+                  aria-controls="senhaDesktop"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
                 </button>
               </div>
             </div>

@@ -211,30 +211,36 @@ function filterEquipamento(e: Equipamento, texto: string, status: string): boole
 }
 
 function EquipamentoRow({ item, onEdit, onDelete, onViewIdCard }: { readonly item: Equipamento, readonly onEdit: (e: Equipamento) => void, readonly onDelete: (id: string) => void, readonly onViewIdCard: (e: Equipamento) => void }) {
+  const expired = isExpired(item.dataAquisicao)
+  const equipName = item.nome || item.nomeEquipamento || 'equipamento'
   return (
     <tr key={item.id}>
-      <td className="border px-3 py-2 text-center">{item.nome || item.nomeEquipamento || '-'}</td>
+      <td className="border px-3 py-2 text-center">{equipName === 'equipamento' ? '-' : equipName}</td>
       <td className="border px-3 py-2 text-center">{item.usuarioNome || '-'}</td>
       <td className="border px-3 py-2 text-center">{item.status || '-'}</td>
       <td className="border px-3 py-2 text-center">
-        <div className={`flex items-center justify-center gap-1 ${isExpired(item.dataAquisicao) ? 'text-red-600 font-bold' : ''}`}>
+        <div className={`flex items-center justify-center gap-1 ${expired ? 'text-red-600 font-bold' : ''}`}>
           {formatData(item.dataAquisicao)}
-          {isExpired(item.dataAquisicao) && <span title="Validade vencida"><AlertTriangle size={16} /></span>}
+          {expired && (
+            <span aria-label="Validade da aquisição vencida">
+              <AlertTriangle size={16} aria-hidden />
+            </span>
+          )}
         </div>
       </td>
       <td className="border px-3 py-2 text-center">{item.escola?.nome || '-'}</td>
       <td className="border px-3 py-2 text-center">
         <div className="flex justify-center gap-2">
-          <button type="button" className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => onViewIdCard(item)} title="Visualizar Identificação">
-            <Barcode size={16} />
+          <button type="button" className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1" onClick={() => onViewIdCard(item)} aria-label={`Visualizar cartão de identificação do equipamento ${equipName}`}>
+            <Barcode size={16} aria-hidden />
             <span>Identificação</span>
           </button>
-          <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => onEdit(item)}>
-            <Pencil size={16} />
+          <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => onEdit(item)} aria-label={`Editar dados do equipamento ${equipName}`}>
+            <Pencil size={16} aria-hidden />
             <span>Editar</span>
           </button>
-          <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => onDelete(item.id)}>
-            <Trash2 size={16} />
+          <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => onDelete(item.id)} aria-label={`Excluir o equipamento ${equipName}`}>
+            <Trash2 size={16} aria-hidden />
             <span>Excluir</span>
           </button>
         </div>
@@ -244,31 +250,33 @@ function EquipamentoRow({ item, onEdit, onDelete, onViewIdCard }: { readonly ite
 }
 
 function EquipamentoCard({ item, onEdit, onDelete, onViewIdCard }: { readonly item: Equipamento, readonly onEdit: (e: Equipamento) => void, readonly onDelete: (id: string) => void, readonly onViewIdCard: (e: Equipamento) => void }) {
+  const equipName = item.nome || item.nomeEquipamento || 'equipamento'
+  const expired = isExpired(item.dataAquisicao)
   return (
     <div className="p-4">
       <div className="flex justify-between items-start">
         <div className="flex-1">
-          <h3 className="text-sm font-medium text-gray-900">{item.nome || item.nomeEquipamento || '-'}</h3>
+          <h3 className="text-sm font-medium text-gray-900">{equipName === 'equipamento' ? '-' : equipName}</h3>
           <p className="text-xs text-gray-500">{item.status || '-'}</p>
-          <p className={`text-xs ${isExpired(item.dataAquisicao) ? 'text-red-600 font-bold flex items-center gap-1' : 'text-gray-500'}`}>
+          <p className={`text-xs ${expired ? 'text-red-600 font-bold flex items-center gap-1' : 'text-gray-500'}`}>
             Aquisição: {formatData(item.dataAquisicao)}
-            {isExpired(item.dataAquisicao) && <AlertTriangle size={12} />}
+            {expired && <AlertTriangle size={12} aria-label="Validade da aquisição vencida" aria-hidden />}
           </p>
           <p className="text-xs text-gray-500">Usuário: {item.usuarioNome || '-'}</p>
         </div>
         <span className="text-xs text-gray-500">{item.escola?.nome || '-'}</span>
       </div>
       <div className="flex gap-2 pt-2">
-        <button type="button" className="flex-1 rounded bg-blue-600 px-2 py-1 text-white text-xs hover:bg-blue-700 flex items-center justify-center gap-1" onClick={() => onViewIdCard(item)} title="Visualizar Identificação">
-          <Barcode size={14} />
+        <button type="button" className="flex-1 rounded bg-blue-600 px-2 py-1 text-white text-xs hover:bg-blue-700 flex items-center justify-center gap-1" onClick={() => onViewIdCard(item)} aria-label={`Visualizar cartão de identificação do equipamento ${equipName}`}>
+          <Barcode size={14} aria-hidden />
           <span>Identificação</span>
         </button>
-        <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => onEdit(item)}>
-          <Pencil size={14} />
+        <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => onEdit(item)} aria-label={`Editar dados do equipamento ${equipName}`}>
+          <Pencil size={14} aria-hidden />
           <span>Editar</span>
         </button>
-        <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => onDelete(item.id)}>
-          <Trash2 size={14} />
+        <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => onDelete(item.id)} aria-label={`Excluir o equipamento ${equipName}`}>
+          <Trash2 size={14} aria-hidden />
           <span>Excluir</span>
         </button>
       </div>
@@ -835,8 +843,8 @@ export default function EquipamentosPage() {
           <div className="flex items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
             {!showCreate && (
-              <button type="button" className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
-                <Plus size={16} />
+              <button type="button" aria-label="Criar novo equipamento" className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
+                <Plus size={16} aria-hidden="true" />
                 <span>Criar equipamento</span>
               </button>
             )}
@@ -1049,6 +1057,7 @@ export default function EquipamentosPage() {
                 <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
                   <button
                     type="button"
+                    aria-label="Reprocessar arquivo WinAudit"
                     onClick={() => {
                       clearWinauditState()
                       window.setTimeout(() => winauditFileRef.current?.click(), 60)
@@ -1062,7 +1071,7 @@ export default function EquipamentosPage() {
                     form="form-criar-equipamento"
                     className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-3 text-sm font-semibold shadow-sm flex items-center justify-center gap-2"
                   >
-                    <CheckCircle size={16} />
+                    <CheckCircle size={16} aria-hidden="true" />
                     OK, carregar dados
                   </button>
                 </div>
@@ -1076,8 +1085,8 @@ export default function EquipamentosPage() {
           <div className="mb-4 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
-                <div className="rounded-full bg-indigo-100 p-2 text-indigo-700">
-                  <FileUp size={22} />
+                <div className="rounded-full bg-indigo-100 p-2 text-indigo-700" aria-hidden="true">
+                  <FileUp size={22} aria-hidden="true" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800">
@@ -1099,22 +1108,27 @@ export default function EquipamentosPage() {
               <div className="flex items-center gap-2">
                 <input
                   ref={winauditFileRef}
+                  id="winauditFileInput"
                   type="file"
                   accept=".html,.htm,text/html"
                   className="hidden"
+                  aria-label="Selecionar arquivo HTML do WinAudit para importação"
                   onChange={(e) => onWinauditFilePick(e.target.files?.[0] ?? null)}
                 />
                 <button
                   type="button"
+                  aria-label="Selecionar arquivo HTML do WinAudit"
+                  aria-controls="winauditFileInput"
                   onClick={() => winauditFileRef.current?.click()}
                   className="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 flex items-center gap-2"
                 >
-                  <FileUp size={16} />
+                  <FileUp size={16} aria-hidden="true" />
                   <span>Selecionar arquivo .html</span>
                 </button>
                 {winauditFile && (
                   <button
                     type="button"
+                    aria-label="Limpar arquivo WinAudit selecionado"
                     onClick={() => {
                       clearWinauditState()
                     }}
@@ -1436,21 +1450,22 @@ export default function EquipamentosPage() {
               }
               className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
             >
-              <Save size={16} />
+              <Save size={16} aria-hidden="true" />
               <span>{LABEL_BOTAO_SUBMIT_POR_FLUXO[winauditFluxo]}</span>
             </button>
             {(winauditFluxo === 'review' || winauditFluxo === 'wizard') && (
               <button
                 type="button"
                 onClick={cancelarReviewWinAudit}
+                aria-label={winauditFluxo === 'wizard' ? 'Descartar importação WinAudit' : 'Voltar para importação manual'}
                 className="w-full sm:w-auto rounded border border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 px-4 py-2 flex items-center gap-2"
               >
-                <RotateCcw size={16} />
+                <RotateCcw size={16} aria-hidden="true" />
                 <span>{winauditFluxo === 'wizard' ? 'Descartar importação' : 'Voltar para importação manual'}</span>
               </button>
             )}
-            <button type="button" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2">
-              <RotateCcw size={16} />
+            <button type="button" aria-label="Recarregar lista de equipamentos" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2">
+              <RotateCcw size={16} aria-hidden="true" />
               <span>Recarregar</span>
             </button>
             <button
@@ -1554,11 +1569,11 @@ export default function EquipamentosPage() {
               <input id="editObservacoes" className="w-full rounded border px-3 py-2" value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
             </div>
             <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
-              <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
-                <Save size={16} />
+              <button type="submit" aria-label="Salvar alterações do equipamento" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
+                <Save size={16} aria-hidden="true" />
                 <span>Salvar alterações</span>
               </button>
-              <button type="button" onClick={() => { cancelEdit(); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
+              <button type="button" aria-label="Cancelar edição do equipamento" onClick={() => { cancelEdit(); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
             </div>
           </form>
         </section>
@@ -1571,6 +1586,7 @@ export default function EquipamentosPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              aria-label="Página anterior"
               className="rounded border px-2 py-1 text-xs"
               disabled={current <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -1580,6 +1596,7 @@ export default function EquipamentosPage() {
             </span>
             <button
               type="button"
+              aria-label="Próxima página"
               className="rounded border px-2 py-1 text-xs"
               disabled={current >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}

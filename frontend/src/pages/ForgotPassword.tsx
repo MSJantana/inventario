@@ -43,12 +43,12 @@ export default function ForgotPassword() {
       {/* Conteúdo Desktop/Tablet (mais compacto) */}
       <div className="relative z-10 hidden md:flex min-h-screen items-start justify-end">
         <div className="w-full max-w-md px-6 py-8">
-          <h2 className="mb-4 text-center text-base font-semibold tracking-wide">ESQUECI MINHA SENHA</h2>
+          <h1 className="mb-4 text-center text-base font-semibold tracking-wide">ESQUECI MINHA SENHA</h1>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label htmlFor="emailDesktop" className="mb-1 block text-xs">Email</label>
               <div className="flex items-center gap-2">
-                <span className="text-black">▸</span>
+                <span className="text-black" aria-hidden>▸</span>
                 <input
                   id="emailDesktop"
                   type="email"
@@ -83,7 +83,7 @@ export default function ForgotPassword() {
         <div className="w-[340px] rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 overflow-hidden">
           <div className="relative bg-black h-24">
             <div className="absolute inset-0 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
@@ -94,7 +94,7 @@ export default function ForgotPassword() {
             </svg>
           </div>
           <div className="px-5 py-4">
-            <h2 className="mb-2 text-center text-base font-semibold">Esqueci Minha Senha</h2>
+            <h1 className="mb-2 text-center text-base font-semibold">Esqueci Minha Senha</h1>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label htmlFor="emailMobile" className="mb-1 block text-xs font-medium">E-mail</label>

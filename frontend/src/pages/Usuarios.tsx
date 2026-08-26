@@ -65,6 +65,8 @@ export default function UsuariosPage() {
   const [managedSchoolIds, setManagedSchoolIds] = useState<string[]>([])
   const [savingSchoolAccess, setSavingSchoolAccess] = useState(false)
   const nomeInputRef = useRef<HTMLInputElement | null>(null)
+  const dialogEscolasRef = useRef<HTMLDialogElement | null>(null)
+  const escolasTriggerRef = useRef<HTMLButtonElement | null>(null)
 
   // Estados para formulário de edição
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -79,6 +81,21 @@ export default function UsuariosPage() {
       setTimeout(() => nomeInputRef.current?.focus(), 0)
     }
   }, [showCreate])
+
+  useEffect(() => {
+    if (!schoolAccessUser) return
+    const dialog = dialogEscolasRef.current
+    if (!dialog) return
+    window.requestAnimationFrame(() => {
+      dialog.showModal()
+      const closeBtn = dialog.querySelector<HTMLButtonElement>('[data-escolas-close="1"]')
+        ?? dialog.querySelector<HTMLButtonElement>('button')
+      closeBtn?.focus()
+    })
+    return () => {
+      if (dialog.open) dialog.close()
+    }
+  }, [schoolAccessUser])
 
   async function carregarDados() {
     setLoading(true)
@@ -214,14 +231,20 @@ export default function UsuariosPage() {
     return (usuario.escolasAcesso || []).filter((item) => item.escolaId !== escolaPrincipalId)
   }
 
-  function abrirGestaoEscolas(usuario: Usuario) {
+  function abrirGestaoEscolas(usuario: Usuario, triggerBtn?: HTMLButtonElement | null) {
+    if (triggerBtn) escolasTriggerRef.current = triggerBtn
     setSchoolAccessUser(usuario)
     setManagedSchoolIds(getAdditionalSchools(usuario).map((item) => item.escolaId))
   }
 
   function fecharGestaoEscolas() {
+    if (dialogEscolasRef.current?.open) {
+      dialogEscolasRef.current.close()
+    }
+    const prev = escolasTriggerRef.current
     setSchoolAccessUser(null)
     setManagedSchoolIds([])
+    setTimeout(() => prev?.focus(), 0)
   }
 
   const managedSchoolIdsSet = useMemo(() => new Set(managedSchoolIds), [managedSchoolIds])
@@ -272,7 +295,7 @@ export default function UsuariosPage() {
             onClick={() => setShowCreate(true)}
             className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2"
           >
-            <Plus size={16} />
+            <Plus size={16} aria-hidden />
             <span>Adicionar Usuário</span>
           </button>
         ) : null}
@@ -315,11 +338,12 @@ export default function UsuariosPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">
+              <label htmlFor="senhaUsuario" className="mb-1 block text-sm font-medium">
                 Senha {editingId ? '(opcional - deixe vazio para manter atual)' : '*'}
               </label>
               <div className="relative">
                 <input
+                  id="senhaUsuario"
                   type={showPassword ? 'text' : 'password'}
                   className="w-full rounded border px-3 py-2 pr-10"
                   value={senha}
@@ -331,10 +355,13 @@ export default function UsuariosPage() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showPassword}
+                  aria-controls="senhaUsuario"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
                 </button>
               </div>
               {editingId && (
@@ -389,7 +416,7 @@ export default function UsuariosPage() {
                 type="submit"
                 className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 flex items-center gap-2"
               >
-                <Save size={16} />
+                <Save size={16} aria-hidden />
                 <span>Salvar</span>
               </button>
               <button
@@ -397,7 +424,7 @@ export default function UsuariosPage() {
                 onClick={carregarDados}
                 className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2"
               >
-                <RotateCcw size={16} />
+                <RotateCcw size={16} aria-hidden />
                 <span>Recarregar</span>
               </button>
               <button
@@ -489,27 +516,30 @@ export default function UsuariosPage() {
                       {usuario.role !== 'ADMIN' && (
                         <button
                           type="button"
-                          onClick={() => abrirGestaoEscolas(usuario)}
+                          onClick={(e) => abrirGestaoEscolas(usuario, e.currentTarget)}
+                          aria-label={`Gerenciar escolas adicionais do usuário ${usuario.nome}`}
                           className="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-700 flex items-center gap-1"
                         >
-                          <Building2 size={16} />
+                          <Building2 size={16} aria-hidden />
                           <span>Escolas</span>
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => iniciarEdicao(usuario)}
+                        aria-label={`Editar dados do usuário ${usuario.nome}`}
                         className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700 flex items-center gap-1"
                       >
-                        <Pencil size={16} />
+                        <Pencil size={16} aria-hidden />
                         <span>Editar</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => excluirUsuario(usuario.id)}
+                        aria-label={`Excluir o usuário ${usuario.nome}`}
                         className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={16} aria-hidden />
                         <span>Excluir</span>
                       </button>
                     </div>
@@ -568,27 +598,30 @@ export default function UsuariosPage() {
                 {usuario.role !== 'ADMIN' && (
                   <button
                     type="button"
-                    onClick={() => abrirGestaoEscolas(usuario)}
+                    onClick={(e) => abrirGestaoEscolas(usuario, e.currentTarget)}
+                    aria-label={`Gerenciar escolas adicionais do usuário ${usuario.nome}`}
                     className="flex-1 bg-indigo-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-center gap-1"
                   >
-                    <Building2 size={14} />
+                    <Building2 size={14} aria-hidden />
                     <span>Escolas</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => iniciarEdicao(usuario)}
+                  aria-label={`Editar dados do usuário ${usuario.nome}`}
                   className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center gap-1"
                 >
-                  <Pencil size={14} />
+                  <Pencil size={14} aria-hidden />
                   <span>Editar</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => excluirUsuario(usuario.id)}
+                  aria-label={`Excluir o usuário ${usuario.nome}`}
                   className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={14} aria-hidden />
                   <span>Excluir</span>
                 </button>
               </div>
@@ -604,11 +637,27 @@ export default function UsuariosPage() {
       </div>
 
       {schoolAccessUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+        <dialog
+          ref={dialogEscolasRef}
+          aria-labelledby="escolas-dialog-title"
+          onCancel={fecharGestaoEscolas}
+          onClose={fecharGestaoEscolas}
+          className="m-0 border-0 p-0 bg-transparent max-w-none max-h-none w-screen h-screen fixed inset-0 z-50 backdrop:bg-black/40"
+        >
+          <div className="relative w-full h-full flex items-center justify-center p-4">
+            <button
+              type="button"
+              aria-label="Fechar gestão de escolas adicionais"
+              onClick={fecharGestaoEscolas}
+              tabIndex={-1}
+              className="absolute inset-0 m-0 border-0 p-0 bg-transparent cursor-default"
+            />
+            <div
+              className="relative z-10 w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl mx-4"
+            >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold">Escolas adicionais do usuário</h2>
+                <h2 id="escolas-dialog-title" className="text-lg font-semibold">Escolas adicionais do usuário</h2>
                 <p className="text-sm text-gray-600">{schoolAccessUser.nome}</p>
                 <p className="text-sm text-gray-500">
                   Escola principal: {schoolAccessUser.escola?.nome || 'Não definida'}
@@ -616,6 +665,8 @@ export default function UsuariosPage() {
               </div>
               <button
                 type="button"
+                data-escolas-close="1"
+                aria-label="Fechar gestão de escolas adicionais"
                 onClick={fecharGestaoEscolas}
                 className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
               >
@@ -670,7 +721,8 @@ export default function UsuariosPage() {
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </dialog>
       )}
     </div>
   )

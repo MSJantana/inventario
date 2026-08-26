@@ -5,9 +5,10 @@ type Props = {
   totalPages: number
   onChange: (page: number) => void
   windowSize?: number
+  label?: string
 }
 
-function Pagination({ current, totalPages, onChange, windowSize = 5 }: Readonly<Props>) {
+function Pagination({ current, totalPages, onChange, windowSize = 5, label = 'Paginação' }: Readonly<Props>) {
   const startBase = current - Math.floor(windowSize / 2)
   const start = Math.max(1, Math.min(startBase, Math.max(1, totalPages - windowSize + 1)))
   const end = Math.min(totalPages, start + windowSize - 1)
@@ -22,26 +23,48 @@ function Pagination({ current, totalPages, onChange, windowSize = 5 }: Readonly<
     items.push(totalPages)
   }
   return (
-    <div className="flex items-center gap-2">
-      <button type="button" className="rounded border px-3 py-1" disabled={current <= 1} onClick={() => onChange(Math.max(1, current - 1))}>Anterior</button>
-      {items.map((it) => (
-        typeof it === 'number' ? (
-          <button
-            type="button"
-            key={it}
-            className={`rounded border px-3 py-1 ${it === current ? 'bg-blue-600 text-white border-blue-600' : ''}`}
-            onClick={() => onChange(it)}
-          >
-            {it}
-          </button>
-        ) : (
-          <span key={it} className="px-2 text-gray-500">…</span>
-        )
-      ))}
-      <button type="button" className="rounded border px-3 py-1" disabled={current >= totalPages} onClick={() => onChange(Math.min(totalPages, current + 1))}>Próxima</button>
-    </div>
+    <nav role="navigation" aria-label={label} className="flex items-center gap-2">
+      <button
+        type="button"
+        className="rounded border px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={current <= 1}
+        onClick={() => onChange(Math.max(1, current - 1))}
+        aria-label="Página anterior"
+      >
+        Anterior
+      </button>
+      <ul className="flex items-center gap-2">
+        {items.map((it, idx) => (
+          typeof it === 'number' ? (
+            <li key={`${it}-${idx}`}>
+              <button
+                type="button"
+                className={`rounded border px-3 py-1 ${it === current ? 'bg-blue-600 text-white border-blue-600' : ''}`}
+                onClick={() => onChange(it)}
+                aria-label={`Página ${it} de ${totalPages}`}
+                aria-current={it === current ? 'page' : undefined}
+              >
+                {it}
+              </button>
+            </li>
+          ) : (
+            <li key={`${it}-${idx}`} aria-hidden>
+              <span className="px-2 text-gray-500">…</span>
+            </li>
+          )
+        ))}
+      </ul>
+      <button
+        type="button"
+        className="rounded border px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={current >= totalPages}
+        onClick={() => onChange(Math.min(totalPages, current + 1))}
+        aria-label="Próxima página"
+      >
+        Próxima
+      </button>
+    </nav>
   )
 }
 
 export default memo(Pagination)
-
