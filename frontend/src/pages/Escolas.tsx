@@ -53,7 +53,14 @@ function isCepValido(input: string) {
 
 function isEmailValido(input: string) {
   if (!input.trim()) return true
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)
+  const trimmed = input.trim()
+  const atIndex = trimmed.lastIndexOf('@')
+  if (atIndex <= 0 || atIndex === trimmed.length - 1) return false
+  const dominio = trimmed.slice(atIndex + 1)
+  if (!dominio.includes('.')) return false
+  if (dominio.startsWith('.') || dominio.endsWith('.')) return false
+  if (trimmed.includes('..')) return false
+  return /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(trimmed)
 }
 
 export default function EscolasPage() {
@@ -226,12 +233,12 @@ export default function EscolasPage() {
                 <td className="border px-3 py-2">{e.estado}</td>
                 <td className="border px-3 py-2">
                   <div className="flex gap-2">
-                    <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(e)}>
-                      <Pencil size={16} />
+                    <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(e)} aria-label={`Editar dados da escola ${e.nome}`}>
+                      <Pencil size={16} aria-hidden />
                       <span>Editar</span>
                     </button>
-                    <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))}>
-                      <Trash2 size={16} />
+                    <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))} aria-label={`Excluir a escola ${e.nome}`}>
+                      <Trash2 size={16} aria-hidden />
                       <span>Excluir</span>
                     </button>
                   </div>
@@ -272,16 +279,18 @@ export default function EscolasPage() {
                 type="button"
                 className="flex-1 bg-yellow-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 flex items-center justify-center gap-1" 
                 onClick={() => startEdit(e)}
+                aria-label={`Editar dados da escola ${e.nome}`}
               >
-                <Pencil size={14} />
+                <Pencil size={14} aria-hidden />
                 <span>Editar</span>
               </button>
               <button 
                 type="button"
                 className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1" 
                 onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))}
+                aria-label={`Excluir a escola ${e.nome}`}
               >
-                <Trash2 size={14} />
+                <Trash2 size={14} aria-hidden />
                 <span>Excluir</span>
               </button>
             </div>
@@ -298,12 +307,14 @@ export default function EscolasPage() {
         <div className="flex gap-2">
           <button
             type="button"
+            aria-label="Página anterior"
             className="rounded border px-3 py-1 text-sm disabled:opacity-50"
             disabled={currentPage <= 1}
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
           >Anterior</button>
           <button
             type="button"
+            aria-label="Próxima página"
             className="rounded border px-3 py-1 text-sm disabled:opacity-50"
             disabled={currentPage >= totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -367,12 +378,12 @@ export default function EscolasPage() {
           </div>
           <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
             <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
-              <Save size={16} />
+              <Save size={16} aria-hidden />
               <span>Salvar</span>
             </button>
             <button type="button" onClick={cancelCreate} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
             <button type="button" onClick={() => { setShowCreate(false); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
-              <X size={16} />
+              <X size={16} aria-hidden />
               <span>Fechar</span>
             </button>
           </div>

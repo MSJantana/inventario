@@ -1,10 +1,36 @@
 import PrismaClientModule from '@prisma/client';
+import path from 'node:path';
 import { winauditUpload, winauditFileField, buildWinauditFileError } from '../middlewares/upload.js';
 import WinAuditImportService from '../services/WinAuditImportService.js';
 
 const { PrismaClient } = PrismaClientModule;
 
 const prisma = new PrismaClient();
+
+const WINAUDIT_VERSION = process.env.WINAUDIT_IMPORTER_VERSION || '1.3.0';
+
+const extrairIpOrigem = (req) => {
+  const headerCf = req.headers?.['cf-connecting-ip'];
+  if (typeof headerCf === 'string' && headerCf.trim().length > 0) return headerCf.trim();
+  const headerXForwardedFor = req.headers?.['x-forwarded-for'];
+  if (typeof headerXForwardedFor === 'string' && headerXForwardedFor.trim().length > 0) {
+    const primeiro = headerXForwardedFor.split(',')[0];
+    if (primeiro) return primeiro.trim();
+  }
+  const headerXRealIp = req.headers?.['x-real-ip'];
+  if (typeof headerXRealIp === 'string' && headerXRealIp.trim().length > 0) return headerXRealIp.trim();
+  const socketRemote = req.socket?.remoteAddress || req.ip || null;
+  return typeof socketRemote === 'string' ? socketRemote : null;
+};
+
+const extrairTipoArquivo = (file) => {
+  if (!file) return null;
+  const mimetype = typeof file.mimetype === 'string' ? file.mimetype.toLowerCase() : '';
+  if (mimetype.includes('html') || mimetype.includes('htm')) return 'HTML';
+  const ext = path.extname(file.originalname || '').replace('.', '').toUpperCase();
+  if (ext === 'HTML' || ext === 'HTM') return 'HTML';
+  return ext || null;
+};
 
 const extrairFiltrosDeQuery = (query) => {
   const filtros = {};
@@ -13,6 +39,8 @@ const extrairFiltrosDeQuery = (query) => {
   if (query.arquivoOriginalContem) filtros.arquivoOriginalContem = String(query.arquivoOriginalContem);
   if (query.usuarioId) filtros.usuarioId = String(query.usuarioId);
   if (query.equipamentoId) filtros.equipamentoId = String(query.equipamentoId);
+  if (query.dataInicio) filtros.dataInicio = String(query.dataInicio);
+  if (query.dataFim) filtros.dataFim = String(query.dataFim);
   return filtros;
 };
 
@@ -34,11 +62,17 @@ export const importarWinAuditPreview = (req, res, next) => {
         throw e;
       }
 
+      const ipOrigem = extrairIpOrigem(req);
+      const tipoArquivo = extrairTipoArquivo(req.file);
+
       const preview = await WinAuditImportService.gerarPreview({
         file: req.file,
         usuarioId: req.usuario.id,
         escolaId: req.body?.escolaId || req.usuario.escolaId || null,
         prisma,
+        ipOrigem,
+        tipoArquivo,
+        versaoImportador: WINAUDIT_VERSION,
       });
 
       return res.status(200).json(preview);

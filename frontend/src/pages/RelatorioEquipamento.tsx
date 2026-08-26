@@ -229,9 +229,10 @@ export default function RelatorioEquipamentoPage() {
           </div>
           <Link
             to="/equipamentos"
+            aria-label="Voltar para lista de equipamentos"
             className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={16} aria-hidden="true" />
             <span>Voltar para equipamentos</span>
           </Link>
         </div>
@@ -243,18 +244,22 @@ export default function RelatorioEquipamentoPage() {
     <section className="space-y-6">
       <div className="print:hidden flex flex-wrap gap-2">
         <button
+          type="button"
           onClick={handlePrint}
+          aria-label="Imprimir relatório do equipamento"
           className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2"
         >
-          <span>🖨️</span>
+          <span aria-hidden="true">🖨️</span>
           <span className="hidden sm:inline">Imprimir</span>
         </button>
         <button
+          type="button"
           onClick={() => void handlePDF()}
           disabled={isGeneratingPdf}
+          aria-label={isGeneratingPdf ? 'Gerando PDF do equipamento' : 'Exportar PDF do equipamento'}
           className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2"
         >
-          <span>📄</span>
+          <span aria-hidden="true">📄</span>
           <span className="hidden sm:inline">{isGeneratingPdf ? 'Gerando PDF...' : 'Exportar PDF'}</span>
           <span className="sm:hidden">{isGeneratingPdf ? 'PDF...' : 'PDF'}</span>
         </button>
@@ -266,9 +271,10 @@ export default function RelatorioEquipamentoPage() {
             <div className="space-y-4">
               <Link
                 to="/equipamentos"
+                aria-label="Voltar para lista de equipamentos"
                 className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/10"
               >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={16} aria-hidden="true" />
                 <span>Voltar para equipamentos</span>
               </Link>
 
@@ -295,7 +301,7 @@ export default function RelatorioEquipamentoPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:w-[360px] lg:grid-cols-1">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                 <div className="flex items-center gap-3">
-                  <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                  <ShieldCheck className="h-5 w-5 text-emerald-300" aria-hidden="true" />
                   <div>
                     <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Escola</p>
                     <p className="text-sm font-semibold text-white">{escola}</p>
@@ -304,7 +310,7 @@ export default function RelatorioEquipamentoPage() {
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                 <div className="flex items-center gap-3">
-                  <CalendarDays className="h-5 w-5 text-sky-300" />
+                  <CalendarDays className="h-5 w-5 text-sky-300" aria-hidden="true" />
                   <div>
                     <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Aquisição</p>
                     <p className="text-sm font-semibold text-white">{formatDate(equipamento.dataAquisicao)}</p>
@@ -313,7 +319,7 @@ export default function RelatorioEquipamentoPage() {
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                 <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-violet-300" />
+                  <MapPin className="h-5 w-5 text-violet-300" aria-hidden="true" />
                   <div>
                     <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Setor</p>
                     <p className="text-sm font-semibold text-white">{setor}</p>
@@ -329,7 +335,7 @@ export default function RelatorioEquipamentoPage() {
         <article className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-3">
             <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">
-              <PackageSearch className="h-5 w-5" />
+              <PackageSearch className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Cadastro</p>
@@ -350,7 +356,7 @@ export default function RelatorioEquipamentoPage() {
         <aside className="rounded-[28px] border border-slate-200 bg-slate-50 p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-3">
             <div className="rounded-2xl bg-white p-3 text-slate-700 shadow-sm">
-              <BadgeInfo className="h-5 w-5" />
+              <BadgeInfo className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Contexto</p>
@@ -379,7 +385,7 @@ export default function RelatorioEquipamentoPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Responsável atual</p>
               <div className="mt-3 flex items-center gap-3">
                 <div className="rounded-full bg-slate-100 p-2 text-slate-700">
-                  <UserRound className="h-4 w-4" />
+                  <UserRound className="h-4 w-4" aria-hidden="true" />
                 </div>
                 <div>
                   <p className="text-base font-semibold text-slate-900">{usuario}</p>

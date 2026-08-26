@@ -38,6 +38,7 @@ import centroMidiaRoutes from './routes/centroMidia.js';
 import errorHandler from './middlewares/errorHandler.js';
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', true);
 const prisma = new PrismaClient({
   log: process.env.NODE_ENV !== 'production'
     ? ['query', 'warn']

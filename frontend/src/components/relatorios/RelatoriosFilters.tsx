@@ -49,6 +49,7 @@ export function RelatoriosFilters({
         <label htmlFor="searchInput" className="mb-1 block text-sm font-medium">Buscar</label>
         <input
           id="searchInput"
+          type="search"
           className="w-full rounded border px-3 py-2"
           placeholder="Nome, modelo, serial, escola, sigla..."
           value={filterText}

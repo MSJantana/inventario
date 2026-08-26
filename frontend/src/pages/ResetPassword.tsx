@@ -81,12 +81,12 @@ export default function ResetPassword() {
       {/* Conteúdo Desktop/Tablet (mais compacto) */}
       <div className="relative z-10 hidden md:flex min-h-screen items-start justify-end">
         <div className="w-full max-w-md px-6 py-8">
-          <h2 className="mb-4 text-center text-base font-semibold tracking-wide">REDEFINIR SENHA</h2>
+          <h1 className="mb-4 text-center text-base font-semibold tracking-wide">REDEFINIR SENHA</h1>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label htmlFor="novaSenhaDesktop" className="mb-1 block text-xs">Nova Senha</label>
-              <div className="flex items-center gap-2">
-                <span className="text-black">▸</span>
+              <div className="flex items-center gap-2 relative">
+                <span className="text-black" aria-hidden>▸</span>
                 <input
                   id="novaSenhaDesktop"
                   type={showNovaSenha ? 'text' : 'password'}
@@ -98,17 +98,20 @@ export default function ResetPassword() {
                 />
                 <button
                   type="button"
+                  aria-label={showNovaSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showNovaSenha}
+                  aria-controls="novaSenhaDesktop"
                   onClick={() => setShowNovaSenha(!showNovaSenha)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 transform text-gray-500"
                 >
-                  {showNovaSenha ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showNovaSenha ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
                 </button>
               </div>
             </div>
             <div>
               <label htmlFor="confirmarSenhaDesktop" className="mb-1 block text-xs">Confirmar Nova Senha</label>
-              <div className="flex items-center gap-2">
-                <span className="text-black">▸</span>
+              <div className="flex items-center gap-2 relative">
+                <span className="text-black" aria-hidden>▸</span>
                 <input
                   id="confirmarSenhaDesktop"
                   type={showConfirmarSenha ? 'text' : 'password'}
@@ -120,10 +123,13 @@ export default function ResetPassword() {
                 />
                 <button
                   type="button"
+                  aria-label={showConfirmarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showConfirmarSenha}
+                  aria-controls="confirmarSenhaDesktop"
                   onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 transform text-gray-500"
                 >
-                  {showConfirmarSenha ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showConfirmarSenha ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
                 </button>
               </div>
             </div>
@@ -151,7 +157,7 @@ export default function ResetPassword() {
         <div className="w-[340px] rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 overflow-hidden">
           <div className="relative bg-black h-24">
             <div className="absolute inset-0 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
@@ -162,45 +168,55 @@ export default function ResetPassword() {
             </svg>
           </div>
           <div className="px-5 py-4">
-            <h2 className="mb-2 text-center text-base font-semibold">Redefinir Senha</h2>
+            <h1 className="mb-2 text-center text-base font-semibold">Redefinir Senha</h1>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label htmlFor="novaSenhaMobile" className="mb-1 block text-xs font-medium">Nova Senha</label>
-                <input
-                  id="novaSenhaMobile"
-                  type={showNovaSenha ? 'text' : 'password'}
-                  className="w-full rounded-lg border px-3 py-2"
-                  value={novaSenha}
-                  onChange={(e) => setNovaSenha(e.target.value)}
-                  required
-                  minLength={8}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNovaSenha(!showNovaSenha)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-500"
-                >
-                  {showNovaSenha ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                <div className="relative">
+                  <input
+                    id="novaSenhaMobile"
+                    type={showNovaSenha ? 'text' : 'password'}
+                    className="w-full rounded-lg border px-3 py-2"
+                    value={novaSenha}
+                    onChange={(e) => setNovaSenha(e.target.value)}
+                    required
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showNovaSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                    aria-pressed={showNovaSenha}
+                    aria-controls="novaSenhaMobile"
+                    onClick={() => setShowNovaSenha(!showNovaSenha)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-500"
+                  >
+                    {showNovaSenha ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label htmlFor="confirmarSenhaMobile" className="mb-1 block text-xs font-medium">Confirmar Nova Senha</label>
-                <input
-                  id="confirmarSenhaMobile"
-                  type={showConfirmarSenha ? 'text' : 'password'}
-                  className="w-full rounded-lg border px-3 py-2"
-                  value={confirmarSenha}
-                  onChange={(e) => setConfirmarSenha(e.target.value)}
-                  required
-                  minLength={8}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-500"
-                >
-                  {showConfirmarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                <div className="relative">
+                  <input
+                    id="confirmarSenhaMobile"
+                    type={showConfirmarSenha ? 'text' : 'password'}
+                    className="w-full rounded-lg border px-3 py-2"
+                    value={confirmarSenha}
+                    onChange={(e) => setConfirmarSenha(e.target.value)}
+                    required
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showConfirmarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                    aria-pressed={showConfirmarSenha}
+                    aria-controls="confirmarSenhaMobile"
+                    onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-500"
+                  >
+                    {showConfirmarSenha ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+                  </button>
+                </div>
               </div>
               <button
                 type="submit"

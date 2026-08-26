@@ -4,6 +4,12 @@ export type StatusCampoWinAudit =
   | 'INVALIDO'
   | 'POSSIVEL_DUPLICIDADE'
 
+export type StatusImportacaoWinAudit =
+  | 'PREVIEW_GERADO'
+  | 'SUCESSO'
+  | 'CANCELADO'
+  | 'ERRO'
+
 export interface WinAuditMacEntry {
   readonly valor: string
   readonly tipo: 'Ethernet' | 'Wi-Fi' | 'Bluetooth' | 'Virtual' | 'Outro'
@@ -79,4 +85,108 @@ export interface WinAuditConfirmarResponse {
   readonly possivelDuplicidade: boolean
   readonly bloqueioSerialSuperado?: boolean
   readonly erros?: readonly string[] | null
+}
+
+export interface WinAuditLogUsuario {
+  readonly id: string
+  readonly nome: string
+  readonly email: string
+  readonly role: string
+}
+
+export interface WinAuditLogEscola {
+  readonly id: string
+  readonly nome: string
+  readonly sigla: string
+}
+
+export interface WinAuditLogEquipamento {
+  readonly id: string
+  readonly nome: string
+  readonly patrimonio?: string | null
+  readonly status: string
+  readonly modelo?: string | null
+  readonly serial?: string | null
+  readonly macaddress?: string | null
+}
+
+export interface WinAuditLogListagemItem {
+  readonly id: string
+  readonly status: StatusImportacaoWinAudit
+  readonly arquivoOriginal: string
+  readonly tamanhoBytes?: number | null
+  readonly tipoArquivo?: string | null
+  readonly dataHora: string
+  readonly equipamentoId?: string | null
+  readonly escolaId?: string | null
+  readonly qtdCamposEncontrados?: number | null
+  readonly qtdCamposImportados?: number | null
+  readonly duracaoMs?: number | null
+  readonly ipOrigem?: string | null
+  readonly erroMotivo?: string | null
+  readonly usuario: WinAuditLogUsuario
+  readonly escola?: WinAuditLogEscola | null
+  readonly equipamento?: WinAuditLogEquipamento | null
+}
+
+export interface WinAuditLogResumo {
+  readonly totalImportacoes: number
+  readonly totalImportacoesHoje: number
+  readonly totalSucesso: number
+  readonly totalErro: number
+  readonly totalEquipamentosCriados: number
+  readonly taxaSucessoPercentual: number
+  readonly camposImportadosHoje: number
+  readonly camposEncontradosHoje: number
+  readonly tempoMedioMs?: number | null
+  readonly processamentosComSucessoHoje: number
+}
+
+export interface WinAuditLogListagemResponse {
+  readonly pagina: number
+  readonly porPagina: number
+  readonly total: number
+  readonly totalPaginas: number
+  readonly itens: readonly WinAuditLogListagemItem[]
+  readonly resumo: WinAuditLogResumo
+}
+
+export interface WinAuditLogDetalheCampoEncontrado {
+  readonly valor?: unknown
+  readonly displayLabel?: string | null
+  readonly rawLabel?: string | null
+  readonly contexto?: string | null
+  readonly tipo?: string | null
+}
+
+export interface WinAuditLogDetalheRaw {
+  readonly NOME?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly USUARIO_NOME?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly FABRICANTE?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly MODELO_ORIGINAL?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly SERIAL?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly MAC_ADDRESS?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly PROCESSADOR?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly MEMORIA?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly DATA_AQUISICAO?: readonly WinAuditLogDetalheCampoEncontrado[]
+  readonly [key: string]: readonly WinAuditLogDetalheCampoEncontrado[] | undefined
+}
+
+export interface WinAuditLogDadosBrutosWrapper {
+  readonly camposBrutosExtraidos?: WinAuditLogDetalheRaw | null
+  readonly secoesEncontradas?: readonly string[] | null
+  readonly labelsMatchCount?: number | null
+  readonly [key: string]: unknown
+}
+
+export interface WinAuditLogDetalhe extends Omit<WinAuditLogListagemItem, 'usuario' | 'escola' | 'equipamento'> {
+  readonly camposEncontrados: Readonly<Record<string, unknown>>
+  readonly camposNaoEncontrados: readonly string[]
+  readonly duplicidadesDetectadas: readonly WinAuditDuplicidadeEntry[]
+  readonly erros?: readonly string[] | null
+  readonly dadosBrutos?: WinAuditLogDadosBrutosWrapper | WinAuditLogDetalheRaw | null
+  readonly versaoImportador?: string | null
+  readonly usuario: WinAuditLogUsuario
+  readonly escola?: WinAuditLogEscola | null
+  readonly equipamento?: WinAuditLogEquipamento | null
 }

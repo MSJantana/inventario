@@ -50,18 +50,20 @@ api.interceptors.response.use(
     const status = error?.response?.status;
     if (status === 401) {
       try {
+        showErrorToast('Sessão expirada. Faça login novamente.');
         localStorage.removeItem('authToken');
         localStorage.removeItem('userName');
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userRole');
         localStorage.removeItem('userEscolaNome');
         useAppStore.getState().setAuthTokenState('');
-        showErrorToast('Sessão expirada. Faça login novamente.');
       } catch (err) {
         console.warn('Erro ao processar expiração de sessão', err);
       }
       if (globalThis.window !== undefined && globalThis.window.location.pathname !== '/login') {
-        globalThis.location.href = '/login';
+        globalThis.setTimeout(() => {
+          globalThis.location.href = '/login';
+        }, 150);
       }
     } else if (status === 403) {
       // Não desloga em 403; apenas informa falta de permissão

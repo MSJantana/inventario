@@ -210,6 +210,8 @@ const converterDataWinAudit = (entrada) => {
   };
 };
 
+const WINAUDIT_VERSION = process.env.WINAUDIT_IMPORTER_VERSION || '1.3.0';
+
 const STATUS_IMPORTACAO_ENUM = {
   PREVIEW_GERADO: 'PREVIEW_GERADO',
   SUCESSO: 'SUCESSO',
@@ -217,13 +219,59 @@ const STATUS_IMPORTACAO_ENUM = {
   ERRO: 'ERRO',
 };
 
+const ehCamposEncontradosBooleano = (v) => typeof v === 'boolean';
+const ehCamposEncontradosStatus = (v) => typeof v === 'string' && Object.values(STATUS_CAMPO).includes(v);
+
+const contarCamposPorStatus = (camposStatus, status = STATUS_CAMPO.ENCONTRADO) => {
+  if (!camposStatus || typeof camposStatus !== 'object') return 0;
+  const valores = Object.values(camposStatus);
+  const temBooleano = valores.some(ehCamposEncontradosBooleano);
+  if (temBooleano) {
+    return valores.filter((v) => v === true).length;
+  }
+  return valores.filter((v) => v === status).length;
+};
+
+const contarCamposImportados = (camposStatus) => {
+  if (!camposStatus || typeof camposStatus !== 'object') return 0;
+  const valores = Object.values(camposStatus);
+  const temBooleano = valores.some(ehCamposEncontradosBooleano);
+  if (temBooleano) {
+    return valores.filter((v) => v === true).length;
+  }
+  return valores.filter((v) =>
+    v === STATUS_CAMPO.ENCONTRADO || v === STATUS_CAMPO.POSSIVEL_DUPLICIDADE,
+  ).length;
+};
+
 const registrarLog = async (prisma, payload) => {
+  const camposEncontradosRaw = payload.camposEncontrados || {};
+  const fonteContagem = payload.camposStatus && typeof payload.camposStatus === 'object'
+    ? payload.camposStatus
+    : camposEncontradosRaw;
+
+  let qtdCamposEncontrados;
+  if (typeof payload.qtdCamposEncontrados === 'number') {
+    qtdCamposEncontrados = payload.qtdCamposEncontrados;
+  } else if (fonteContagem && typeof fonteContagem === 'object' && !Array.isArray(fonteContagem)) {
+    qtdCamposEncontrados = contarCamposPorStatus(fonteContagem);
+  } else if (typeof camposEncontradosRaw === 'object' && !Array.isArray(camposEncontradosRaw)) {
+    qtdCamposEncontrados = Object.keys(camposEncontradosRaw).length;
+  } else {
+    qtdCamposEncontrados = 0;
+  }
+
+  const qtdCamposImportados = typeof payload.qtdCamposImportados === 'number'
+    ? payload.qtdCamposImportados
+    : contarCamposImportados(fonteContagem);
+
   return prisma.importacaoWinAudit.create({
     data: {
       usuarioId: payload.usuarioId,
       escolaId: payload.escolaId ?? null,
       arquivoOriginal: payload.arquivoOriginal,
       tamanhoBytes: payload.tamanhoBytes,
+      tipoArquivo: payload.tipoArquivo ?? null,
       status: payload.status,
       equipamentoId: payload.equipamentoId ?? null,
       camposEncontrados: payload.camposEncontrados,
@@ -231,6 +279,12 @@ const registrarLog = async (prisma, payload) => {
       duplicidadesDetectadas: payload.duplicidadesDetectadas,
       erros: payload.erros ?? null,
       dadosBrutos: payload.dadosBrutos ?? null,
+      erroMotivo: payload.erroMotivo ?? null,
+      ipOrigem: payload.ipOrigem ?? null,
+      versaoImportador: payload.versaoImportador ?? WINAUDIT_VERSION,
+      duracaoMs: payload.duracaoMs ?? null,
+      qtdCamposEncontrados,
+      qtdCamposImportados,
     },
     select: {
       id: true,
@@ -265,19 +319,24 @@ const criarCamposStatusInicial = (escolaId) => ({
 });
 
 const lancarErroArquivoInvalido = async (prisma, contexto) => {
-  const { parsed, usuarioId, escolaId, file, camposStatusInicial } = contexto;
+  const { parsed, usuarioId, escolaId, file, camposStatusInicial, ipOrigem, tipoArquivo, duracaoMs } = contexto;
   const erros = [parsed.erro];
   const log = await registrarLog(prisma, {
     usuarioId,
     escolaId,
     arquivoOriginal: file.originalname || 'arquivo.html',
     tamanhoBytes: file.size || file.buffer?.length || null,
+    tipoArquivo,
     status: STATUS_IMPORTACAO_ENUM.ERRO,
     camposEncontrados: {},
     camposNaoEncontrados: Object.keys(camposStatusInicial),
     duplicidadesDetectadas: [],
     erros,
+    erroMotivo: parsed.erro || 'Arquivo inválido.',
     dadosBrutos: null,
+    ipOrigem,
+    duracaoMs,
+    camposStatus: camposStatusInicial,
   });
   const erro = new Error(parsed.erro || 'Arquivo inválido.');
   erro.statusCode = 400;
@@ -622,7 +681,16 @@ const montarRespostaPreview = ({ log, dados, camposStatus, camposNaoEncontrados,
 };
 
 export const gerarPreview = async (input) => {
-  const { file, usuarioId, escolaId, prisma: prismaInput } = input || {};
+  const {
+    file,
+    usuarioId,
+    escolaId,
+    prisma: prismaInput,
+    ipOrigem,
+    tipoArquivo,
+    versaoImportador,
+  } = input || {};
+  const startTime = Date.now();
   validarInputArquivo(file);
 
   const prisma = getPrisma(prismaInput);
@@ -630,7 +698,16 @@ export const gerarPreview = async (input) => {
 
   const parsed = parseWinAuditHtml(file.buffer, file.originalname || '');
   if (!parsed.valido) {
-    await lancarErroArquivoInvalido(prisma, { parsed, usuarioId, escolaId, file, camposStatusInicial: camposStatus });
+    await lancarErroArquivoInvalido(prisma, {
+      parsed,
+      usuarioId,
+      escolaId,
+      file,
+      camposStatusInicial: camposStatus,
+      ipOrigem,
+      tipoArquivo,
+      duracaoMs: Date.now() - startTime,
+    });
   }
 
   const extraidos = extrairCamposDeEstruturaParseada(parsed);
@@ -651,18 +728,24 @@ export const gerarPreview = async (input) => {
 
   const { camposEncontradosMap, camposNaoEncontradosLista } = montarMapasCampos(camposStatus);
   const dadosBrutos = montarDadosBrutos(extraidos);
+  const duracaoMs = Date.now() - startTime;
 
   const log = await registrarLog(prisma, {
     usuarioId,
     escolaId,
     arquivoOriginal: file.originalname || 'arquivo.html',
     tamanhoBytes: file.size || file.buffer?.length || null,
+    tipoArquivo,
     status: STATUS_IMPORTACAO_ENUM.PREVIEW_GERADO,
     camposEncontrados: camposEncontradosMap,
     camposNaoEncontrados: camposNaoEncontradosLista,
     duplicidadesDetectadas: duplicidades.duplicidades,
     erros: null,
     dadosBrutos,
+    ipOrigem,
+    versaoImportador,
+    duracaoMs,
+    camposStatus,
   });
 
   const dados = montarDadosEquipamento(campos, escolaId, campos.memoria);
@@ -804,7 +887,7 @@ const validarBloqueioSerialConfirmacao = (contexto) => {
 };
 
 const criarEquipamentoComTransacao = async (contexto) => {
-  const { prisma, payload, usuario, logId, revalidaDuplicidades } = contexto;
+  const { prisma, payload, usuario, logId, revalidaDuplicidades, duracaoMs, qtdCamposImportados } = contexto;
   return prisma.$transaction(async (tx) => {
     const criado = await EquipamentoService.criarEquipamento({
       payload,
@@ -818,6 +901,8 @@ const criarEquipamentoComTransacao = async (contexto) => {
         equipamentoId: criado.equipamento.id,
         escolaId: criado.escolaId || null,
         duplicidadesDetectadas: revalidaDuplicidades.duplicidades,
+        duracaoMs,
+        qtdCamposImportados,
       },
       select: {
         id: true,
@@ -831,21 +916,24 @@ const criarEquipamentoComTransacao = async (contexto) => {
 };
 
 const tratarErroCriacaoEquipamento = async (contexto) => {
-  const { prisma, logId, errosAcumulados, error } = contexto;
-  const erros = [...(errosAcumulados || []), error?.message || 'Erro ao criar equipamento.'];
+  const { prisma, logId, errosAcumulados, error, duracaoMs } = contexto;
+  const motivo = error?.message || 'Erro ao criar equipamento.';
+  const erros = [...(errosAcumulados || []), motivo];
   try {
     await prisma.importacaoWinAudit.update({
       where: { id: logId },
       data: {
         status: STATUS_IMPORTACAO_ENUM.ERRO,
         erros,
+        erroMotivo: motivo,
+        duracaoMs,
       },
     });
   } catch {
     /* ignora erro secundário */
   }
   if (error?.statusCode) throw error;
-  const e = new Error(error?.message || 'Erro ao confirmar importação.');
+  const e = new Error(motivo);
   e.statusCode = 500;
   e.code = 'WINAUDIT_CONFIRMAR_ERROR';
   throw e;
@@ -867,6 +955,7 @@ const montarRespostaConfirmacao = (contexto) => {
 
 export const confirmarImportacao = async (input) => {
   const { previewId, usuario, equipamento, macSelecionado, ignorarDuplicidade, prisma: prismaInput } = input || {};
+  const startTime = Date.now();
   validarConfirmacaoInput(previewId);
 
   const prisma = getPrisma(prismaInput);
@@ -890,6 +979,11 @@ export const confirmarImportacao = async (input) => {
   const erros = log.erros ? [...log.erros] : [];
   let statusCriacao = STATUS_IMPORTACAO_ENUM.SUCESSO;
 
+  const camposStatusOriginal = typeof log.camposEncontrados === 'object' && log.camposEncontrados
+    ? log.camposEncontrados
+    : {};
+  const qtdCamposImportados = contarCamposImportados(camposStatusOriginal);
+
   try {
     const resultado = await criarEquipamentoComTransacao({
       prisma,
@@ -897,12 +991,20 @@ export const confirmarImportacao = async (input) => {
       usuario,
       logId: log.id,
       revalidaDuplicidades,
+      duracaoMs: Date.now() - startTime,
+      qtdCamposImportados,
     });
     equipamentoCriado = resultado.criado.equipamento;
     escolaIdCriacao = resultado.criado.escolaId;
   } catch (error) {
     statusCriacao = STATUS_IMPORTACAO_ENUM.ERRO;
-    await tratarErroCriacaoEquipamento({ prisma, logId: log.id, errosAcumulados: erros, error });
+    await tratarErroCriacaoEquipamento({
+      prisma,
+      logId: log.id,
+      errosAcumulados: erros,
+      error,
+      duracaoMs: Date.now() - startTime,
+    });
   }
 
   const bloqueioSerialSuperado = bloqueioSerialAtivo && ignorarDuplicidade === true;
@@ -919,7 +1021,33 @@ export const confirmarImportacao = async (input) => {
 };
 
 const PAGE_SIZE_MAX = 200;
-const PAGE_SIZE_DEFAULT = 25;
+const PAGE_SIZE_DEFAULT = 10;
+
+const parseDataIsoLocal = (valor, horaLocal) => {
+  const h = horaLocal && typeof horaLocal === 'object' ? horaLocal : {};
+  const horas = Number.isInteger(h.horas) ? h.horas : 0;
+  const minutos = Number.isInteger(h.minutos) ? h.minutos : 0;
+  const segundos = Number.isInteger(h.segundos) ? h.segundos : 0;
+  const ms = Number.isInteger(h.ms) ? h.ms : 0;
+  const str = String(valor || '').trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[ T].*)?$/.exec(str);
+  if (match) {
+    const [, ano, mes, dia] = match;
+    return new Date(
+      Number(ano),
+      Number(mes) - 1,
+      Number(dia),
+      horas,
+      minutos,
+      segundos,
+      ms,
+    );
+  }
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setHours(horas, minutos, segundos, ms);
+  return d;
+};
 
 export const listarLogs = async (input) => {
   const { usuario, pagina, porPagina, filtros, prisma: prismaInput } = input || {};
@@ -950,10 +1078,55 @@ export const listarLogs = async (input) => {
   }
   if (filtros?.equipamentoId) where.equipamentoId = filtros.equipamentoId;
 
-  const [total, itens] = await Promise.all([
-    prisma.importacaoWinAudit.count({ where }),
+  const whereComData = { ...where };
+  if (filtros?.dataInicio || filtros?.dataFim) {
+    const dataFilter = {};
+    if (filtros?.dataInicio) {
+      const inicio = parseDataIsoLocal(filtros.dataInicio, { horas: 0, minutos: 0, segundos: 0, ms: 0 });
+      if (inicio) dataFilter.gte = inicio;
+    }
+    if (filtros?.dataFim) {
+      const fim = parseDataIsoLocal(filtros.dataFim, { horas: 23, minutos: 59, segundos: 59, ms: 999 });
+      if (fim) dataFilter.lte = fim;
+    }
+    if (Object.keys(dataFilter).length > 0) whereComData.dataHora = dataFilter;
+  }
+
+  const inicioDoDia = new Date();
+  inicioDoDia.setHours(0, 0, 0, 0);
+  const fimDoDia = new Date();
+  fimDoDia.setHours(23, 59, 59, 999);
+  const whereHoje = { ...where, dataHora: { gte: inicioDoDia, lte: fimDoDia } };
+
+  const [
+    total,
+    totalSucesso,
+    totalErro,
+    totalEquipamentosCriados,
+    totalHoje,
+    totalSucessoHoje,
+    rowsParaKpisHoje,
+    rowsParaKpisDuracao,
+    itens,
+  ] = await Promise.all([
+    prisma.importacaoWinAudit.count({ where: whereComData }),
+    prisma.importacaoWinAudit.count({ where: { ...whereComData, status: STATUS_IMPORTACAO_ENUM.SUCESSO } }),
+    prisma.importacaoWinAudit.count({ where: { ...whereComData, status: STATUS_IMPORTACAO_ENUM.ERRO } }),
+    prisma.importacaoWinAudit.count({
+      where: { ...whereComData, status: STATUS_IMPORTACAO_ENUM.SUCESSO, equipamentoId: { not: null } },
+    }),
+    prisma.importacaoWinAudit.count({ where: whereHoje }),
+    prisma.importacaoWinAudit.count({ where: { ...whereHoje, status: STATUS_IMPORTACAO_ENUM.SUCESSO } }),
     prisma.importacaoWinAudit.findMany({
-      where,
+      where: whereHoje,
+      select: { id: true, qtdCamposImportados: true, qtdCamposEncontrados: true, duracaoMs: true, camposEncontrados: true },
+    }),
+    prisma.importacaoWinAudit.findMany({
+      where: whereComData,
+      select: { id: true, duracaoMs: true },
+    }),
+    prisma.importacaoWinAudit.findMany({
+      where: whereComData,
       take: pageSize,
       skip,
       orderBy: [{ dataHora: 'desc' }],
@@ -962,11 +1135,16 @@ export const listarLogs = async (input) => {
         status: true,
         arquivoOriginal: true,
         tamanhoBytes: true,
+        tipoArquivo: true,
         dataHora: true,
         equipamentoId: true,
         escolaId: true,
+        qtdCamposEncontrados: true,
+        qtdCamposImportados: true,
         camposEncontrados: true,
-        camposNaoEncontrados: true,
+        duracaoMs: true,
+        ipOrigem: true,
+        erroMotivo: true,
         usuarioId: true,
         usuario: { select: { id: true, nome: true, email: true, role: true } },
         escola: { select: { id: true, nome: true, sigla: true } },
@@ -975,12 +1153,81 @@ export const listarLogs = async (input) => {
     }),
   ]);
 
+  const repararQtdCampos = (item) => {
+    if (!item || typeof item !== 'object') return item;
+    const ce = item.camposEncontrados;
+    if (ce && typeof ce === 'object' && !Array.isArray(ce)) {
+      const computadoEncontrados = contarCamposPorStatus(ce);
+      const computadoImportados = contarCamposImportados(ce);
+      const qtdAtualEncontrados = Number.isFinite(item.qtdCamposEncontrados) ? item.qtdCamposEncontrados : 0;
+      const qtdAtualImportados = Number.isFinite(item.qtdCamposImportados) ? item.qtdCamposImportados : 0;
+      const temDadosPrevistos = qtdAtualEncontrados > 0 || qtdAtualImportados > 0;
+      const previstosValidos = temDadosPrevistos && qtdAtualImportados <= qtdAtualEncontrados && qtdAtualEncontrados <= 200;
+      if (!previstosValidos || (qtdAtualImportados === 0 && computadoImportados > 0) || qtdAtualEncontrados === 0) {
+        return {
+          ...item,
+          qtdCamposEncontrados: qtdAtualEncontrados > 0 ? qtdAtualEncontrados : computadoEncontrados,
+          qtdCamposImportados: qtdAtualImportados > 0 ? qtdAtualImportados : computadoImportados,
+        };
+      }
+    }
+    return item;
+  };
+
+  const itensReparados = (itens || []).map(repararQtdCampos);
+
+  const somaCamposImportadosHojeValor = (rowsParaKpisHoje || []).reduce(
+    (acc, r) => {
+      const reparado = repararQtdCampos(r);
+      return acc + (Number.isFinite(reparado?.qtdCamposImportados) ? reparado.qtdCamposImportados : 0);
+    },
+    0
+  );
+  const somaCamposEncontradosHojeValor = (rowsParaKpisHoje || []).reduce(
+    (acc, r) => {
+      const reparado = repararQtdCampos(r);
+      return acc + (Number.isFinite(reparado?.qtdCamposEncontrados) ? reparado.qtdCamposEncontrados : 0);
+    },
+    0
+  );
+  const { somaDuracaoValor, totalComDuracaoValor } = (rowsParaKpisDuracao || []).reduce(
+    (acc, r) => {
+      if (Number.isFinite(r?.duracaoMs)) {
+        acc.somaDuracaoValor += r.duracaoMs;
+        acc.totalComDuracaoValor += 1;
+      }
+      return acc;
+    },
+    { somaDuracaoValor: 0, totalComDuracaoValor: 0 }
+  );
+
+  const taxaSucesso = total > 0
+    ? Number.parseInt(String((totalSucesso / total) * 1000), 10) / 10
+    : 0;
+  const tempoMedioMs = totalComDuracaoValor > 0
+    ? Math.round(somaDuracaoValor / totalComDuracaoValor)
+    : null;
+
+  const resumo = {
+    totalImportacoes: total,
+    totalImportacoesHoje: totalHoje,
+    totalSucesso,
+    totalErro,
+    totalEquipamentosCriados,
+    taxaSucessoPercentual: taxaSucesso,
+    camposImportadosHoje: somaCamposImportadosHojeValor,
+    camposEncontradosHoje: somaCamposEncontradosHojeValor,
+    tempoMedioMs,
+    processamentosComSucessoHoje: totalSucessoHoje,
+  };
+
   return {
     pagina: page,
     porPagina: pageSize,
     total,
     totalPaginas: Math.ceil(total / pageSize) || 1,
-    itens,
+    itens: itensReparados,
+    resumo,
   };
 };
 
@@ -995,6 +1242,7 @@ export const obterLogPorId = async (input) => {
       status: true,
       arquivoOriginal: true,
       tamanhoBytes: true,
+      tipoArquivo: true,
       dataHora: true,
       equipamentoId: true,
       escolaId: true,
@@ -1003,6 +1251,12 @@ export const obterLogPorId = async (input) => {
       duplicidadesDetectadas: true,
       erros: true,
       dadosBrutos: true,
+      erroMotivo: true,
+      ipOrigem: true,
+      versaoImportador: true,
+      duracaoMs: true,
+      qtdCamposEncontrados: true,
+      qtdCamposImportados: true,
       usuarioId: true,
       usuario: { select: { id: true, nome: true, email: true, role: true } },
       escola: { select: { id: true, nome: true, sigla: true } },
