@@ -43,8 +43,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 type Role = 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO';
 const getUserRole = (): Role => (localStorage.getItem('userRole') as Role) || 'USUARIO';
 const canAccessPath = (role: Role, path: string) => {
-  if (path === '/centro-midia') return true;
-  if (path === '/auditoria') return role === 'ADMIN' || role === 'GESTOR';
+  if (path === '/centro-midia' || path === '/auditoria') return true;
   if (role === 'ADMIN' || role === 'GESTOR') return true;
   return path !== '/config' && path !== '/usuarios';
 };
@@ -673,7 +672,7 @@ export default function App() {
                 <Route path="/movimentacoes" element={<Suspense fallback={<RouteFallback />}><MovimentacoesPage /></Suspense>} />
                 <Route path="/escolas" element={<EscolasPage />} />
                 <Route path="/relatorios" element={<Suspense fallback={<RouteFallback />}><RelatoriosEquipamentosPage /></Suspense>} />
-                <Route path="/auditoria" element={<RoleGuard allowed={['ADMIN','GESTOR']}><Suspense fallback={<RouteFallback />}><AuditoriaPage /></Suspense></RoleGuard>} />
+                <Route path="/auditoria" element={<Suspense fallback={<RouteFallback />}><AuditoriaPage /></Suspense>} />
                 <Route path="/usuarios" element={<RoleGuard allowed={['ADMIN','GESTOR']}><UsuariosPage /></RoleGuard>} />
                 <Route path="/config" element={<RoleGuard allowed={['ADMIN','GESTOR']}><ConfigPage /></RoleGuard>} />
                 <Route path="/centro-midia" element={<Suspense fallback={<RouteFallback />}><CentroMidiaPage /></Suspense>}/>
