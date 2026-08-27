@@ -1065,8 +1065,7 @@ export const listarLogs = async (input) => {
   Object.assign(where, scopeWhere);
 
   if (usuario?.role !== 'ADMIN') {
-    where.OR = [{ usuarioId: usuario.id }, ...(where.escolaId ? [{ escolaId: where.escolaId }] : [])];
-    delete where.escolaId;
+    where.usuarioId = usuario.id;
   }
 
   if (filtros?.status) where.status = filtros.status;
@@ -1272,12 +1271,10 @@ export const obterLogPorId = async (input) => {
   }
 
   if (log.usuarioId !== usuario?.id && usuario?.role !== 'ADMIN') {
-    if (log.escolaId && !hasSchoolAccess(usuario, log.escolaId)) {
-      const e = new Error('Acesso negado a esta importação.');
-      e.statusCode = 403;
-      e.code = 'WINAUDIT_LOG_FORBIDDEN';
-      throw e;
-    }
+    const e = new Error('Acesso negado a esta importação.');
+    e.statusCode = 403;
+    e.code = 'WINAUDIT_LOG_FORBIDDEN';
+    throw e;
   }
 
   return log;

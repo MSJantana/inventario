@@ -30,13 +30,11 @@ router.post(
 router.get(
   '/importar/winaudit/logs',
   auth,
-  permitRoles('ADMIN', 'GESTOR'),
   winauditImportController.listarLogsImportacoes,
 );
 router.get(
   '/importar/winaudit/logs/:id',
   auth,
-  permitRoles('ADMIN', 'GESTOR'),
   winauditImportController.obterLogImportacaoPorId,
 );
 
