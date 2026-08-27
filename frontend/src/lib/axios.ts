@@ -1,16 +1,43 @@
 import axios from 'axios';
 import { getAuthToken, getApiBaseUrl } from '../services/auth';
-import { useAppStore } from '../store/useAppStore';
 import { showErrorToast } from '../utils/toast';
 
 const api = axios.create();
 
 const WRITE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 
+let sessaoExpiradaDisparada = false;
+
+const dispararExpiracaoSessao = () => {
+  if (sessaoExpiradaDisparada) return;
+  sessaoExpiradaDisparada = true;
+  try {
+    showErrorToast('Sessão expirada. Faça login novamente.');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEscolaNome');
+  } catch (err) {
+    console.warn('Erro ao processar expiração de sessão', err);
+  }
+  if (globalThis.window !== undefined && globalThis.window.location.pathname !== '/login') {
+    globalThis.requestAnimationFrame(() => {
+      globalThis.requestAnimationFrame(() => {
+        globalThis.location.href = '/login';
+      });
+    });
+  }
+};
+
 api.interceptors.request.use(async (config) => {
   const base = getApiBaseUrl();
   // Normaliza base e URL para evitar duplicação de "/api"
-  const baseNorm = (base || '').replace(/\/+$/, '');
+  const baseStr = base || '';
+  let baseNorm = baseStr;
+  while (baseNorm.endsWith('/')) {
+    baseNorm = baseNorm.slice(0, -1);
+  }
   config.baseURL = baseNorm;
   if (typeof config.url === 'string' && baseNorm.endsWith('/api') && config.url.startsWith('/api/')) {
     config.url = config.url.replace(/^\/api\//, '/');
@@ -49,22 +76,7 @@ api.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
     if (status === 401) {
-      try {
-        showErrorToast('Sessão expirada. Faça login novamente.');
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('userEscolaNome');
-        useAppStore.getState().setAuthTokenState('');
-      } catch (err) {
-        console.warn('Erro ao processar expiração de sessão', err);
-      }
-      if (globalThis.window !== undefined && globalThis.window.location.pathname !== '/login') {
-        globalThis.setTimeout(() => {
-          globalThis.location.href = '/login';
-        }, 150);
-      }
+      dispararExpiracaoSessao();
     } else if (status === 403) {
       // Não desloga em 403; apenas informa falta de permissão
       showErrorToast('Sem permissão para executar esta ação.');

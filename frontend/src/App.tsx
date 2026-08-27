@@ -599,7 +599,8 @@ export default function App() {
     'Nova Feature: Importação de arquivos pelo WinAudit.',
     'Nova Feature: Relatórios de Auditoria de importação de dados.',
     'Bug Fixed: Melhorias internas no sistema.',
-    'Bug Fixed: Melhorias no tratamentos de erros.'    
+    'Bug Fixed: Melhorias no tratamentos de erros.',
+    'Bug Fixed: Corrigido o bug de múltiplos toasts "Sessão expirada" em axios.ts .'      
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
