@@ -1,4 +1,5 @@
 import { parse } from 'node-html-parser';
+import { normalizeNbsp, removeChildSafe } from '../compat.js';
 
 export const WINAUDIT_SIGNATURES = [
   'winaudit report',
@@ -13,8 +14,7 @@ const MAX_BUFFER_SIZE = 2 * 1024 * 1024;
 
 const limparAssinatura = (value) => {
   if (typeof value !== 'string') return value;
-  return value
-    .split('\u00a0').join(' ')
+  return normalizeNbsp(value)
     .replace(/[\t\r\n]+/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -98,13 +98,7 @@ export const parseWinAuditHtml = (buffer, originalName) => {
   }
 
   root.querySelectorAll('script, style, link, iframe, object, embed').forEach((n) => {
-    try {
-      if (n && n.parentNode && typeof n.parentNode.removeChild === 'function') {
-        n.parentNode.removeChild(n);
-      }
-    } catch {
-      /* ignore */
-    }
+    removeChildSafe(n);
   });
 
   const tabelas = root.querySelectorAll('table').map((table) => extrairLinhasTabela(table)).filter((t) => t && t.length > 0);

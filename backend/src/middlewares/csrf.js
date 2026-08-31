@@ -1,10 +1,18 @@
 import crypto from 'node:crypto';
+import { replaceAll } from '../utils/compat.js';
 
-// Helpers base64url (sem padding)
-const base64urlEncode = (buf) =>
-  Buffer.from(buf).toString('base64').split('=').join('').split('+').join('-').split('/').join('_');
-const base64urlDecode = (str) =>
-  Buffer.from(str.split('-').join('+').split('_').join('/'), 'base64');
+const base64urlEncode = (buf) => {
+  let s = Buffer.from(buf).toString('base64');
+  s = replaceAll(s, '=', '');
+  s = replaceAll(s, '+', '-');
+  s = replaceAll(s, '/', '_');
+  return s;
+};
+const base64urlDecode = (str) => {
+  let s = replaceAll(str, '-', '+');
+  s = replaceAll(s, '_', '/');
+  return Buffer.from(s, 'base64');
+};
 
 const getSecret = () => process.env.CSRF_SECRET || process.env.JWT_SECRET || 'change-me';
 const getTtlSeconds = () => Number.parseInt(process.env.CSRF_TTL_SECONDS || '1800', 10); // 30min

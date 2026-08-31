@@ -1,18 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, NavLink } from 'react-router-dom'
-import api from '../lib/axios'
+import api, { resetSessionExpiredFlag } from '../lib/axios'
 import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
-import { setAuthToken } from '../services/auth'
+import { consumeSessionExpiredFlag, setAuthToken } from '../services/auth'
 import { useAppStore } from '../store/useAppStore'
-import { User, Eye, EyeOff } from 'lucide-react'
+import { User, Eye, EyeOff, LogOut } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
   const navigate = useNavigate()
   const setAuthTokenState = useAppStore((s) => s.setAuthTokenState)
-  const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    if (consumeSessionExpiredFlag()) {
+      setSessionExpired(true)
+      const t = window.setTimeout(() => setSessionExpired(false), 8000)
+      return () => window.clearTimeout(t)
+    }
+  }, [])
 
   const onLogin = async (ev: React.FormEvent) => {
     ev.preventDefault()
@@ -25,14 +34,14 @@ export default function LoginPage() {
       const resp = await api.post('/api/usuarios/login', { email, senha })
       const token = resp.data?.token
       if (!token) throw new Error('Token não recebido')
+      resetSessionExpiredFlag()
       setAuthToken(token)
       setAuthTokenState(token)
-      // Guardar nome do usuário para saudação
       const nome = resp.data?.usuario?.nome || ''
       const emailUsuario = resp.data?.usuario?.email || ''
       const role = (resp.data?.usuario?.role as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
       const escolaNome = resp.data?.usuario?.escolaNome || ''
-            
+
       if (nome) {
         localStorage.setItem('userName', nome)
       }
@@ -58,23 +67,50 @@ export default function LoginPage() {
     }
   }
 
-  
+  const renderSessionBanner = () => {
+    if (!sessionExpired) return null
+    return (
+      <div
+        role="alert"
+        aria-live="polite"
+        className="pointer-events-auto absolute left-1/2 top-4 z-50 w-[min(92vw,520px)] -translate-x-1/2 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-amber-900 shadow-xl ring-1 ring-amber-200"
+      >
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+            <LogOut size={18} aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold tracking-tight">Sessão expirada</p>
+            <p className="mt-1 text-sm text-amber-800/90">
+              Sua sessão foi encerrada por inatividade ou expiração do token. Faça login novamente para continuar.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSessionExpired(false)}
+            className="ml-2 rounded-md px-2 py-1 text-xs text-amber-700 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+            aria-label="Fechar aviso de sessão expirada"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Fundo com curva preta */}
+      {renderSessionBanner()}
       <svg className="pointer-events-none absolute inset-0 h-full w-full hidden md:block" viewBox="0 0 1440 1024" preserveAspectRatio="none" aria-hidden>
         <path d="M0 0 H900 C850 180 760 300 560 430 C360 560 300 750 240 1024 H0 Z" fill="#000" />
       </svg>
 
-      {/* Mobile (card) */}
       <div className="relative z-10 md:hidden flex min-h-screen items-center justify-center">
         <div className="w-[340px] rounded-3xl bg-white shadow-2xl ring-1 ring-gray-200 overflow-hidden">
           <div className="relative bg-black h-36">
             <div className="absolute inset-0 flex items-center justify-center">
               <User size={48} color="#fff" aria-hidden />
             </div>
-            {/* Curva inferior branca */}
             <svg className="absolute bottom-0 left-0 h-12 w-full" viewBox="0 0 320 48" preserveAspectRatio="none" aria-hidden>
               <path d="M0 48 C60 16 160 0 320 0 L320 48 Z" fill="#fff" />
             </svg>
@@ -131,7 +167,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Conteúdo Desktop/Tablet */}
       <div className="relative z-10 hidden md:flex min-h-screen items-center justify-end">
         <div className="w-full max-w-md px-8 py-10">
           <h1 className="mb-6 text-center text-lg font-semibold tracking-wide">SIGN IN</h1>
@@ -172,7 +207,6 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-            {/* Removido texto REGISTER */}
 
             <div className="space-y-3 pt-2">
               <button
@@ -200,3 +234,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

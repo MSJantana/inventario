@@ -14,7 +14,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.3';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.4';
 
 const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
 const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
@@ -610,12 +610,9 @@ export default function App() {
     '/centro-midia': 'Centro de Midia',
   };
 
-  const whatsNewItems = [
-    'Nova Feature: Importação de arquivos pelo WinAudit.',
-    'Nova Feature: Relatórios de Auditoria de importação de dados.',
-    'Bug Fixed: Melhorias internas no sistema.',
-    'Bug Fixed: Melhorias no tratamentos de erros.',
-    'Bug Fixed: Corrigido o bug de múltiplos toasts "Sessão expirada" em axios.ts .'      
+  const whatsNewItems = [    
+    'Bug Fixed: Flag nunca resetava.',
+    'Bug Fixed: Data de Aquisição = Release Date.'     
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);

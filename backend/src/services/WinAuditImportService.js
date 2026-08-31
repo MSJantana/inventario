@@ -212,6 +212,59 @@ const converterDataWinAudit = (entrada) => {
 
 const WINAUDIT_VERSION = process.env.WINAUDIT_IMPORTER_VERSION || '1.3.0';
 
+const DATA_AQUISICAO_PRIORIDADE_LABELS = [
+  'date acquired',
+  'acquired date',
+  'purchase date',
+  'date purchased',
+  'date of purchase',
+  'aquisicao',
+  'data de aquisicao',
+  'data aquisicao',
+  'release date',
+  'date of release',
+  'data release',
+  'date of manufacture',
+  'manufacture date',
+  'mfg date',
+  'data de fabricacao',
+  'original install date',
+  'install date',
+  'installation date',
+  'system install date',
+  'os install date',
+  'data de instalacao',
+];
+
+const prioridadeDataAquisicaoEntry = (entry) => {
+  const rawLabel = typeof entry?.rawLabel === 'string' ? entry.rawLabel.trim() : '';
+  const contexto = typeof entry?.contexto === 'string' ? entry.contexto.trim() : '';
+  const fonte = `${rawLabel} ${contexto}`.toLowerCase().replace(/[:：]/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  if (!fonte) return 999;
+  for (let i = 0; i < DATA_AQUISICAO_PRIORIDADE_LABELS.length; i += 1) {
+    const token = DATA_AQUISICAO_PRIORIDADE_LABELS[i];
+    if (fonte.includes(token) || token.includes(fonte)) {
+      // Se a entry tem data válida (conversão deu certo) tem prioridade sobre entradas inválidas.
+      // Prioridade base é o índice (0 melhor).
+      return i;
+    }
+  }
+  return 500;
+};
+
+const ordenarEntriesDataAquisicao = (entries) => {
+  if (!Array.isArray(entries) || entries.length === 0) return entries;
+  return entries.slice().sort((a, b) => {
+    const pa = prioridadeDataAquisicaoEntry(a);
+    const pb = prioridadeDataAquisicaoEntry(b);
+    if (pa !== pb) return pa - pb;
+    // Se mesmo score preferir o com valor mais longo (mais provável data completa)
+    const va = typeof a?.valor === 'string' ? a.valor.length : 0;
+    const vb = typeof b?.valor === 'string' ? b.valor.length : 0;
+    return vb - va;
+  });
+};
+
 const STATUS_IMPORTACAO_ENUM = {
   PREVIEW_GERADO: 'PREVIEW_GERADO',
   SUCESSO: 'SUCESSO',
@@ -384,7 +437,8 @@ const extrairENormalizarCampos = (extraidos) => {
   const serialRaw = pegarPrimeiroNaoVazio(extraidos.raw.SERIAL, 1)[0];
   const macsRaw = extraidos.raw.MAC_ADDRESS || [];
   const memoria = extrairMemoria(extraidos.raw.MEMORIA);
-  const dataAquisicaoRaw = pegarPrimeiroNaoVazio(extraidos.raw.DATA_AQUISICAO, 1)[0];
+  const dataAquisicaoEntriesOrdenadas = ordenarEntriesDataAquisicao(extraidos.raw.DATA_AQUISICAO || []);
+  const dataAquisicaoRaw = pegarPrimeiroNaoVazio(dataAquisicaoEntriesOrdenadas, 1)[0];
   const dataAquisicaoInfo = converterDataWinAudit(dataAquisicaoRaw?.valor ?? dataAquisicaoRaw);
 
   const processadorEntries = extraidos.raw.PROCESSADOR || [];
@@ -591,8 +645,9 @@ const MONTAR_MAPEAMENTOS_WIZARD = (extraidos, dados, camposStatus) => {
     status: camposStatus.memoria,
   });
 
-  const labelData = pegarLabelRawDoCampo(raw.DATA_AQUISICAO, ['release date', 'install date', 'installation date', 'data de fabricação', 'data de instalação'], 'Release Date');
-  const displayData = dados.dataAquisicaoFormatada || dados.dataAquisicao || pegarValorDisplayDoCampo(raw.DATA_AQUISICAO);
+  const dataEntriesOrdenadasPreview = ordenarEntriesDataAquisicao(raw.DATA_AQUISICAO || []);
+  const labelData = pegarLabelRawDoCampo(dataEntriesOrdenadasPreview, ['date acquired', 'purchase date', 'release date', 'install date', 'installation date', 'data de fabricação', 'data de aquisição', 'data de instalação'], 'Release Date');
+  const displayData = dados.dataAquisicaoFormatada || dados.dataAquisicao || pegarValorDisplayDoCampo(dataEntriesOrdenadasPreview);
   if (displayData) {
     mapeamentos.push({
       campoRelatorio: labelData,
