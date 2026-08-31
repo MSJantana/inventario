@@ -3,6 +3,7 @@ import {
   normalizeMacAddress,
   isValidMacAddress,
 } from '../mac.js';
+import { arrayAt, normalizeNbsp } from '../compat.js';
 
 const MEMORY_UNITS = {
   B: 1 / (1024 * 1024),
@@ -23,8 +24,7 @@ const MEMORY_REGEX = /(\d+(?:\.\d+)?)\s*([A-Za-z]+)?/;
 const normalizarEspacos = (input) => {
   if (input === null || input === undefined) return '';
   if (typeof input !== 'string') return String(input);
-  return input
-    .split('\u00a0').join(' ')
+  return normalizeNbsp(input)
     .replace(/[\t\r\n]+/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -50,7 +50,7 @@ export const normalizarNome = (input) => {
 export const normalizarUsuarioNome = (input) => {
   const s = normalizarTexto(input);
   const parts = s.split('\\');
-  return parts.length > 1 ? parts[parts.length - 1] : s;
+  return parts.length > 1 ? arrayAt(parts, -1) : s;
 };
 
 export const converterMemoriaParaMB = (input) => {

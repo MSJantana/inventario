@@ -1,5 +1,6 @@
 import { prisma } from '../index.js';
 import { getSchoolScopeWhere, hasSchoolAccess, resolveManagedSchoolId } from '../utils/schoolAccess.js';
+import { escapeCsvQuotes } from '../utils/compat.js';
 
 export const listarCentroMidia = async (req, res, next) => {
   try {
@@ -104,7 +105,7 @@ export const exportarCentroMidiaCsv = async (req, res, next) => {
       if (value === null || value === undefined) return '';
       const str = String(value);
       if (/[,"\n\r]/.test(str)) {
-        return '"' + str.split('"').join('""') + '"';
+        return '"' + escapeCsvQuotes(str) + '"';
       }
       return str;
     };

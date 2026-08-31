@@ -1,5 +1,6 @@
 import { prisma } from '../index.js';
 import { getSchoolScopeWhere, hasSchoolAccess } from '../utils/schoolAccess.js';
+import { escapeCsvQuotes } from '../utils/compat.js';
 import EquipamentoService from '../services/EquipamentoService.js';
 // Helper simples para formatar data em YYYY-MM-DD sem dependências externas
 const formatDateYYYYMMDD = (dateLike) => {
@@ -216,9 +217,8 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
     const escapeCsv = (value) => {
       if (value === null || value === undefined) return '';
       const str = String(value);
-      // Se contém vírgula, aspas ou quebra de linha, encapsula em aspas e escapa aspas
       if (/[,"\n\r]/.test(str)) {
-        return '"' + str.split('"').join('""') + '"';
+        return '"' + escapeCsvQuotes(str) + '"';
       }
       return str;
     };
