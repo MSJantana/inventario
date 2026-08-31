@@ -535,6 +535,21 @@ export default function App() {
     setMobileOpen(false);
   }, [location.pathname]);
 
+  // Lida com expiração de sessão (evento enviado pelo interceptor axios)
+  // O interceptor já dispara o toast, limpa o storage e agenda location.href para /login.
+  // Este handler apenas sincroniza o Zustand state para 'authToken = vazio' e evita re-render
+  // de layouts protegidos (que gerariam tela branca) antes do hard-reload para /login.
+  useEffect(() => {
+    const onSessionExpired = () => {
+      setAuthTokenState('');
+    };
+    const target = globalThis.window ?? globalThis;
+    target.addEventListener?.('auth:session-expired', onSessionExpired);
+    return () => {
+      target.removeEventListener?.('auth:session-expired', onSessionExpired);
+    };
+  }, [setAuthTokenState]);
+
   const [dbIsDev, setDbIsDev] = useState(false);
   const [dbHost, setDbHost] = useState<string | null>(null);
 
