@@ -104,7 +104,7 @@ export const exportarCentroMidiaCsv = async (req, res, next) => {
       if (value === null || value === undefined) return '';
       const str = String(value);
       if (/[,"\n\r]/.test(str)) {
-        return '"' + str.replaceAll('"', '""') + '"';
+        return '"' + str.split('"').join('""') + '"';
       }
       return str;
     };

@@ -24,7 +24,7 @@ const normalizarEspacos = (input) => {
   if (input === null || input === undefined) return '';
   if (typeof input !== 'string') return String(input);
   return input
-    .replaceAll('\u00a0', ' ')
+    .split('\u00a0').join(' ')
     .replace(/[\t\r\n]+/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -50,7 +50,7 @@ export const normalizarNome = (input) => {
 export const normalizarUsuarioNome = (input) => {
   const s = normalizarTexto(input);
   const parts = s.split('\\');
-  return parts.length > 1 ? parts.at(-1) : s;
+  return parts.length > 1 ? parts[parts.length - 1] : s;
 };
 
 export const converterMemoriaParaMB = (input) => {

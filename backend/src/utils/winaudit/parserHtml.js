@@ -14,7 +14,7 @@ const MAX_BUFFER_SIZE = 2 * 1024 * 1024;
 const limparAssinatura = (value) => {
   if (typeof value !== 'string') return value;
   return value
-    .replaceAll('\u00a0', ' ')
+    .split('\u00a0').join(' ')
     .replace(/[\t\r\n]+/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();

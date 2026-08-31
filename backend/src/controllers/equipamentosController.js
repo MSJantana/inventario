@@ -218,7 +218,7 @@ export const exportarEquipamentosCsv = async (req, res, next) => {
       const str = String(value);
       // Se contém vírgula, aspas ou quebra de linha, encapsula em aspas e escapa aspas
       if (/[,"\n\r]/.test(str)) {
-        return '"' + str.replaceAll('"', '""') + '"';
+        return '"' + str.split('"').join('""') + '"';
       }
       return str;
     };
