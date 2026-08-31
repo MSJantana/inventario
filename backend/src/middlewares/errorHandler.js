@@ -114,13 +114,27 @@ const logHttpError = (req, statusCode, message, err, showStack) => {
     target: err?.meta?.target,
     previewId: err?.previewId,
     duplicidadesCount: Array.isArray(err?.duplicidades) ? err.duplicidades.length : undefined,
+    contentType: typeof req.headers?.['content-type'] === 'string' ? req.headers['content-type'] : null,
+    contentLength: typeof req.headers?.['content-length'] === 'string' ? Number(req.headers['content-length']) || 0 : null,
   };
   if (err?.code === 'EBADCSRFTOKEN' && err.details) {
     logPayload.csrf = err.details;
   }
+  const isWinaudit = typeof req.originalUrl === 'string' && req.originalUrl.includes('/importar/winaudit/');
+  const forceStack = isWinaudit || statusCode >= 500 || showStack;
   if (req?.log) {
-    if (showStack) {
-      req.log.error({ ...logPayload, err }, 'HTTP error');
+    if (forceStack) {
+      req.log.error(
+        {
+          ...logPayload,
+          err:
+            err instanceof Error
+              ? { name: err.name, message: err.message, stack: err.stack, code: err.code, statusCode: err.statusCode }
+              : err,
+          causaRaiz: err?.causaRaiz || undefined,
+        },
+        'HTTP error (detalhado)',
+      );
     } else {
       req.log.error({ ...logPayload, message: shortMsg }, 'HTTP error');
     }
@@ -130,8 +144,11 @@ const logHttpError = (req, statusCode, message, err, showStack) => {
   if (err?.code) baseMsg += ` code=${err.code}`;
   if (err?.meta?.target) baseMsg += ` target=${err.meta.target}`;
   console.error(`${baseMsg} - ${shortMsg}`);
-  if (showStack && err?.stack) {
+  if (forceStack && err?.stack) {
     console.error(err.stack);
+  }
+  if (err?.causaRaiz) {
+    console.error('[causaRaiz]', JSON.stringify(err.causaRaiz, (k, v) => typeof v === 'bigint' ? Number(v) : v, 2));
   }
 };
 
