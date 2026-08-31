@@ -96,10 +96,100 @@ const extrairMemoria = (lista) => {
 };
 
 const DATA_REGEX_VARIANTES = Object.freeze([
-  /^(\d{2})[/-](\d{2})[/-](\d{4})$/,
-  /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/,
-  /^(\d{4})[/-](\d{2})[/-](\d{2})$/,
+  /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/,
+  /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})$/,
+  /^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/,
+  /^(\d{2})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/,
 ]);
+
+const NOME_MES_PT = [
+  ['janeiro', 'jan'],
+  ['fevereiro', 'fev', 'feb'],
+  ['marco', 'março', 'mar'],
+  ['abril', 'abr', 'apr'],
+  ['maio', 'mai', 'may'],
+  ['junho', 'jun'],
+  ['julho', 'jul'],
+  ['agosto', 'ago', 'aug'],
+  ['setembro', 'set', 'sep'],
+  ['outubro', 'out', 'oct'],
+  ['novembro', 'nov'],
+  ['dezembro', 'dez', 'dec'],
+];
+
+const normalizarAnoDoisDigitos = (anoDois) => {
+  const n = Number(anoDois);
+  // WinAudit data de hardware: anos 80-99 = século XX, 00-40 = século XXI
+  if (n >= 80 && n <= 99) return 1900 + n;
+  if (n >= 0 && n <= 40) return 2000 + n;
+  return 2000 + n;
+};
+
+const extrairMesPorNome = (texto) => {
+  if (!texto) return null;
+  const t = texto.toLowerCase().replace(/[áàãâä]/g, 'a').replace(/[éêë]/g, 'e').replace(/[íï]/g, 'i').replace(/[óõö]/g, 'o').replace(/[úü]/g, 'u').replace(/ç/g, 'c');
+  for (let i = 0; i < NOME_MES_PT.length; i += 1) {
+    for (const variante of NOME_MES_PT[i]) {
+      if (t.includes(variante)) return i + 1;
+    }
+  }
+  return null;
+};
+
+const normalizarTextoParaMesNomeado = (texto) => {
+  if (!texto) return '';
+  let t = String(texto).trim().toLowerCase();
+  t = t.replace(/[áàãâä]/g, 'a').replace(/[éêë]/g, 'e').replace(/[íï]/g, 'i').replace(/[óõö]/g, 'o').replace(/[úü]/g, 'u').replace(/[ç]/g, 'c');
+  t = t.replace(/\s+\b(de|do|da|dos|das|a|as|o|os|the|of|on|at)\b(?=\s|$)/g, ' ');
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  return t;
+};
+
+const tentarParseNomeMes = (raw) => {
+  if (!raw || raw.length < 5) return null;
+  const texto = normalizarTextoParaMesNomeado(raw);
+  const regexVariasTentativas = [
+    /^(\d{1,2})[\s\/\-\.\,]*([a-záàâãéêíóôõúç]{3,})[\s\/\-\.\,]*(\d{2,4})$/i,
+    /^(\d{1,2})([a-záàâãéêíóôõúç]{3,})(\d{2,4})$/i,
+  ];
+  for (const re of regexVariasTentativas) {
+    const m = texto.match(re);
+    if (!m) continue;
+    const [, diaStr, mesNome, anoStr] = m;
+    const mesNum = extrairMesPorNome(mesNome);
+    if (!mesNum) continue;
+    let anoNum;
+    if (anoStr.length === 4) anoNum = Number(anoStr);
+    else if (anoStr.length === 2) anoNum = normalizarAnoDoisDigitos(anoStr);
+    else continue;
+    const diaNum = Number(diaStr);
+    if (diaNum < 1 || diaNum > 31) continue;
+    if (mesNum < 1 || mesNum > 12) continue;
+    return {
+      dia: String(diaNum).padStart(2, '0'),
+      mes: String(mesNum).padStart(2, '0'),
+      ano: String(anoNum),
+    };
+  }
+  // Formato "August 22, 2024" (mês/dia/ano inglês com vírgula)
+  const mdY = texto.match(/^([a-záàâãéêíóôõúç]{3,})[\s\/\-\.\,]*(\d{1,2})[\s\/\-\.\,]*(\d{2,4})$/i);
+  if (mdY) {
+    const [, mesNome, diaStr, anoStr] = mdY;
+    const mesNum = extrairMesPorNome(mesNome);
+    if (mesNum) {
+      const diaNum = Number(diaStr);
+      const anoNum = anoStr.length === 4 ? Number(anoStr) : normalizarAnoDoisDigitos(anoStr);
+      if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anoNum >= 1980 && anoNum <= 2100) {
+        return {
+          dia: String(diaNum).padStart(2, '0'),
+          mes: String(mesNum).padStart(2, '0'),
+          ano: String(anoNum),
+        };
+      }
+    }
+  }
+  return null;
+};
 
 const DATA_RESULTADO_INVALIDO = Object.freeze({
   iso: '',
@@ -125,49 +215,195 @@ const tentarMatchRegexVariantes = (texto) => {
 
 const tentarMatchFormatoCompacto = (raw) => {
   const apenasDigitos = raw.replace(/\D/g, '');
-  if (apenasDigitos.length !== 8) return null;
-  const prefixo = Number(apenasDigitos.slice(0, 2));
-  const comecaComAno = prefixo >= 19 && prefixo <= 21;
-  if (comecaComAno) {
-    return [
-      '',
-      apenasDigitos.slice(0, 4),
-      apenasDigitos.slice(4, 6),
-      apenasDigitos.slice(6, 8),
-    ];
+  if (apenasDigitos.length === 8) {
+    const prefixo = Number(apenasDigitos.slice(0, 2));
+    const comecaComAno4 = prefixo >= 19 && prefixo <= 21;
+    if (comecaComAno4) {
+      return ['', apenasDigitos.slice(0, 4), apenasDigitos.slice(4, 6), apenasDigitos.slice(6, 8)];
+    }
+    const dia = apenasDigitos.slice(0, 2);
+    const mes = apenasDigitos.slice(2, 4);
+    const ano = apenasDigitos.slice(4, 8);
+    const pareceDdMmYyyy = Number(dia) <= 31 && Number(mes) <= 12;
+    if (pareceDdMmYyyy) return ['', dia, mes, ano];
+    const pareceMmDdYyyy = Number(mes) <= 31 && Number(dia) <= 12;
+    if (pareceMmDdYyyy && !pareceDdMmYyyy) return ['', mes, dia, ano];
+    return ['', dia, mes, ano];
   }
-  const dia = apenasDigitos.slice(0, 2);
-  const mes = apenasDigitos.slice(2, 4);
-  const ano = apenasDigitos.slice(4, 8);
-  const pareceDdMmYyyy = Number(dia) <= 31 && Number(mes) <= 12;
-  if (pareceDdMmYyyy) return ['', dia, mes, ano];
-  return [
-    '',
-    apenasDigitos.slice(0, 4),
-    apenasDigitos.slice(4, 6),
-    apenasDigitos.slice(6, 8),
-  ];
+  if (apenasDigitos.length === 6) {
+    // DDMMAA 6 dígitos (BR shortdate — MAIS COMUM na região — primeiro
+    const d = apenasDigitos.slice(0, 2);
+    const m = apenasDigitos.slice(2, 4);
+    const a = apenasDigitos.slice(4, 6);
+    const dNum = Number(d);
+    const mNum = Number(m);
+    const aNum = Number(a);
+    const pareceDdMmAaValido = dNum >= 1 && dNum <= 31 && mNum >= 1 && mNum <= 12;
+    if (pareceDdMmAaValido) {
+      return ['', d, m, String(normalizarAnoDoisDigitos(a))];
+    }
+    // Formatos AAMMDD (ISO short) / MMDDAA (US short)
+    const p1 = aNum;
+    const pareceAnoPrefixo = (p1 >= 80 && p1 <= 99) || (p1 >= 0 && p1 <= 40);
+    if (pareceAnoPrefixo) {
+      const mes = Number(apenasDigitos.slice(2, 4));
+      const dia = Number(apenasDigitos.slice(4, 6));
+      if (mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31) {
+        return [
+          '',
+          String(normalizarAnoDoisDigitos(apenasDigitos.slice(0, 2))),
+          apenasDigitos.slice(2, 4),
+          apenasDigitos.slice(4, 6),
+        ];
+      }
+    }
+    return null;
+  }
+  return null;
+};
+
+const tentarParseDateNatJS = (raw) => {
+  if (!raw || raw.length < 6) return null;
+  try {
+    // Apenas tentar se parece com data ISO ou com dia separado por espaços
+    const t = raw.trim();
+    if (!/\d/.test(t)) return null;
+    const parsed = new Date(t);
+    if (Number.isNaN(parsed.getTime())) return null;
+    // Recusa datas absurdas ou fuso distorcendo dia (< 1980 ou > 2100)
+    const ano = parsed.getUTCFullYear();
+    if (ano < 1980 || ano > 2100) return null;
+    const localParsed = new Date(t);
+    const localAno = localParsed.getFullYear();
+    if (localAno < 1980 || localAno > 2100) return null;
+    return {
+      dia: String(localParsed.getDate()).padStart(2, '0'),
+      mes: String(localParsed.getMonth() + 1).padStart(2, '0'),
+      ano: String(localAno),
+    };
+  } catch {
+    return null;
+  }
 };
 
 const obterMatchData = (raw) => {
   const matchDireto = tentarMatchRegexVariantes(raw);
-  if (matchDireto) return matchDireto;
-  const limpo = raw.replace(/[^0-9/-]/g, '');
-  const matchLimpo = tentarMatchRegexVariantes(limpo);
-  if (matchLimpo) return matchLimpo;
-  return tentarMatchFormatoCompacto(raw);
+  if (matchDireto) return { tipo: 'regex', match: matchDireto };
+  const limpo = raw.replace(/[^0-9\/\-\.]/g, '');
+  if (limpo && limpo !== raw) {
+    const matchLimpo = tentarMatchRegexVariantes(limpo);
+    if (matchLimpo) return { tipo: 'regex-limpo', match: matchLimpo };
+  }
+  const compacto = tentarMatchFormatoCompacto(raw);
+  if (compacto) return { tipo: 'compacto', match: compacto };
+  const nomeMes = tentarParseNomeMes(raw);
+  if (nomeMes) return { tipo: 'nome-mes', componentes: nomeMes };
+  const nativo = tentarParseDateNatJS(raw);
+  if (nativo) return { tipo: 'nativo', componentes: nativo };
+  return null;
 };
 
-const extrairAnoMesDia = (match) => {
-  if (match[1].length === 4) {
+const obterLocaleHintDoLabel = (labelRaw) => {
+  if (!labelRaw || typeof labelRaw !== 'string') return 'UNKNOWN';
+  const l = labelRaw.toLowerCase();
+  // Labels em PT-BR = DD/MM/AAAA
+  const termosPt = ['data de', 'data ', 'de fabrica', 'de instal', 'aquisic', 'aquisicao', 'libera', 'lançamento', 'lancamento'];
+  for (const t of termosPt) if (l.includes(t)) return 'BR';
+  // Labels em EN que sabemos que o WinAudit do Brasil normalmente DD/MM
+  const termosEnGeral = ['release date', 'install date', 'installation date', 'purchase date', 'date acquired', 'acquired date', 'date of purchase', 'date purchased', 'original install'];
+  for (const t of termosEnGeral) if (l.includes(t)) return 'BR';
+  // Os únicos que quase sempre são MM/DD US são explicitamente "short date" em reports US.
+  if (l.includes('short date') && l.includes('us')) return 'US';
+  return 'BR';
+};
+
+const extrairAnoMesDia = (matchResult, ctx) => {
+  const labelHint = (ctx && typeof ctx.labelRaw === 'string') ? obterLocaleHintDoLabel(ctx.labelRaw) : 'BR';
+  if (matchResult && matchResult.componentes) {
+    const c = matchResult.componentes;
+    return { ano: c.ano, mes: c.mes, dia: c.dia };
+  }
+  const match = matchResult && matchResult.match ? matchResult.match : matchResult;
+  if (!match) {
+    return { ano: '', mes: '', dia: '' };
+  }
+  if (match[1] && match[1].length === 4) {
     return {
       ano: match[1],
-      mes: match[2].padStart(2, '0'),
-      dia: match[3].padStart(2, '0'),
+      mes: String(match[2]).padStart(2, '0'),
+      dia: String(match[3]).padStart(2, '0'),
     };
   }
-  const primeiro = Number(match[1]);
-  const segundo = Number(match[2]);
+  // Ano com 4 dígitos em match[3] — formato D/M/AAAA ou M/D/AAAA
+  if (match[3] && match[3].length === 4) {
+    const primeiro = match[1] ? Number(match[1]) : 0;
+    const segundo = match[2] ? Number(match[2]) : 0;
+    // Caso 1: primeiro > 12 → OBRIGATORIAMENTE dia (DD/MM)
+    if (primeiro > 12) {
+      return {
+        dia: String(primeiro).padStart(2, '0'),
+        mes: String(segundo).padStart(2, '0'),
+        ano: match[3],
+      };
+    }
+    // Caso 2: segundo > 12 → OBRIGATORIAMENTE dia (formato M/D)
+    if (segundo > 12) {
+      return {
+        mes: String(primeiro).padStart(2, '0'),
+        dia: String(segundo).padStart(2, '0'),
+        ano: match[3],
+      };
+    }
+    // Caso 3: AMBÍGUO (ambos <= 12, ex: 04/01/2026 → pode ser 4 de jan ou 1 de abr)
+    // Release Date, Install Date, etc no Brasil → DD/MM/AAAA (locale BR padrão da ASR)
+    // Label US → MM/DD/AAAA
+    if (labelHint === 'US') {
+      return {
+        mes: String(primeiro).padStart(2, '0'),
+        dia: String(segundo).padStart(2, '0'),
+        ano: match[3],
+      };
+    }
+    return {
+      dia: String(primeiro).padStart(2, '0'),
+      mes: String(segundo).padStart(2, '0'),
+      ano: match[3],
+    };
+  }
+  // Ano 2 dígitos em match[3]
+  if (match[3] && match[3].length === 2) {
+    const primeiro = match[1] ? Number(match[1]) : 0;
+    const segundo = match[2] ? Number(match[2]) : 0;
+    const anoNorm = String(normalizarAnoDoisDigitos(match[3]));
+    if (primeiro > 12) {
+      return {
+        dia: String(primeiro).padStart(2, '0'),
+        mes: String(segundo).padStart(2, '0'),
+        ano: anoNorm,
+      };
+    }
+    if (segundo > 12) {
+      return {
+        mes: String(primeiro).padStart(2, '0'),
+        dia: String(segundo).padStart(2, '0'),
+        ano: anoNorm,
+      };
+    }
+    if (labelHint === 'US') {
+      return {
+        mes: String(primeiro).padStart(2, '0'),
+        dia: String(segundo).padStart(2, '0'),
+        ano: anoNorm,
+      };
+    }
+    return {
+      dia: String(primeiro).padStart(2, '0'),
+      mes: String(segundo).padStart(2, '0'),
+      ano: anoNorm,
+    };
+  }
+  const primeiro = match[1] ? Number(match[1]) : 0;
+  const segundo = match[2] ? Number(match[2]) : 0;
   const diaPrimeiro = primeiro > 12 && segundo <= 12;
   if (diaPrimeiro) {
     return {
@@ -176,9 +412,16 @@ const extrairAnoMesDia = (match) => {
       ano: match[3],
     };
   }
+  if (labelHint === 'US') {
+    return {
+      mes: match[1].padStart(2, '0'),
+      dia: match[2].padStart(2, '0'),
+      ano: match[3],
+    };
+  }
   return {
-    mes: match[1].padStart(2, '0'),
-    dia: match[2].padStart(2, '0'),
+    dia: match[1].padStart(2, '0'),
+    mes: match[2].padStart(2, '0'),
     ano: match[3],
   };
 };
@@ -193,22 +436,86 @@ const validarIntervalosData = (ano, mes, dia) => {
   return anoOk && mesOk && diaOk;
 };
 
-const converterDataWinAudit = (entrada) => {
-  const raw = normalizarTexto(entrada);
-  if (!raw) return DATA_RESULTADO_NAO_ENCONTRADO;
-  const match = obterMatchData(raw);
-  if (!match) return DATA_RESULTADO_INVALIDO;
-  const { ano, mes, dia } = extrairAnoMesDia(match);
+const limparInvisiveis = (texto) => {
+  if (texto === null || texto === undefined) return '';
+  let t = typeof texto === 'string' ? texto : String(texto);
+  t = t.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u00A0\u00AD\u200B-\u200F\u2028\u2029\uFEFF]/g, ' ');
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  return t;
+};
+
+const EXTRAIR_DATA_REGEX_LIVRE = [
+  // D/M/A ou D/M/AA com separador / - . ou espaço
+  /\b(\d{1,2})[\s\/\-\.](\d{1,2})[\s\/\-\.](\d{2,4})\b/g,
+  // AAAA/M/D ou AAAA-M-D
+  /\b(\d{4})[\s\/\-\.](\d{1,2})[\s\/\-\.](\d{1,2})\b/g,
+];
+
+const procurarDataNoTexto = (texto) => {
+  if (!texto) return null;
+  const t = limparInvisiveis(texto);
+  if (!t) return null;
+  for (const re of EXTRAIR_DATA_REGEX_LIVRE) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(t)) !== null) {
+      if (m && m.length >= 4) {
+        return [
+          '',
+          m[1],
+          m[2],
+          m[3],
+        ];
+      }
+    }
+  }
+  return null;
+};
+
+const converterDataWinAudit = (entrada, ctx) => {
+  const rawBruto = normalizarTexto(entrada);
+  const raw = limparInvisiveis(rawBruto);
+  if (!raw) return { ...DATA_RESULTADO_NAO_ENCONTRADO, _debugRaw: rawBruto ?? '' };
+  let matchResult = obterMatchData(raw);
+  if (!matchResult) {
+    const buscado = procurarDataNoTexto(raw);
+    if (buscado) {
+      matchResult = { tipo: 'substring-search', match: buscado };
+    }
+  }
+  if (!matchResult) {
+    if (ctx && typeof ctx.logWarn === 'function') {
+      try {
+        ctx.logWarn(raw);
+      } catch {
+        /* ignore */
+      }
+    }
+    return { ...DATA_RESULTADO_INVALIDO, _debugRaw: rawBruto ?? '' };
+  }
+  const { ano, mes, dia } = extrairAnoMesDia(matchResult, ctx);
   if (!validarIntervalosData(ano, mes, dia)) {
-    return { iso: '', br: '', valido: false, mensagem: 'Valores fora do intervalo' };
+    if (ctx && typeof ctx.logWarn === 'function') {
+      try {
+        ctx.logWarn(`${raw} → [${ano}/${mes}/${dia}] (fora intervalo) hint=(${ctx?.labelRaw ?? 'sem_label'})`);
+      } catch {
+        /* ignore */
+      }
+    }
+    return { iso: '', br: '', valido: false, mensagem: 'Valores fora do intervalo', _debugRaw: rawBruto ?? '' };
   }
   return {
     iso: `${ano}-${mes}-${dia}`,
     br: `${dia}/${mes}/${ano}`,
     valido: true,
     mensagem: null,
+    _debugRaw: rawBruto ?? '',
+    _debugParser: matchResult.tipo ?? '',
   };
 };
+
+// Wrapper de compatibilidade para não quebrar outras chamadas
+const converterDataWinAuditLegacy = (entrada) => converterDataWinAudit(entrada, null);
 
 const WINAUDIT_VERSION = process.env.WINAUDIT_IMPORTER_VERSION || '1.3.0';
 
@@ -439,7 +746,12 @@ const extrairENormalizarCampos = (extraidos) => {
   const memoria = extrairMemoria(extraidos.raw.MEMORIA);
   const dataAquisicaoEntriesOrdenadas = ordenarEntriesDataAquisicao(extraidos.raw.DATA_AQUISICAO || []);
   const dataAquisicaoRaw = pegarPrimeiroNaoVazio(dataAquisicaoEntriesOrdenadas, 1)[0];
-  const dataAquisicaoInfo = converterDataWinAudit(dataAquisicaoRaw?.valor ?? dataAquisicaoRaw);
+  const contextoData = {
+    logWarn: (msg) => console.warn('[winaudit:parse:dataAquisicao] valor que falhou =', JSON.stringify(msg)),
+    labelRaw: (typeof dataAquisicaoRaw?.rawLabel === 'string' ? dataAquisicaoRaw.rawLabel : '')
+      + (typeof dataAquisicaoRaw?.contexto === 'string' ? ` ${dataAquisicaoRaw.contexto}` : ''),
+  };
+  const dataAquisicaoInfo = converterDataWinAudit(dataAquisicaoRaw?.valor ?? dataAquisicaoRaw, contextoData);
 
   const processadorEntries = extraidos.raw.PROCESSADOR || [];
   const processadorRaw = processadorEntries[0];
@@ -687,13 +999,29 @@ const montarDadosBrutos = (extraidos) => ({
   labelsMatchCount: extraidos.labelsMatchCount,
 });
 
-const montarDadosEquipamento = (camposNormalizados, escolaId, memoria) => {
+const montarDadosEquipamento = (camposNormalizados, escolaId, memoria, rawEntriesDataAquisicaoOrdenadas) => {
   const { nome, usuarioNome, fabricante, modeloCompostoInfo, serial, processador, macsInfo, dataAquisicaoInfo } = camposNormalizados;
   const resultadoMacs = macsInfo.todos.length > 0 ? macsInfo : {
     todos: macsInfo.todos,
     principais: macsInfo.principais,
     principal: macsInfo.principal,
     mensagens: macsInfo.mensagens,
+  };
+  const debugData = {
+    infoValido: dataAquisicaoInfo?.valido ?? false,
+    infoMensagem: dataAquisicaoInfo?.mensagem ?? '',
+    rawSelecionado: dataAquisicaoInfo?._debugRaw ?? '',
+    parser: dataAquisicaoInfo?._debugParser ?? '',
+    data: dataAquisicaoInfo?.iso || '',
+    dataBr: dataAquisicaoInfo?.br || '',
+    todasEntries: Array.isArray(rawEntriesDataAquisicaoOrdenadas)
+      ? rawEntriesDataAquisicaoOrdenadas.slice(0, 12).map((e) => ({
+          label: typeof e?.rawLabel === 'string' ? e.rawLabel : '',
+          contexto: typeof e?.contexto === 'string' ? e.contexto : '',
+          valor: typeof e?.valor === 'string' ? e.valor : '',
+          hex: typeof e?.valor === 'string' ? [...e.valor].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join(' ') : '',
+        }))
+      : [],
   };
   return {
     nome,
@@ -712,6 +1040,7 @@ const montarDadosEquipamento = (camposNormalizados, escolaId, memoria) => {
     dataAquisicaoFormatada: dataAquisicaoInfo?.br || '',
     tipoSugerido: sugerirTipo(fabricante, modeloCompostoInfo.modeloComposto, processador),
     escolaId: escolaId || '',
+    _debug: debugData,
   };
 };
 
@@ -770,6 +1099,42 @@ export const gerarPreview = async (input) => {
 
   const rawMemoriaParaAviso = campos.memoria.valido ? [] : extraidos.raw.MEMORIA;
   const avisosExtracao = coletarAvisosExtracao(extraidos, campos.serial, campos.macsInfo, rawMemoriaParaAviso);
+  const dataInfo = campos.dataAquisicaoInfo;
+  const dataValidasEntries = ordenarEntriesDataAquisicao(extraidos.raw.DATA_AQUISICAO || []);
+  // Lista resumida de TODAS as entries de data encontradas
+  const listaTodasEntries = (dataValidasEntries || []).slice(0, 20).map((e) => {
+    const rawLabelStr = e && typeof e.rawLabel === 'string' ? e.rawLabel : '';
+    const contextoStr = e && typeof e.contexto === 'string' ? e.contexto : '';
+    const rawValor = e && typeof e.valor === 'string' ? e.valor : '';
+    const contextoParte = contextoStr ? '(' + contextoStr + ')' : '';
+    return '[' + rawLabelStr + contextoParte + ' → ' + rawValor + ']';
+  }).join(' ');
+  avisosExtracao.unshift('[DEBUG_DATA_AQUISICAO] qtd_entries=' + dataValidasEntries.length + ' | entries=' + (listaTodasEntries || 'nenhuma'));
+  if (dataValidasEntries.length > 0 && (!dataInfo || dataInfo.valido !== true)) {
+    const primeira = dataValidasEntries[0];
+    const rawLabelStr = primeira && typeof primeira.rawLabel === 'string' ? primeira.rawLabel : '';
+    const contextoStr = primeira && typeof primeira.contexto === 'string' ? primeira.contexto : '';
+    const rawValor = primeira && typeof primeira.valor === 'string' ? primeira.valor : '';
+    const hex = rawValor.length > 0
+      ? rawValor.split('').map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join(' ')
+      : '';
+    const msgContexto = contextoStr ? ' (' + contextoStr + ')' : '';
+    const msgISO = dataInfo && dataInfo.iso ? ' iso=' + dataInfo.iso : '';
+    const mensagem = '[DEBUG_DATA_AQUISICAO] Label: "' + rawLabelStr + '"' + msgContexto
+      + '. Valor: "' + rawValor + '". Hex: [' + hex + ']. Motivo: ' + (dataInfo && dataInfo.mensagem ? dataInfo.mensagem : 'invalido')
+      + ' | parser=' + (dataInfo && dataInfo._debugParser ? dataInfo._debugParser : '')
+      + ' | raw_limpo="' + (dataInfo && dataInfo._debugRaw ? dataInfo._debugRaw : '') + '"'
+      + msgISO;
+    avisosExtracao.unshift(mensagem);
+  } else if (dataValidasEntries.length === 0) {
+    avisosExtracao.unshift('[DEBUG_DATA_AQUISICAO] NENHUMA entry de data de aquisicao (Release Date / Short Date etc) foi localizada no arquivo.');
+  }
+  const msgStatus = '[DEBUG_DATA_AQUISICAO] status=' + (dataInfo && dataInfo.valido === true ? 'OK' : 'INVALIDO')
+    + ' iso="' + (dataInfo && dataInfo.iso ? dataInfo.iso : '') + '"'
+    + ' br="' + (dataInfo && dataInfo.br ? dataInfo.br : '') + '"'
+    + ' parser=' + (dataInfo && dataInfo._debugParser ? dataInfo._debugParser : '')
+    + ' raw="' + (dataInfo && dataInfo._debugRaw ? dataInfo._debugRaw : '') + '"';
+  avisosExtracao.unshift(msgStatus);
 
   aplicarStatusCamposPorConteudo(camposStatus, campos, extraidos.raw.MEMORIA, extraidos.raw.DATA_AQUISICAO);
 
@@ -803,7 +1168,7 @@ export const gerarPreview = async (input) => {
     camposStatus,
   });
 
-  const dados = montarDadosEquipamento(campos, escolaId, campos.memoria);
+  const dados = montarDadosEquipamento(campos, escolaId, campos.memoria, ordenarEntriesDataAquisicao(extraidos.raw.DATA_AQUISICAO || []));
 
   return montarRespostaPreview({
     log,
@@ -1343,6 +1708,10 @@ export const WinAuditImportService = {
   STATUS_CAMPO,
   STATUS_IMPORTACAO_ENUM,
   PRIORIDADE_MAC_TIPO,
+  converterDataWinAudit: (entrada, ctx) => converterDataWinAudit(entrada, ctx ?? null),
+  ordenarEntriesDataAquisicao,
 };
 
 export default WinAuditImportService;
+export { converterDataWinAudit, ordenarEntriesDataAquisicao };
+export { parseWinAuditHtml } from '../utils/winaudit/parserHtml.js';
