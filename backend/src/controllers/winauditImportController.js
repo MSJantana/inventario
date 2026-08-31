@@ -52,6 +52,14 @@ export const importarWinAuditPreview = (req, res, next) => {
         const publico = new Error(estruturado.message);
         publico.statusCode = estruturado.statusCode;
         publico.code = estruturado.code;
+        publico.causaRaiz = {
+          multerCode: typeof err?.code === 'string' ? err.code : null,
+          multerField: typeof err?.field === 'string' ? err.field : null,
+          multerStorageErrors: Array.isArray(err?.errors)
+            ? err.errors.map((e) => ({ code: typeof e.code === 'string' ? e.code : null, field: typeof e.field === 'string' ? e.field : null }))
+            : null,
+          mensagemOriginal: typeof err?.message === 'string' ? err.message : null,
+        };
         throw publico;
       }
 
@@ -68,7 +76,9 @@ export const importarWinAuditPreview = (req, res, next) => {
       const preview = await WinAuditImportService.gerarPreview({
         file: req.file,
         usuarioId: req.usuario.id,
-        escolaId: req.body?.escolaId || req.usuario.escolaId || null,
+        escolaId: (req.body && typeof req.body.escolaId === 'string' && req.body.escolaId)
+          ? req.body.escolaId
+          : req.usuario.escolaId || null,
         prisma,
         ipOrigem,
         tipoArquivo,
@@ -77,6 +87,29 @@ export const importarWinAuditPreview = (req, res, next) => {
 
       return res.status(200).json(preview);
     } catch (error) {
+      if (req.log) {
+        req.log.error(
+          {
+            err: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+            context: {
+              codigo: error?.code,
+              status: error?.statusCode,
+              arquivo: req.file
+                ? {
+                    originalname: req.file.originalname,
+                    size: req.file.size,
+                    mimetype: req.file.mimetype,
+                  }
+                : null,
+              usuarioId: req?.usuario?.id ?? null,
+              escolaId: req?.usuario?.escolaId ?? null,
+            },
+          },
+          'winaudit:preview:erro',
+        );
+      } else {
+        console.error('[winaudit:preview:erro]', error);
+      }
       if (!error.code) error.code = 'WINAUDIT_PREVIEW_ERROR';
       if (!error.statusCode) error.statusCode = 500;
       return next(error);
