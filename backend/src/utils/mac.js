@@ -3,7 +3,7 @@
 // Remove caracteres não hex e deixa em maiúsculo
 export const sanitizeMac = (raw) => {
   if (!raw || typeof raw !== 'string') return '';
-  return raw.replaceAll(/[^0-9a-fA-F]/g, '').toUpperCase();
+  return raw.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
 };
 
 // Formata para estilo padrão: AA:BB:CC:DD:EE:FF

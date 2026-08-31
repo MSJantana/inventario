@@ -11,9 +11,7 @@ export async function gerarPreviewWinAudit(file: File, escolaId?: string | null)
   if (escolaId) {
     fd.append('escolaId', escolaId)
   }
-  const resp = await api.post('/api/equipamentos/importar/winaudit/preview', fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  const resp = await api.post('/api/equipamentos/importar/winaudit/preview', fd)
   return resp.data as WinAuditPreviewResponse
 }
 
