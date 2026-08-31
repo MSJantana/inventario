@@ -99,7 +99,9 @@ export const parseWinAuditHtml = (buffer, originalName) => {
 
   root.querySelectorAll('script, style, link, iframe, object, embed').forEach((n) => {
     try {
-      n.parentNode?.removeChild?.(n);
+      if (n && n.parentNode && typeof n.parentNode.removeChild === 'function') {
+        n.parentNode.removeChild(n);
+      }
     } catch {
       /* ignore */
     }
