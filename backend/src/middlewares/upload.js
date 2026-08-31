@@ -1,6 +1,18 @@
 import multer from 'multer';
 import path from 'node:path';
 
+const logEarly = (req, level, payload, msg) => {
+  try {
+    const logger = req.log || (typeof console !== 'undefined' ? console : null);
+    if (!logger) return;
+    if (typeof logger[level] === 'function') {
+      logger[level](payload, msg);
+    }
+  } catch {
+    // noop
+  }
+};
+
 const ALLOWED_EXTENSIONS = new Set(['.html', '.htm']);
 const ALLOWED_MIMES = new Set([
   'text/html',
@@ -44,10 +56,21 @@ const fileFilter = (req, file, cb) => {
   const mime = typeof file.mimetype === 'string' ? file.mimetype.toLowerCase() : '';
   const mimeMatch = !mime || ALLOWED_MIMES.has(mime);
 
+  logEarly(req, 'info', {
+    etapa: 'multer:fileFilter',
+    originalname,
+    ext,
+    extMatch,
+    mime,
+    mimeMatch,
+    sizeHeader: typeof file.size === 'number' ? file.size : undefined,
+  }, '[winaudit:upload] fileFilter');
+
   if (!extMatch) {
     const err = new Error('Extensão de arquivo inválida. Apenas arquivos .html e .htm são permitidos.');
     err.statusCode = 400;
     err.code = 'WINAUDIT_INVALID_EXTENSION';
+    logEarly(req, 'warn', { ext, mime, originalname }, '[winaudit:upload] fileFilter bloqueado - extensao');
     cb(err);
     return;
   }
@@ -58,6 +81,7 @@ const fileFilter = (req, file, cb) => {
     );
     err.statusCode = 400;
     err.code = 'WINAUDIT_INVALID_MIME';
+    logEarly(req, 'warn', { ext, mime, originalname }, '[winaudit:upload] fileFilter bloqueado - MIME');
     cb(err);
     return;
   }

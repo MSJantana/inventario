@@ -137,10 +137,60 @@ const generateRequestId = () => {
 
 const REQUEST_LIMIT_BYTES = 50 * 1024 * 1024;
 
+const jsonBodyParser = express.json({ limit: REQUEST_LIMIT_BYTES });
+const urlencodedBodyParser = express.urlencoded({ extended: true, limit: REQUEST_LIMIT_BYTES });
+
+const conditionalBodyParser = (req, res, next) => {
+  const ct = typeof req.headers['content-type'] === 'string' ? req.headers['content-type'].toLowerCase() : '';
+  if (ct.includes('multipart/form-data')) {
+    return next();
+  }
+  if (ct.includes('application/json') || !ct) {
+    return jsonBodyParser(req, res, next);
+  }
+  if (ct.includes('application/x-www-form-urlencoded')) {
+    return urlencodedBodyParser(req, res, next);
+  }
+  return next();
+};
+
 // Middlewares
 app.use(cors(corsOptions));
-app.use(express.json({ limit: REQUEST_LIMIT_BYTES }));
-app.use(express.urlencoded({ extended: true, limit: REQUEST_LIMIT_BYTES }));
+
+// Log ultracedo (antes de body parsers e pino) para confirmar que o POST chegou na app
+app.use((req, res, next) => {
+  const ct = req.headers['content-type'] || '';
+  const cl = req.headers['content-length'] || '0';
+  if (req.url && req.url.includes('/importar/winaudit/')) {
+    try {
+      const payload = {
+        xRequestId: req.headers['x-request-id'] || null,
+        method: req.method,
+        url: req.originalUrl || req.url,
+        contentType: ct,
+        contentLength: Number(cl) || 0,
+        authorization: typeof req.headers.authorization === 'string' && req.headers.authorization.length > 0 ? 'present' : 'missing',
+        csrf: typeof req.headers['x-csrf-token'] === 'string' && req.headers['x-csrf-token'].length > 0 ? 'present' : 'missing',
+        xRealIp: req.headers['x-real-ip'] || null,
+        xForwardedFor: req.headers['x-forwarded-for'] || null,
+      };
+      if (req.log) {
+        req.log.info(payload, '[early] chegou winaudit');
+      } else {
+        logger.info(payload, '[early] chegou winaudit');
+      }
+    } catch {
+      logger.info(
+        { method: req.method, url: req.originalUrl || req.url, contentType: ct, contentLength: Number(cl) || 0 },
+        '[early] chegou winaudit',
+      );
+    }
+  }
+  next();
+});
+
+app.use(conditionalBodyParser);
+
 app.use(pinoHttp({
   logger,
   genReqId: (req, res) => {
