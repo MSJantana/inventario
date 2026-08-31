@@ -22,11 +22,24 @@ const dispararExpiracaoSessao = () => {
     console.warn('Erro ao processar expiração de sessão', err);
   }
   if (globalThis.window !== undefined && globalThis.window.location.pathname !== '/login') {
-    globalThis.requestAnimationFrame(() => {
+    if (typeof globalThis.requestAnimationFrame === 'function') {
       globalThis.requestAnimationFrame(() => {
-        globalThis.location.href = '/login';
+        globalThis.requestAnimationFrame(() => {
+          globalThis.location.href = '/login';
+        });
       });
-    });
+    } else {
+      globalThis.setTimeout(() => {
+        globalThis.location.href = '/login';
+      }, 100);
+    }
+  }
+  if (typeof globalThis.dispatchEvent === 'function' && typeof globalThis.CustomEvent === 'function') {
+    try {
+      globalThis.dispatchEvent(new globalThis.CustomEvent('auth:session-expired'));
+    } catch (err) {
+      console.warn('Erro ao disparar evento de expiração de sessão', err);
+    }
   }
 };
 
