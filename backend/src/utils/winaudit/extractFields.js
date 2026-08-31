@@ -120,7 +120,32 @@ const LABEL_SYNONYMS = {
     'aquisicao',
     'data de aquisicao',
     'data aquisicao',
+    'date',
   ],
+};
+
+const PROIBIDO_COMO_VALOR_DATA = new Set([
+  'short date',
+  'long date',
+  'short',
+  'long',
+  'date',
+  '',
+  'na',
+  'n/a',
+  'none',
+  'unknown',
+  'desconhecido',
+]);
+
+const PARECE_DATA = (texto) => {
+  if (!texto) return false;
+  if (PROIBIDO_COMO_VALOR_DATA.has(texto.toLowerCase().trim())) return false;
+  // precisa ter pelo menos 4 dígitos consecutivos ou 2 dígitos + separador + 2 dígitos
+  if (/\d{2,}[\s\/\-\.]\d{2,}[\s\/\-\.]\d{2,}/.test(texto)) return true;
+  if (/\d{6,8}/.test(texto)) return true;
+  if (/janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i.test(texto)) return true;
+  return false;
 };
 
 const normalizarLabel = (label) => {
@@ -172,8 +197,29 @@ const encontrarChave = (rawLabel) => {
 
 const adicionarComContexto = (resultado, chave, valor, contexto, rawLabel) => {
   if (!chave || !valor) return;
+  if (chave === 'DATA_AQUISICAO') {
+    if (!PARECE_DATA(valor)) return;
+    // Datas válidas são curtas. > 60 chars é sinal de múltiplas células concatenadas (não é uma data real).
+    if (valor.length > 60) return;
+  }
   if (!resultado.raw[chave]) resultado.raw[chave] = [];
   resultado.raw[chave].push({ valor, contexto, rawLabel });
+};
+
+const processarLinhaParRotuloValor = (resultado, linha, contextoSecao) => {
+  if (!linha || linha.celulas.length < 2) return 0;
+  let encontrados = 0;
+  for (let i = 0; i < linha.celulas.length - 1; i += 1) {
+    const keyInfo = encontrarChave(linha.celulas[i]);
+    if (keyInfo?.chave) {
+      const valor = normalizarTexto(linha.celulas[i + 1]);
+      if (valor) {
+        adicionarComContexto(resultado, keyInfo.chave, valor, contextoSecao, normalizarTexto(linha.celulas[i]));
+        encontrados += 1;
+      }
+    }
+  }
+  return encontrados;
 };
 
 export const extrairCamposDeEstruturaParseada = (parsed) => {
@@ -199,8 +245,18 @@ export const extrairCamposDeEstruturaParseada = (parsed) => {
 
   parsed.tabelas.forEach((tabela, idxTabela) => {
     let contextoSecao = '';
-    tabela.forEach((linha) => {
+    let colunaShortDate = -1;
+    let colunaLongDate = -1;
+    tabela.forEach((linha, idxLinha) => {
       if (linha.celulas.length === 0) return;
+      // 1) Detecção de HEADERS HORIZONTAIS (Short Date / Long Date) na tabela de datas do WinAudit
+      if (colunaShortDate === -1) {
+        for (let i = 0; i < linha.celulas.length; i += 1) {
+          const txt = normalizarTexto(linha.celulas[i]).toLowerCase().trim();
+          if (txt === 'short date') colunaShortDate = i;
+          else if (txt === 'long date') colunaLongDate = i;
+        }
+      }
       const primeira = normalizarTexto(linha.celulas[0]);
       if (linha.celulas.length === 1 && primeira.length > 2 && primeira.length < 120) {
         contextoSecao = primeira;
@@ -216,15 +272,32 @@ export const extrairCamposDeEstruturaParseada = (parsed) => {
         }
         return;
       }
-      for (let i = 0; i < linha.celulas.length - 1; i += 1) {
-        const keyInfo = encontrarChave(linha.celulas[i]);
-        if (keyInfo?.chave) {
-          const valor = normalizarTexto(linha.celulas[i + 1]);
-          if (valor) {
-            adicionarComContexto(resultado, keyInfo.chave, valor, contextoSecao, normalizarTexto(linha.celulas[i]));
-            resultado.labelsMatchCount += 1;
+      // CASO ESPECIAL: Tabela com headers horizontais. Exemplo:
+      // linha 0: ["", "Short Date", "Long Date"]
+      // linha 1: ["Date of Manufacture", "04/01/2026", "04 de janeiro de 2026"]
+      if ((colunaShortDate !== -1 || colunaLongDate !== -1) && linha.celulas.length >= 2) {
+        const colunaValor = colunaShortDate !== -1 ? colunaShortDate : colunaLongDate;
+        if (colunaValor < linha.celulas.length) {
+          const keyInfo = encontrarChave(primeira);
+          if (keyInfo?.chave) {
+            let valor = normalizarTexto(linha.celulas[colunaValor]);
+            // se Short Date for vazio, tentar Long Date
+            if (!valor && colunaLongDate !== -1 && colunaLongDate < linha.celulas.length) {
+              valor = normalizarTexto(linha.celulas[colunaLongDate]);
+            }
+            if (valor) {
+              adicionarComContexto(resultado, keyInfo.chave, valor, contextoSecao, primeira);
+              resultado.secoesEncontradas.add(contextoSecao || `tabela-${idxTabela}`);
+              resultado.labelsMatchCount += 1;
+              // não retornar ainda, pois pode haver mais colunas de labels
+            }
           }
         }
+      }
+      const cnt = processarLinhaParRotuloValor(resultado, linha, contextoSecao);
+      if (cnt > 0) {
+        resultado.secoesEncontradas.add(contextoSecao || `tabela-${idxTabela}`);
+        resultado.labelsMatchCount += cnt;
       }
     });
   });
@@ -245,7 +318,7 @@ export const extrairCamposDeEstruturaParseada = (parsed) => {
     const valor = normalizarTexto(p.valor);
     if (valor && valor.length < 300) {
       adicionarComContexto(resultado, p.chave, valor, p.tag, p.label);
-      resultado.labelsMatchCount += 1;
+      if (valor) resultado.labelsMatchCount += 1;
     }
   });
 
@@ -255,3 +328,4 @@ export const extrairCamposDeEstruturaParseada = (parsed) => {
 
   return resultado;
 };
+
