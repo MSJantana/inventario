@@ -35,10 +35,18 @@ export const arrayAt = (arr, index) => {
 
 export const removeChildSafe = (node) => {
   if (!node) return;
+  if (typeof node.remove === 'function') {
+    try {
+      node.remove();
+    } catch {
+      /* ignore DOM errors (already removed, etc) */
+    }
+    return;
+  }
   const parent = node.parentNode;
   if (parent && typeof parent.removeChild === 'function') {
     try {
-      parent.removeChild(node);
+      node.remove();
     } catch {
       /* ignore DOM errors (already removed, etc) */
     }
@@ -48,13 +56,13 @@ export const removeChildSafe = (node) => {
 export const escapeCsvQuotes = (value) => {
   if (value === null || value === undefined) return '';
   const str = String(value);
-  if (str.indexOf('"') === -1) return str;
+  if (!str.includes('"')) return str;
   return replaceAll(str, '"', '""');
 };
 
 export const normalizeNbsp = (input) => {
   if (input === null || input === undefined) return '';
   const str = typeof input === 'string' ? input : String(input);
-  if (str.indexOf('\u00a0') === -1) return str;
+  if (!str.includes('\u00a0')) return str;
   return replaceAll(str, '\u00a0', ' ');
 };

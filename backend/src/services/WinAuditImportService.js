@@ -96,10 +96,10 @@ const extrairMemoria = (lista) => {
 };
 
 const DATA_REGEX_VARIANTES = Object.freeze([
-  /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/,
-  /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2})$/,
-  /^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/,
-  /^(\d{2})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/,
+  /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/,
+  /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})$/,
+  /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/,
+  /^(\d{2})[-/.](\d{1,2})[-/.](\d{1,2})$/,
 ]);
 
 const NOME_MES_PT = [
@@ -127,7 +127,7 @@ const normalizarAnoDoisDigitos = (anoDois) => {
 
 const extrairMesPorNome = (texto) => {
   if (!texto) return null;
-  const t = texto.toLowerCase().replace(/[áàãâä]/g, 'a').replace(/[éêë]/g, 'e').replace(/[íï]/g, 'i').replace(/[óõö]/g, 'o').replace(/[úü]/g, 'u').replace(/ç/g, 'c');
+  const t = texto.toLowerCase().replace(/[áàãâä]/g, 'a').replace(/[éêë]/g, 'e').replace(/[íï]/g, 'i').replace(/[óõö]/g, 'o').replace(/[úü]/g, 'u').replaceAll('ç', 'c');
   for (let i = 0; i < NOME_MES_PT.length; i += 1) {
     for (const variante of NOME_MES_PT[i]) {
       if (t.includes(variante)) return i + 1;
@@ -139,8 +139,8 @@ const extrairMesPorNome = (texto) => {
 const normalizarTextoParaMesNomeado = (texto) => {
   if (!texto) return '';
   let t = String(texto).trim().toLowerCase();
-  t = t.replace(/[áàãâä]/g, 'a').replace(/[éêë]/g, 'e').replace(/[íï]/g, 'i').replace(/[óõö]/g, 'o').replace(/[úü]/g, 'u').replace(/[ç]/g, 'c');
-  t = t.replace(/\s+\b(de|do|da|dos|das|a|as|o|os|the|of|on|at)\b(?=\s|$)/g, ' ');
+  t = t.replace(/[áàãâä]/g, 'a').replace(/[éêë]/g, 'e').replace(/[íï]/g, 'i').replace(/[óõö]/g, 'o').replace(/[úü]/g, 'u').replaceAll('ç', 'c');
+  t = t.replace(/\s(?:de|do|da|dos|das|a|as|o|os|the|of|on|at)(?=\s|$)/g, ' ');
   t = t.replace(/\s{2,}/g, ' ').trim();
   return t;
 };
@@ -149,11 +149,11 @@ const tentarParseNomeMes = (raw) => {
   if (!raw || raw.length < 5) return null;
   const texto = normalizarTextoParaMesNomeado(raw);
   const regexVariasTentativas = [
-    /^(\d{1,2})[\s\/\-\.\,]*([a-záàâãéêíóôõúç]{3,})[\s\/\-\.\,]*(\d{2,4})$/i,
+    /^(\d{1,2})[-\s/.,]*([a-záàâãéêíóôõúç]{3,})[-\s/.,]*(\d{2,4})$/i,
     /^(\d{1,2})([a-záàâãéêíóôõúç]{3,})(\d{2,4})$/i,
   ];
   for (const re of regexVariasTentativas) {
-    const m = texto.match(re);
+    const m = re.exec(texto);
     if (!m) continue;
     const [, diaStr, mesNome, anoStr] = m;
     const mesNum = extrairMesPorNome(mesNome);
@@ -172,7 +172,7 @@ const tentarParseNomeMes = (raw) => {
     };
   }
   // Formato "August 22, 2024" (mês/dia/ano inglês com vírgula)
-  const mdY = texto.match(/^([a-záàâãéêíóôõúç]{3,})[\s\/\-\.\,]*(\d{1,2})[\s\/\-\.\,]*(\d{2,4})$/i);
+  const mdY = /^([a-záàâãéêíóôõúç]{3,})[-\s/.,]*(\d{1,2})[-\s/.,]*(\d{2,4})$/i.exec(texto);
   if (mdY) {
     const [, mesNome, diaStr, anoStr] = mdY;
     const mesNum = extrairMesPorNome(mesNome);
@@ -207,7 +207,7 @@ const DATA_RESULTADO_NAO_ENCONTRADO = Object.freeze({
 
 const tentarMatchRegexVariantes = (texto) => {
   for (const re of DATA_REGEX_VARIANTES) {
-    const match = texto.match(re);
+    const match = re.exec(texto);
     if (match) return match;
   }
   return null;
@@ -289,7 +289,7 @@ const tentarParseDateNatJS = (raw) => {
 const obterMatchData = (raw) => {
   const matchDireto = tentarMatchRegexVariantes(raw);
   if (matchDireto) return { tipo: 'regex', match: matchDireto };
-  const limpo = raw.replace(/[^0-9\/\-\.]/g, '');
+  const limpo = raw.replace(/[^-0-9/.]/g, '');
   if (limpo && limpo !== raw) {
     const matchLimpo = tentarMatchRegexVariantes(limpo);
     if (matchLimpo) return { tipo: 'regex-limpo', match: matchLimpo };
@@ -318,12 +318,12 @@ const obterLocaleHintDoLabel = (labelRaw) => {
 };
 
 const extrairAnoMesDia = (matchResult, ctx) => {
-  const labelHint = (ctx && typeof ctx.labelRaw === 'string') ? obterLocaleHintDoLabel(ctx.labelRaw) : 'BR';
-  if (matchResult && matchResult.componentes) {
+  const labelHint = typeof ctx?.labelRaw === 'string' ? obterLocaleHintDoLabel(ctx.labelRaw) : 'BR';
+  if (matchResult?.componentes) {
     const c = matchResult.componentes;
     return { ano: c.ano, mes: c.mes, dia: c.dia };
   }
-  const match = matchResult && matchResult.match ? matchResult.match : matchResult;
+  const match = matchResult?.match ?? matchResult;
   if (!match) {
     return { ano: '', mes: '', dia: '' };
   }
@@ -371,7 +371,7 @@ const extrairAnoMesDia = (matchResult, ctx) => {
     };
   }
   // Ano 2 dígitos em match[3]
-  if (match[3] && match[3].length === 2) {
+  if (match[3]?.length === 2) {
     const primeiro = match[1] ? Number(match[1]) : 0;
     const segundo = match[2] ? Number(match[2]) : 0;
     const anoNorm = String(normalizarAnoDoisDigitos(match[3]));
@@ -446,9 +446,9 @@ const limparInvisiveis = (texto) => {
 
 const EXTRAIR_DATA_REGEX_LIVRE = [
   // D/M/A ou D/M/AA com separador / - . ou espaço
-  /\b(\d{1,2})[\s\/\-\.](\d{1,2})[\s\/\-\.](\d{2,4})\b/g,
+  /\b(\d{1,2})[-\s/.](\d{1,2})[-\s/.](\d{2,4})\b/g,
   // AAAA/M/D ou AAAA-M-D
-  /\b(\d{4})[\s\/\-\.](\d{1,2})[\s\/\-\.](\d{1,2})\b/g,
+  /\b(\d{4})[-\s/.](\d{1,2})[-\s/.](\d{1,2})\b/g,
 ];
 
 const procurarDataNoTexto = (texto) => {
@@ -1119,21 +1119,21 @@ export const gerarPreview = async (input) => {
       ? rawValor.split('').map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join(' ')
       : '';
     const msgContexto = contextoStr ? ' (' + contextoStr + ')' : '';
-    const msgISO = dataInfo && dataInfo.iso ? ' iso=' + dataInfo.iso : '';
+    const msgISO = dataInfo?.iso ? ' iso=' + dataInfo.iso : '';
     const mensagem = '[DEBUG_DATA_AQUISICAO] Label: "' + rawLabelStr + '"' + msgContexto
-      + '. Valor: "' + rawValor + '". Hex: [' + hex + ']. Motivo: ' + (dataInfo && dataInfo.mensagem ? dataInfo.mensagem : 'invalido')
-      + ' | parser=' + (dataInfo && dataInfo._debugParser ? dataInfo._debugParser : '')
-      + ' | raw_limpo="' + (dataInfo && dataInfo._debugRaw ? dataInfo._debugRaw : '') + '"'
+      + '. Valor: "' + rawValor + '". Hex: [' + hex + ']. Motivo: ' + (dataInfo?.mensagem ?? 'invalido')
+      + ' | parser=' + (dataInfo?._debugParser ?? '')
+      + ' | raw_limpo="' + (dataInfo?._debugRaw ?? '') + '"'
       + msgISO;
     avisosExtracao.unshift(mensagem);
   } else if (dataValidasEntries.length === 0) {
     avisosExtracao.unshift('[DEBUG_DATA_AQUISICAO] NENHUMA entry de data de aquisicao (Release Date / Short Date etc) foi localizada no arquivo.');
   }
-  const msgStatus = '[DEBUG_DATA_AQUISICAO] status=' + (dataInfo && dataInfo.valido === true ? 'OK' : 'INVALIDO')
-    + ' iso="' + (dataInfo && dataInfo.iso ? dataInfo.iso : '') + '"'
-    + ' br="' + (dataInfo && dataInfo.br ? dataInfo.br : '') + '"'
-    + ' parser=' + (dataInfo && dataInfo._debugParser ? dataInfo._debugParser : '')
-    + ' raw="' + (dataInfo && dataInfo._debugRaw ? dataInfo._debugRaw : '') + '"';
+  const msgStatus = '[DEBUG_DATA_AQUISICAO] status=' + (dataInfo?.valido === true ? 'OK' : 'INVALIDO')
+    + ' iso="' + (dataInfo?.iso ?? '') + '"'
+    + ' br="' + (dataInfo?.br ?? '') + '"'
+    + ' parser=' + (dataInfo?._debugParser ?? '')
+    + ' raw="' + (dataInfo?._debugRaw ?? '') + '"';
   avisosExtracao.unshift(msgStatus);
 
   aplicarStatusCamposPorConteudo(camposStatus, campos, extraidos.raw.MEMORIA, extraidos.raw.DATA_AQUISICAO);

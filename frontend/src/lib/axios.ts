@@ -36,7 +36,7 @@ const dispararExpiracaoSessao = () => {
       console.warn('Erro ao disparar evento de expiração de sessão', err);
     }
   }
-  if (typeof globalThis.window !== 'undefined' && globalThis.window.location.pathname !== '/login') {
+  if (globalThis.window !== undefined && globalThis.window.location.pathname !== '/login') {
     try {
       globalThis.window.location.replace('/login');
     } catch {

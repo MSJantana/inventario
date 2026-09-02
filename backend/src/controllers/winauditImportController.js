@@ -118,7 +118,7 @@ export const importarWinAuditPreview = (req, res, next) => {
         const preview = await WinAuditImportService.gerarPreview({
           file: req.file,
           usuarioId: req.usuario.id,
-          escolaId: (req.body && typeof req.body.escolaId === 'string' && req.body.escolaId)
+          escolaId: typeof req.body?.escolaId === 'string' && req.body.escolaId
             ? req.body.escolaId
             : req.usuario.escolaId || null,
           prisma,

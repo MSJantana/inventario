@@ -142,7 +142,7 @@ const PARECE_DATA = (texto) => {
   if (!texto) return false;
   if (PROIBIDO_COMO_VALOR_DATA.has(texto.toLowerCase().trim())) return false;
   // precisa ter pelo menos 4 dígitos consecutivos ou 2 dígitos + separador + 2 dígitos
-  if (/\d{2,}[\s\/\-\.]\d{2,}[\s\/\-\.]\d{2,}/.test(texto)) return true;
+  if (/\d{2,}[-\s/.]\d{2,}[-\s/.]\d{2,}/.test(texto)) return true;
   if (/\d{6,8}/.test(texto)) return true;
   if (/janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i.test(texto)) return true;
   return false;
@@ -318,7 +318,7 @@ export const extrairCamposDeEstruturaParseada = (parsed) => {
     const valor = normalizarTexto(p.valor);
     if (valor && valor.length < 300) {
       adicionarComContexto(resultado, p.chave, valor, p.tag, p.label);
-      if (valor) resultado.labelsMatchCount += 1;
+      resultado.labelsMatchCount += 1;
     }
   });
 

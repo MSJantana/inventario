@@ -37,7 +37,7 @@ function b64DecodeUnicode(str: string): string {
   const padded = replaced.padEnd(replaced.length + ((4 - (replaced.length % 4)) % 4), '=');
   try {
     const binary = atob(padded);
-    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const bytes = Uint8Array.from(binary, (c) => c.codePointAt(0) ?? 0);
     return new TextDecoder('utf-8').decode(bytes);
   } catch {
     return '';

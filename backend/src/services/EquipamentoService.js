@@ -15,8 +15,8 @@ const { PrismaClient } = PrismaClientModule;
 let prismaCached;
 
 const getPrisma = (input) => {
-  if (input && input.$transaction !== undefined) return input;
-  if (input && input.equipamento) return input;
+  if (input?.$transaction !== undefined) return input;
+  if (input?.equipamento !== undefined) return input;
   if (prismaCached) return prismaCached;
   prismaCached = new PrismaClient();
   return prismaCached;

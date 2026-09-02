@@ -16,8 +16,8 @@ type XlsxModule = typeof import('xlsx-js-style')
 // Helper functions for XLSX
 function getXlsxData(isCm: boolean, filtrados: Equipamento[], filtradosCm: CmItem[]) {
   const headers = isCm
-    ? ['Nome', 'Tipo', 'Status', 'Escola', 'Modelo', 'Serial']
-    : ['Nome', 'Tipo', 'Status', 'Escola', 'Usuário', 'Modelo', 'Serial', 'Localização', 'Aquisição', 'Situação']
+    ? ['Nome', 'Tipo', 'Status', 'Escola', 'Modelo', 'Número de Série']
+    : ['Nome', 'Tipo', 'Status', 'Escola', 'Usuário', 'Modelo', 'Número de Série', 'Localização', 'Aquisição', 'Situação']
 
   const rows = (isCm ? filtradosCm : filtrados).map((item) => (
     isCm

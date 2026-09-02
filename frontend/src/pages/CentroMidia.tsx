@@ -331,7 +331,7 @@ export default function CentroMidiaPage() {
             <input id="modelo" className="w-full rounded border px-3 py-2" value={modelo} onChange={(e) => setModelo(e.target.value.toUpperCase())} />
           </div>
           <div>
-            <label htmlFor="serial" className="mb-1 block text-sm font-medium">Serial</label>
+            <label htmlFor="serial" className="mb-1 block text-sm font-medium">Número de Série</label>
             <input id="serial" className="w-full rounded border px-3 py-2" value={serial} onChange={(e) => setSerial(e.target.value.toUpperCase())} />
           </div>
           <div>
@@ -385,7 +385,7 @@ export default function CentroMidiaPage() {
               <input id="editModelo" className="w-full rounded border px-3 py-2" value={editModelo} onChange={(e) => setEditModelo(e.target.value.toUpperCase())} />
             </div>
             <div>
-              <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Serial</label>
+              <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Número de Série</label>
               <input id="editSerial" className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
             </div>
             <div>

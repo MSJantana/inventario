@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useState, useRef } from 'react';
 import type { ComponentType, RefObject } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
-import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle, Building2, ClipboardList } from 'lucide-react';
+import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle, Building2, ClipboardList, ArrowRightLeft } from 'lucide-react';
 import LogoSystem from './assets/Logo_System.svg';
 import './index.css';
 import EquipamentosPage from './pages/Equipamentos';
@@ -14,10 +14,11 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.4';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.5';
 
 const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
 const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
+const RelatorioMovimentacoesPage = lazy(() => import('./pages/RelatorioMovimentacoes'));
 const AuditoriaPage = lazy(() => import('./pages/Auditoria'));
 const RelatorioEquipamentoPage = lazy(() => import('./pages/RelatorioEquipamento'));
 const CentroMidiaPage = lazy(() => import('./pages/CentroMidia'));
@@ -26,7 +27,7 @@ const CentroMidiaPage = lazy(() => import('./pages/CentroMidia'));
 const navItems = [
   { to: '/movimentacoes', label: 'Movimentações', Icon: Shuffle },
   { to: '/escolas', label: 'Escolas', Icon: School },
-  { to: '/relatorios', label: 'Relatórios', Icon: FileText },
+  // Relatórios virou NavDropdown abaixo (Equipamentos + Movimentações)
   { to: '/auditoria', label: 'Auditoria', Icon: ClipboardList },
   { to: '/usuarios', label: 'Usuários', Icon: User },
 ];
@@ -34,6 +35,11 @@ const navItems = [
 const deptItems = [
   { to: '/equipamentos', label: 'Equipamentos', Icon: Monitor },
   { to: '/centro-midia', label: 'Centro de Midia', Icon: Image },
+];
+
+const relatorioItems = [
+  { to: '/relatorios', label: 'Equipamentos', Icon: Monitor },
+  { to: '/relatorios/movimentacoes', label: 'Movimentações', Icon: ArrowRightLeft },
 ];
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -118,17 +124,29 @@ function NavLinks() {
   const role = getUserRole();
   const items = navItems.filter(({ to }) => canAccessPath(role, to));
   const deptChildren = deptItems.filter(({ to }) => canAccessPath(role, to));
+  const relChildren = relatorioItems.filter(({ to }) => canAccessPath(role, to));
+  const mainItems = items.filter(({ to }) => to !== '/usuarios');
+  const userItem = items.find(({ to }) => to === '/usuarios');
   return (
     <>
       {deptChildren.length > 0 && (
         <NavDropdown label="Departamentos" Icon={Building2} items={deptChildren} />
       )}
-      {items.map(({ to, label, Icon }) => (
+      {mainItems.map(({ to, label, Icon }) => (
         <NavLink key={to} to={to} className={navClass}>
           <Icon className="h-4 w-4" strokeWidth={1.75} />
           <span>{label}</span>
         </NavLink>
       ))}
+      {relChildren.length > 0 && (
+        <NavDropdown label="Relatórios" Icon={FileText} items={relChildren} />
+      )}
+      {userItem && (
+        <NavLink to={userItem.to} className={navClass}>
+          <userItem.Icon className="h-4 w-4" strokeWidth={1.75} />
+          <span>{userItem.label}</span>
+        </NavLink>
+      )}
     </>
   );
 }
@@ -294,6 +312,7 @@ function Header({
         <div className="flex items-center gap-4">
           <div
             className="relative flex items-center mr-2"
+            title={discardedCount > 0 ? `${discardedCount} computadores descartados` : 'Nenhum computador descartado'}
             aria-label={discardedCount > 0 ? `${discardedCount} computadores descartados` : 'Nenhum computador descartado'}
           >
             <span className={`material-symbols-outlined transition-colors duration-500 ${discardedCount > 0 ? 'text-yellow-500' : 'text-green-500'}`} style={{ fontSize: '28px' }} aria-hidden>computer_cancel</span>
@@ -305,6 +324,7 @@ function Header({
           </div>
           <div
             className="relative flex items-center mr-2"
+            title={maintenanceCount > 0 ? `${maintenanceCount} equipamentos em manutenção` : 'Nenhum equipamento em manutenção'}
             aria-label={maintenanceCount > 0 ? `${maintenanceCount} equipamentos em manutenção` : 'Nenhum equipamento em manutenção'}
           >
             <span className={`material-symbols-outlined transition-colors duration-500 ${maintenanceCount > 0 ? 'text-yellow-500' : 'text-green-500'}`} style={{ fontSize: '28px' }} aria-hidden>build</span>
@@ -317,6 +337,7 @@ function Header({
           {expiredCount > 0 && (
             <div
               className="relative flex items-center mr-2"
+              title={`${expiredCount} equipamentos vencidos`}
               aria-label={`${expiredCount} equipamentos vencidos`}
             >
               <span className="material-symbols-outlined text-yellow-500" style={{ fontSize: '28px' }} aria-hidden>warning</span>
@@ -349,8 +370,12 @@ function MobileSidebar({
   const role = getUserRole();
   const items = navItems.filter(({ to }) => canAccessPath(role, to));
   const deptChildren = deptItems.filter(({ to }) => canAccessPath(role, to));
+  const relChildren = relatorioItems.filter(({ to }) => canAccessPath(role, to));
+  const mainItems = items.filter(({ to }) => to !== '/usuarios');
+  const userItem = items.find(({ to }) => to === '/usuarios');
   const location = useLocation();
   const isDeptActive = deptChildren.some(({ to }) => location.pathname.startsWith(to));
+  const isRelActive = relChildren.some(({ to }) => location.pathname === to || location.pathname.startsWith(to + '/'));
   const sidebarRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -413,12 +438,34 @@ function MobileSidebar({
               </div>
             </div>
           )}
-          {items.map(({ to, label, Icon }) => (
+          {mainItems.map(({ to, label, Icon }) => (
             <NavLink key={to} to={to} className={navClass} onClick={onClose}>
               <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               <span>{label}</span>
             </NavLink>
           ))}
+          {relChildren.length > 0 && (
+            <div className="mb-2">
+              <div className={navClass({ isActive: isRelActive })}>
+                <FileText className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                <span>Relatórios</span>
+              </div>
+              <div className="ml-6 mt-1 space-y-1">
+                {relChildren.map(({ to, label, Icon }) => (
+                  <NavLink key={to} to={to} className={navClass} onClick={onClose}>
+                    <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    <span>{label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
+          {userItem && (
+            <NavLink to={userItem.to} className={navClass} onClick={onClose}>
+              <userItem.Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              <span>{userItem.label}</span>
+            </NavLink>
+          )}
         </nav>
         <div className="px-2 pb-4 pt-2">
           {authToken ? (
@@ -572,7 +619,7 @@ export default function App() {
   const setDiscardedCount = useAppStore((state) => state.setDiscardedCount);
 
   useEffect(() => {
-    const excludedPaths = ['/equipamentos', '/relatorios', '/auditoria', '/centro-midia', '/movimentacoes', '/'];
+    const excludedPaths = ['/equipamentos', '/relatorios', '/relatorios/movimentacoes', '/auditoria', '/centro-midia', '/movimentacoes', '/'];
     if (authToken && !excludedPaths.includes(location.pathname)) {
       api.get('/api/equipamentos').then((res) => {
         const list = res.data?.data || res.data || [];
@@ -604,15 +651,17 @@ export default function App() {
     '/movimentacoes': 'Movimentações',
     '/escolas': 'Escolas',
     '/config': 'Configuração',
-    '/relatorios': 'Relatórios',
+    '/relatorios': 'Relatórios > Equipamentos',
+    '/relatorios/movimentacoes': 'Relatórios > Movimentações',
     '/auditoria': 'Auditoria de Importações',
     '/usuarios': 'Gestão de Usuários',
     '/centro-midia': 'Centro de Midia',
   };
 
   const whatsNewItems = [    
-    'Bug Fixed: Flag nunca resetava.',
-    'Bug Fixed: Data de Aquisição = Release Date.'     
+    'Bug Fixed: Corrigido Release Date.',
+    'Bug Fixed: Usuários sem ser Adm podem editar equipamentos.',
+    'Nova Feature: Mudança nas movimentações dos equipamentos tem váris tipos de movimentação.',     
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
@@ -631,7 +680,7 @@ export default function App() {
     setShowWhatsNew(false);
     localStorage.setItem('lastSeenVersion', APP_VERSION);
   };
-  const canScroll = location.pathname === '/relatorios' || isEquipmentReportRoute;
+  const canScroll = location.pathname === '/relatorios' || location.pathname === '/relatorios/movimentacoes' || isEquipmentReportRoute;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -685,6 +734,7 @@ export default function App() {
                 <Route path="/movimentacoes" element={<Suspense fallback={<RouteFallback />}><MovimentacoesPage /></Suspense>} />
                 <Route path="/escolas" element={<EscolasPage />} />
                 <Route path="/relatorios" element={<Suspense fallback={<RouteFallback />}><RelatoriosEquipamentosPage /></Suspense>} />
+                <Route path="/relatorios/movimentacoes" element={<Suspense fallback={<RouteFallback />}><RelatorioMovimentacoesPage /></Suspense>} />
                 <Route path="/auditoria" element={<Suspense fallback={<RouteFallback />}><AuditoriaPage /></Suspense>} />
                 <Route path="/usuarios" element={<RoleGuard allowed={['ADMIN','GESTOR']}><UsuariosPage /></RoleGuard>} />
                 <Route path="/config" element={<RoleGuard allowed={['ADMIN','GESTOR']}><ConfigPage /></RoleGuard>} />

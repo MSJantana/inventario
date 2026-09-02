@@ -181,7 +181,7 @@ export const RelatoriosPDF = ({ data, isCm, filters, logoTop, logoBottom, escola
                 <Text style={[styles.tableCell, styles.colCmStatus]}>Status</Text>
                 <Text style={[styles.tableCell, styles.colCmEscola]}>Escola</Text>
                 <Text style={[styles.tableCell, styles.colCmModelo]}>Modelo</Text>
-                <Text style={[styles.tableCell, styles.colCmSerial]}>Serial</Text>
+                <Text style={[styles.tableCell, styles.colCmSerial]}>Número de Série</Text>
               </>
             ) : (
               <>
@@ -191,7 +191,7 @@ export const RelatoriosPDF = ({ data, isCm, filters, logoTop, logoBottom, escola
                 <Text style={[styles.tableCell, styles.colEscola]}>Escola</Text>
                 <Text style={[styles.tableCell, styles.colUsuario]}>Usuário</Text>
                 <Text style={[styles.tableCell, styles.colModelo]}>Modelo</Text>
-                <Text style={[styles.tableCell, styles.colSerial]}>Serial</Text>
+                <Text style={[styles.tableCell, styles.colSerial]}>Número de Série</Text>
                 <Text style={[styles.tableCell, styles.colLoc]}>Localização</Text>
                 <Text style={[styles.tableCell, styles.colAquisicao]}>Aquisição</Text>
                 <Text style={[styles.tableCell, styles.colSituacao]}>Situação</Text>
