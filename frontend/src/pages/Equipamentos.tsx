@@ -210,7 +210,7 @@ function filterEquipamento(e: Equipamento, texto: string, status: string): boole
   return matchesText && matchesStatus
 }
 
-function EquipamentoRow({ item, onEdit, onDelete, onViewIdCard }: { readonly item: Equipamento, readonly onEdit: (e: Equipamento) => void, readonly onDelete: (id: string) => void, readonly onViewIdCard: (e: Equipamento) => void }) {
+function EquipamentoRow({ item, onEdit, onDelete, onViewIdCard, podeEditar, podeExcluir }: { readonly item: Equipamento, readonly onEdit: (e: Equipamento) => void, readonly onDelete: (id: string) => void, readonly onViewIdCard: (e: Equipamento) => void, readonly podeEditar: boolean, readonly podeExcluir: boolean }) {
   const expired = isExpired(item.dataAquisicao)
   const equipName = item.nome || item.nomeEquipamento || 'equipamento'
   return (
@@ -235,21 +235,25 @@ function EquipamentoRow({ item, onEdit, onDelete, onViewIdCard }: { readonly ite
             <Barcode size={16} aria-hidden />
             <span>Identificação</span>
           </button>
-          <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => onEdit(item)} aria-label={`Editar dados do equipamento ${equipName}`}>
-            <Pencil size={16} aria-hidden />
-            <span>Editar</span>
-          </button>
-          <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => onDelete(item.id)} aria-label={`Excluir o equipamento ${equipName}`}>
-            <Trash2 size={16} aria-hidden />
-            <span>Excluir</span>
-          </button>
+          {podeEditar && (
+            <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => onEdit(item)} aria-label={`Editar dados do equipamento ${equipName}`}>
+              <Pencil size={16} aria-hidden />
+              <span>Editar</span>
+            </button>
+          )}
+          {podeExcluir && (
+            <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => onDelete(item.id)} aria-label={`Excluir o equipamento ${equipName}`}>
+              <Trash2 size={16} aria-hidden />
+              <span>Excluir</span>
+            </button>
+          )}
         </div>
       </td>
     </tr>
   )
 }
 
-function EquipamentoCard({ item, onEdit, onDelete, onViewIdCard }: { readonly item: Equipamento, readonly onEdit: (e: Equipamento) => void, readonly onDelete: (id: string) => void, readonly onViewIdCard: (e: Equipamento) => void }) {
+function EquipamentoCard({ item, onEdit, onDelete, onViewIdCard, podeEditar, podeExcluir }: { readonly item: Equipamento, readonly onEdit: (e: Equipamento) => void, readonly onDelete: (id: string) => void, readonly onViewIdCard: (e: Equipamento) => void, readonly podeEditar: boolean, readonly podeExcluir: boolean }) {
   const equipName = item.nome || item.nomeEquipamento || 'equipamento'
   const expired = isExpired(item.dataAquisicao)
   return (
@@ -271,14 +275,18 @@ function EquipamentoCard({ item, onEdit, onDelete, onViewIdCard }: { readonly it
           <Barcode size={14} aria-hidden />
           <span>Identificação</span>
         </button>
-        <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => onEdit(item)} aria-label={`Editar dados do equipamento ${equipName}`}>
-          <Pencil size={14} aria-hidden />
-          <span>Editar</span>
-        </button>
-        <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => onDelete(item.id)} aria-label={`Excluir o equipamento ${equipName}`}>
-          <Trash2 size={14} aria-hidden />
-          <span>Excluir</span>
-        </button>
+        {podeEditar && (
+          <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white text-xs hover:bg-yellow-700 flex items-center justify-center gap-1" onClick={() => onEdit(item)} aria-label={`Editar dados do equipamento ${equipName}`}>
+            <Pencil size={14} aria-hidden />
+            <span>Editar</span>
+          </button>
+        )}
+        {podeExcluir && (
+          <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white text-xs hover:bg-red-700 flex items-center justify-center gap-1" onClick={() => onDelete(item.id)} aria-label={`Excluir o equipamento ${equipName}`}>
+            <Trash2 size={14} aria-hidden />
+            <span>Excluir</span>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -380,6 +388,8 @@ export default function EquipamentosPage() {
   const winauditWizardTimerRef = useRef<number | null>(null)
   const winauditFileRef = useRef<HTMLInputElement | null>(null)
   const userRole = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
+  const podeEditarEquipamento = userRole === 'ADMIN' || userRole === 'GESTOR' || userRole === 'TECNICO'
+  const podeExcluirEquipamento = userRole === 'ADMIN' || userRole === 'GESTOR'
 
   const keyOfMapeamento = (row: WinAuditMapeamentoWizard, idx: number) => {
     const base = `${row.campoRelatorio}|${row.campoCadastro}|${row.valorEncontrado}`
@@ -542,7 +552,7 @@ export default function EquipamentosPage() {
       return
     }
     if (!nome.trim() || !modelo.trim() || !serial.trim() || !dataAquisicao || !usuarioNome.trim()) {
-      showWarningToast('Preencha Nome, Modelo, Serial, Data de Aquisição e Nome do Usuário')
+      showWarningToast('Preencha Nome, Modelo, Número de Série, Data de Aquisição e Nome do Usuário')
       return
     }
     if (!isValidDateStr(dataAquisicao)) {
@@ -657,7 +667,7 @@ export default function EquipamentosPage() {
   async function criarEquipamento(ev: React.FormEvent) {
     ev.preventDefault()
     if (!nome.trim() || !modelo.trim() || !serial.trim() || !dataAquisicao || !usuarioNome.trim()) {
-      showWarningToast('Preencha Nome, Modelo, Serial, Data de Aquisição e Nome do Usuário')
+      showWarningToast('Preencha Nome, Modelo, Número de Série, Data de Aquisição e Nome do Usuário')
       return
     }
     if (!isValidDateStr(dataAquisicao)) {
@@ -693,6 +703,10 @@ export default function EquipamentosPage() {
   }
 
   function startEdit(e: Equipamento) {
+    if (!podeEditarEquipamento) {
+      showWarningToast('Você não tem permissão para editar equipamentos.')
+      return
+    }
     setEditingId(e.id)
     setEditNome(e.nome || e.nomeEquipamento || '')
     setEditPatrimonio(e.patrimonio || '')
@@ -778,6 +792,10 @@ export default function EquipamentosPage() {
   }
 
   function confirmarExclusao(id: string) {
+    if (!podeExcluirEquipamento) {
+      showWarningToast('Você não tem permissão para excluir equipamentos.')
+      return
+    }
     showConfirmToast('Tem certeza que deseja excluir este equipamento?', () => excluirEquipamento(id))
   }
 
@@ -842,7 +860,7 @@ export default function EquipamentosPage() {
           <h2 className="text-lg font-medium">Equipamentos</h2>
           <div className="flex items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
-            {!showCreate && (
+            {!showCreate && podeEditarEquipamento && (
               <button type="button" aria-label="Criar novo equipamento" className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} aria-hidden="true" />
                 <span>Criar equipamento</span>
@@ -884,7 +902,7 @@ export default function EquipamentosPage() {
             </thead>
             <tbody>
               {pagina.map((e) => (
-                <EquipamentoRow key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} />
+                <EquipamentoRow key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} podeEditar={podeEditarEquipamento} podeExcluir={podeExcluirEquipamento} />
               ))}
               {filtrada.length === 0 && !loading && (
                 <tr>
@@ -898,7 +916,7 @@ export default function EquipamentosPage() {
         {/* Cards para mobile */}
         <div className="md:hidden divide-y divide-gray-200 border">
           {pagina.map((e) => (
-            <EquipamentoCard key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} />
+            <EquipamentoCard key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} podeEditar={podeEditarEquipamento} podeExcluir={podeExcluirEquipamento} />
           ))}
           {filtrada.length === 0 && !loading && (
             <div className="p-4 text-center text-sm text-gray-600">Nenhum equipamento encontrado.</div>
@@ -1245,7 +1263,7 @@ export default function EquipamentosPage() {
                       { k: 'usuarioNome', label: 'Nome do usuário', valor: winauditPreview.dados.usuarioNome },
                       { k: 'fabricante', label: 'Fabricante', valor: winauditPreview.dados.fabricante },
                       { k: 'modelo', label: 'Modelo (composto)', valor: winauditPreview.dados.modelo },
-                      { k: 'serial', label: 'Serial', valor: winauditPreview.dados.serial },
+                      { k: 'serial', label: 'Número de Série', valor: winauditPreview.dados.serial },
                       { k: 'macaddress', label: 'MAC Address (principal)', valor: winauditPreview.dados.macPrincipal },
                       { k: 'processador', label: 'Processador', valor: winauditPreview.dados.processador },
                       { k: 'memoria', label: 'Memória', valor: winauditPreview.dados.memoriaFormatada || winauditPreview.dados.memoria },
@@ -1398,7 +1416,7 @@ export default function EquipamentosPage() {
               <input id="modelo" className="w-full rounded border px-3 py-2" value={modelo} onChange={(e) => setModelo(e.target.value.toUpperCase())} />
             </div>
             <div>
-              <label htmlFor="serial" className="mb-1 block text-sm font-medium">Serial</label>
+              <label htmlFor="serial" className="mb-1 block text-sm font-medium">Número de Série</label>
               <input id="serial" className="w-full rounded border px-3 py-2" value={serial} onChange={(e) => setSerial(e.target.value.toUpperCase())} />
             </div>
             <div>
@@ -1527,7 +1545,7 @@ export default function EquipamentosPage() {
                 <input id="editModelo" className="w-full rounded border px-3 py-2" value={editModelo} onChange={(e) => setEditModelo(e.target.value.toUpperCase())} />
               </div>
               <div>
-                <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Serial</label>
+                <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Número de Série</label>
                 <input id="editSerial" className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
               </div>
               <div>

@@ -1,251 +1,277 @@
-import { prisma } from '../index.js';
-import { getSchoolScopeWhere, hasSchoolAccess, resolveManagedSchoolId } from '../utils/schoolAccess.js';
+/**
+ * Controlador de Movimentações (Refatorado 2026-08-31)
+ * ------------------------------------------------------
+ * - Usa MovimentacaoService (transação atomicidade + regras status + escopo escola).
+ * - Mantém 100% compatibilidade com payloads antigos (tipo, data, descricao)
+ *   e campos novos (tipoMovimento, dataMovimento, observacoes).
+ * - DELETE /:id agora é ESTORNO AUDITÁVEL (não apaga linha).
+ * - Adiciona endpoints especializados e relatório.
+ */
 
-const safeUpdateEquipamento = async (req, equipamentoId, data, context) => {
-  try {
-    await prisma.equipamento.update({
-      where: { id: equipamentoId },
-      data
-    });
-  } catch (err) {
-    const payload = {
-      requestId: req?.id,
-      equipamentoId,
-      context,
-      code: err?.code,
-      target: err?.meta?.target,
-      message: err?.message,
-    };
-    if (req?.log) {
-      req.log.warn(payload, 'Falha ao atualizar equipamento');
-    } else {
-      console.warn('[movimentacoes] Falha ao atualizar equipamento', payload);
-    }
-  }
+import { hasSchoolAccess, resolveManagedSchoolId } from '../utils/schoolAccess.js';
+import {
+  criarMovimentacao as serviceCriar,
+  atualizarMovimentacao as serviceAtualizar,
+  estornarMovimentacao as serviceEstornar,
+  criarManutencaoEnvio,
+  criarManutencaoRetorno,
+  criarEmprestimo,
+  criarDevolucao,
+  criarDoacao,
+  criarTransferencia,
+  listarMovimentacoesRelatorio,
+  montarWhereFiltros,
+  getPrisma,
+} from '../services/MovimentacaoService.js';
+
+const includesMovimentacaoCompleta = {
+  equipamento: true,
+  escola: true,
+  manutencao: {
+    include: {
+      movimentacaoEnvio: {
+        select: { id: true, tipoMovimento: true, dataMovimento: true, observacoes: true,
+          usuario: { select: { id: true, nome: true } } },
+      },
+    },
+  },
+  doacao: true,
+  emprestimo: {
+    include: {
+      movimentacaoSaida: {
+        select: { id: true, tipoMovimento: true, dataMovimento: true, observacoes: true,
+          usuario: { select: { id: true, nome: true } } },
+      },
+    },
+  },
+  usuario: true,
+  movimentacaoEstorno: {
+    select: { id: true, dataMovimento: true, observacoes: true, estornado: true, motivoEstorno: true, estornadoPorUsuarioId: true, estornadoEm: true },
+  },
 };
 
-const mapTipoToStatus = (tipo) => {
-  switch (tipo) {
-    case 'ENTRADA':
-      return 'DISPONIVEL';
-    case 'SAIDA':
-      return 'EM_USO';
-    case 'MANUTENCAO':
-      return 'EM_MANUTENCAO';
-    case 'DESCARTE':
-      return 'DESCARTADO';
-    case 'TRANSFERENCIA':
-      return undefined;
-    default:
-      return undefined;
+async function obterMovimentacaoCompleta(id) {
+  const prisma = getPrisma();
+  return prisma.movimentacao.findUnique({ where: { id }, include: includesMovimentacaoCompleta });
+}
+
+
+/**
+ * Converte payload antigo ↔ novo (compatibilidade bidirecional).
+ */
+const normalizarPayloadEntrada = (body, usuario) => {
+  const saida = { ...body };
+  // Aliases antigos: tipo / data / descricao
+  if (!saida.tipoMovimento && saida.tipo) saida.tipoMovimento = saida.tipo;
+  if (!saida.dataMovimento && saida.data) saida.dataMovimento = saida.data;
+  if (!saida.observacoes && saida.descricao) saida.observacoes = saida.descricao;
+  // Resolve escolaId (gestor -> sua escola; admin -> body; não sobrescreve se já existir)
+  if (!saida.escolaId || usuario?.role === 'GESTOR') {
+    const escolaResolvida = resolveManagedSchoolId(usuario, saida.escolaId);
+    if (escolaResolvida) saida.escolaId = escolaResolvida;
   }
+  return saida;
 };
 
-// Listar todas as movimentações
+const serializarSaida = (m) => {
+  if (!m) return m;
+  return {
+    ...m,
+    tipo: m.tipoMovimento,
+    data: m.dataMovimento,
+    descricao: m.observacoes,
+  };
+};
+
+const serializarLista = (items) => (items || []).map(serializarSaida);
+
+// ========== Rotas COMPATIBILIDADE ANTIGAS (mantidas funcionando) ==========
+
 export const listarMovimentacoes = async (req, res, next) => {
   try {
-    const where = getSchoolScopeWhere(req.usuario);
-    const movimentacoes = await prisma.movimentacao.findMany({
-      where,
-      include: {
-        equipamento: true,
-        escola: true
-      }
+    const where = montarWhereFiltros(req.query, req.usuario);
+    const page = Number(req.query.page || 1);
+    const perPage = Number(req.query.perPage || 50);
+    const paginado = await listarMovimentacoesRelatorio(where, page, perPage);
+    // Compatibilidade total com response antigo: retorna array plano se NÃO vier ?page
+    if (!req.query.page && !req.query.perPage) {
+      return res.json(serializarLista(paginado.items));
+    }
+    return res.json({
+      page: paginado.page,
+      perPage: paginado.perPage,
+      total: paginado.total,
+      totalPages: paginado.totalPages,
+      items: serializarLista(paginado.items),
     });
-    const response = movimentacoes.map(m => ({
-      ...m,
-      tipo: m.tipoMovimento,
-      data: m.dataMovimento,
-      descricao: m.observacoes,
-    }));
-    res.json(response);
   } catch (error) {
     next(error);
   }
 };
 
-// Obter uma movimentação específica
 export const obterMovimentacao = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const movimentacao = await prisma.movimentacao.findUnique({
-      where: { id },
-      include: {
-        equipamento: true,
-        escola: true
-      }
-    });
-
+    const movimentacao = await obterMovimentacaoCompleta(id);
     if (!movimentacao) {
       return res.status(404).json({ error: 'Movimentação não encontrada' });
     }
-
-    if (!hasSchoolAccess(req.usuario, movimentacao.escolaId)) {
+    if (!hasSchoolAccess(req.usuario, {
+      escolaId: movimentacao.escolaId,
+      equipamentoEscolaId: movimentacao.equipamento?.escolaId,
+    })) {
       return res.status(403).json({ error: 'Acesso restrito à movimentações da sua escola' });
     }
-
-    const response = {
-      ...movimentacao,
-      tipo: movimentacao.tipoMovimento,
-      data: movimentacao.dataMovimento,
-      descricao: movimentacao.observacoes,
-    };
-    res.json(response);
+    res.json(serializarSaida(movimentacao));
   } catch (error) {
     next(error);
   }
 };
 
-// Criar uma nova movimentação
 export const criarMovimentacao = async (req, res, next) => {
   try {
-    const { equipamentoId,  tipo, origem, destino, data, descricao } = req.body;
-
-    // GESTOR só pode criar para a própria escola
+    // GESTOR escola check
     if (req.usuario?.role === 'GESTOR' && req.body.escolaId && !hasSchoolAccess(req.usuario, req.body.escolaId)) {
       return res.status(403).json({ error: 'Gestor só pode registrar movimentações na própria escola' });
     }
-
-    const escolaIdMovimentacao = resolveManagedSchoolId(req.usuario, req.body.escolaId);
-    if (req.usuario?.role === 'GESTOR' && !escolaIdMovimentacao) {
+    const payload = normalizarPayloadEntrada(req.body, req.usuario);
+    if (req.usuario?.role === 'GESTOR' && !payload.escolaId) {
       return res.status(403).json({ error: 'Gestor nao possui escola vinculada para registrar movimentacoes' });
     }
-
-    // Obter nome do usuário que está logado para preencher responsavel
-    const usuario = await prisma.usuario.findUnique({
-      where: { id: req.usuario.id },
-      select: { nome: true }
-    });
-
-    const movimentacao = await prisma.movimentacao.create({
-      data: {
-        equipamentoId,
-        responsavel: usuario?.nome ?? 'Desconhecido',
-        tipoMovimento: tipo,
-        origem,
-        destino,
-        dataMovimento: new Date(data),
-        observacoes: descricao,
-        escolaId: escolaIdMovimentacao
-      },
-      include: {
-        equipamento: true,        
-        escola: true
-      }
-    });
-
-    const novoStatus = mapTipoToStatus(tipo);
-    if (novoStatus) {
-      await safeUpdateEquipamento(req, equipamentoId, { status: novoStatus }, 'criarMovimentacao.status');
+    // Validação: equipamentoId + tipo obrigatórios
+    if (!payload.equipamentoId) {
+      return res.status(400).json({ error: 'equipamentoId é obrigatório' });
     }
-
-    const novoLocal = typeof destino === 'string' ? destino.trim() : '';
-    if (novoLocal) {
-      await safeUpdateEquipamento(req, equipamentoId, { localizacao: novoLocal }, 'criarMovimentacao.localizacao');
+    if (!payload.tipoMovimento) {
+      return res.status(400).json({ error: 'tipo (tipoMovimento) é obrigatório' });
     }
-
+    const { movimentacao, transicao } = await serviceCriar(payload, req.usuario);
+    const completa = await obterMovimentacaoCompleta(movimentacao.id);
     const response = {
-      ...movimentacao,
-      tipo: movimentacao.tipoMovimento,
-      data: movimentacao.dataMovimento,
-      descricao: movimentacao.observacoes,
+      ...serializarSaida(completa || movimentacao),
+      transicaoStatus: transicao || null,
     };
-    res.status(201).json(response);
+    return res.status(201).json(response);
   } catch (error) {
     next(error);
   }
 };
 
-// Atualizar uma movimentação
 export const atualizarMovimentacao = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { equipamentoId, tipo, data, descricao } = req.body;
-
-    // Verificar se a movimentação existe
-    const movimentacaoExistente = await prisma.movimentacao.findUnique({
-      where: { id }
+    const prisma = getPrisma();
+    const existente = await prisma.movimentacao.findUnique({
+      where: { id },
+      include: { equipamento: true },
     });
-
-    if (!movimentacaoExistente) {
+    if (!existente) {
       return res.status(404).json({ error: 'Movimentação não encontrada' });
     }
-
-    if (req.usuario?.role === 'GESTOR' && !hasSchoolAccess(req.usuario, movimentacaoExistente.escolaId)) {
+    if (req.usuario?.role === 'GESTOR' && !hasSchoolAccess(req.usuario, {
+      escolaId: existente.escolaId,
+      equipamentoEscolaId: existente.equipamento?.escolaId,
+    })) {
       return res.status(403).json({ error: 'Acesso restrito à movimentações da sua escola' });
     }
-
-    // Atualizar a movimentação
-    const movimentacao = await prisma.movimentacao.update({
-      where: { id },
-      data: {
-        equipamentoId,
-        tipoMovimento: tipo,
-        dataMovimento: data ? new Date(data) : undefined,
-        observacoes: descricao,
-        escolaId: movimentacaoExistente.escolaId
-      },
-      include: {
-        equipamento: true,
-        escola: true
-      }
-    });
-
-    const tipoParaStatus = tipo || movimentacaoExistente.tipoMovimento;
-    const statusAtualizado = mapTipoToStatus(tipoParaStatus);
-    const equipamentoAlvo = equipamentoId || movimentacaoExistente.equipamentoId;
-    if (statusAtualizado && equipamentoAlvo) {
-      await safeUpdateEquipamento(req, equipamentoAlvo, { status: statusAtualizado }, 'atualizarMovimentacao.status');
-    }
-
-    let destinoAtual = '';
-    if (typeof req.body.destino === 'string') {
-      destinoAtual = req.body.destino.trim();
-    }
-    if (!destinoAtual && typeof movimentacaoExistente.destino === 'string') {
-      destinoAtual = movimentacaoExistente.destino.trim();
-    }
-    if (destinoAtual && equipamentoAlvo) {
-      await safeUpdateEquipamento(req, equipamentoAlvo, { localizacao: destinoAtual }, 'atualizarMovimentacao.localizacao');
-    }
-
-    const response = {
-      ...movimentacao,
-      tipo: movimentacao.tipoMovimento,
-      data: movimentacao.dataMovimento,
-      descricao: movimentacao.observacoes,
-    };
-    res.json(response);
+    const payload = normalizarPayloadEntrada(req.body, req.usuario);
+    const { movimentacao } = await serviceAtualizar(id, payload, req.usuario);
+    const completa = await obterMovimentacaoCompleta(movimentacao.id);
+    return res.json(serializarSaida(completa || movimentacao));
   } catch (error) {
     next(error);
   }
 };
 
-// Excluir uma movimentação
+// IMPORTANTE: DELETE /:id = ESTORNO (não apaga linha)
 export const excluirMovimentacao = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    // Verificar se a movimentação existe
-    const movimentacao = await prisma.movimentacao.findUnique({
-      where: { id }
+    const motivo = req.body?.motivo || req.query?.motivo || 'Exclusão solicitada pelo usuário (sem motivo específico)';
+    const resultado = await serviceEstornar(id, motivo, req.usuario);
+    return res.json({
+      message: 'Movimentação estornada com sucesso (auditoria preservada).',
+      ...resultado,
     });
-
-    if (!movimentacao) {
-      return res.status(404).json({ error: 'Movimentação não encontrada' });
-    }
-
-    if (req.usuario?.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Apenas ADMIN pode excluir movimentações' });
-    }
-
-    // Excluir a movimentação
-    await prisma.movimentacao.delete({
-      where: { id }
-    });
-
-    res.json({ message: 'Movimentação excluída com sucesso' });
   } catch (error) {
     next(error);
   }
+};
+
+// ========== Endpoints ESPECIALIZADOS (novos) ==========
+
+const handlerEspecializado = (fn) => async (req, res, next) => {
+  try {
+    const payload = normalizarPayloadEntrada(req.body, req.usuario);
+    const { movimentacao } = await fn(payload, req.usuario);
+    const completa = await obterMovimentacaoCompleta(movimentacao.id);
+    return res.status(201).json(serializarSaida(completa || movimentacao));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const postManutencaoEnvio = handlerEspecializado(criarManutencaoEnvio);
+export const postManutencaoRetorno = handlerEspecializado(criarManutencaoRetorno);
+export const postEmprestimo = handlerEspecializado(criarEmprestimo);
+export const postDevolucao = handlerEspecializado(criarDevolucao);
+export const postDoacao = handlerEspecializado(criarDoacao);
+export const postTransferencia = handlerEspecializado(criarTransferencia);
+
+// Estorno explícito (mesmo que DELETE, aceita POST com corpo JSON maior)
+export const postEstornar = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const motivo = req.body?.motivo || 'Estorno manual';
+    const resultado = await serviceEstornar(id, motivo, req.usuario);
+    return res.json({ message: 'Estorno aplicado com sucesso.', ...resultado });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ========== Relatório ==========
+export const getRelatorio = async (req, res, next) => {
+  try {
+    const where = montarWhereFiltros(req.query, req.usuario);
+    const page = Number(req.query.page || 1);
+    const perPage = Number(req.query.perPage || 50);
+    const resultado = await listarMovimentacoesRelatorio(where, page, perPage);
+    return res.json({
+      page: resultado.page,
+      perPage: resultado.perPage,
+      total: resultado.total,
+      totalPages: resultado.totalPages,
+      filtrosAplicados: {
+        periodoInicio: req.query.periodoInicio || null,
+        periodoFim: req.query.periodoFim || null,
+        escolaId: req.query.escolaId || null,
+        tipoMovimento: req.query.tipoMovimento || null,
+        usuarioId: req.query.usuarioId || null,
+        equipamentoId: req.query.equipamentoId || null,
+        patrimonio: req.query.patrimonio || null,
+        serial: req.query.serial || null,
+        estornado: req.query.estornado !== undefined && req.query.estornado !== '' ? req.query.estornado : null,
+      },
+      items: serializarLista(resultado.items),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export default {
+  listarMovimentacoes,
+  obterMovimentacao,
+  criarMovimentacao,
+  atualizarMovimentacao,
+  excluirMovimentacao,
+  postManutencaoEnvio,
+  postManutencaoRetorno,
+  postEmprestimo,
+  postDevolucao,
+  postDoacao,
+  postTransferencia,
+  postEstornar,
+  getRelatorio,
 };

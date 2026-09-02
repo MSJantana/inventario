@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Pagination from '../components/Pagination'
-import { Plus, Pencil, Trash2, Save, RotateCcw, X, Filter } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, RotateCcw, X, Filter, ExternalLink } from 'lucide-react'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
 import { useAppStore } from '../store/useAppStore'
@@ -8,7 +9,16 @@ import { useAppStore } from '../store/useAppStore'
 type Mov = {
   id: string
   equipamentoId: string
-  equipamento?: { nome?: string }
+  equipamento?: {
+    nome?: string
+    modelo?: string
+    marca?: string
+    fabricante?: string
+    patrimonio?: string
+    serial?: string
+    tipo?: string
+    status?: string
+  }
   tipo?: string
   origem?: string
   destino?: string
@@ -18,16 +28,146 @@ type Mov = {
   escola?: { nome?: string }
 }
 
-type EquipamentoOption = { id: string; nome?: string; localizacao?: string; tipo?: string }
+type EquipamentoOption = { id: string; nome?: string; localizacao?: string; tipo?: string; status?: string }
 type EscolaOption = { id: string; nome: string; sigla?: string }
 
-const TIPOS = ['ENTRADA','SAIDA','TRANSFERENCIA','MANUTENCAO','DESCARTE'] as const
+const TIPOS_COMPLETOS = [
+  'ENTRADA','SAIDA','TRANSFERENCIA','MANUTENCAO','DESCARTE',
+  'MANUTENCAO_ENVIO','MANUTENCAO_RETORNO','EMPRESTIMO','DEVOLUCAO','DOACAO','AJUSTE',
+] as const
+
+type TipoMovimento = (typeof TIPOS_COMPLETOS)[number]
+
+type CategoriaTipo = 'BASICOS' | 'MANUTENCAO' | 'EMPRESTIMO' | 'DOACAO' | 'AJUSTES'
+
+type OpcaoTipoFormulario = {
+  value: TipoMovimento
+  label: string
+  categoria: CategoriaTipo
+  descricao?: string
+  terminal?: boolean
+  apenasAdmin?: boolean
+  endpoint?: string
+  statusEquipamentoPermitidos?: string[] | null
+}
+
+const TIPOS_FORMULARIO: OpcaoTipoFormulario[] = [
+  { value: 'ENTRADA',           label: 'Entrada',                     categoria: 'BASICOS',    descricao: 'Equipamento entra no estoque/instituição' },
+  { value: 'SAIDA',             label: 'Saída',                       categoria: 'BASICOS',    descricao: 'Equipamento sai do estoque/instituição' },
+  { value: 'TRANSFERENCIA',     label: 'Transferência',               categoria: 'BASICOS',    descricao: 'Muda escola/localização interna', endpoint: '/api/movimentacoes/transferencia' },
+  { value: 'DESCARTE',          label: 'Descarte',                    categoria: 'BASICOS',    descricao: 'Equipamento descartado (terminal)', terminal: true, apenasAdmin: true },
+  { value: 'AJUSTE',            label: 'Ajuste',                      categoria: 'AJUSTES',    descricao: 'Corrigir dados (estorno/inconsistência)' },
+
+  { value: 'MANUTENCAO_ENVIO',  label: '🔧 Envio para Manutenção',    categoria: 'MANUTENCAO', descricao: 'Envia equipamento para fornecedor/oficina', endpoint: '/api/movimentacoes/manutencao/envio' },
+  { value: 'MANUTENCAO_RETORNO',label: '🔩 Retorno de Manutenção',    categoria: 'MANUTENCAO', descricao: 'Equipamento volta de manutenção', endpoint: '/api/movimentacoes/manutencao/retorno', statusEquipamentoPermitidos: ['EM_MANUTENCAO'] },  
+  { value: 'EMPRESTIMO',        label: '🤝 Empréstimo',                categoria: 'EMPRESTIMO', descricao: 'Saída temporária para terceiros/setores', endpoint: '/api/movimentacoes/emprestimo', statusEquipamentoPermitidos: ['DISPONIVEL','EM_USO'] },
+  { value: 'DEVOLUCAO',         label: '↩️ Devolução de Empréstimo',   categoria: 'EMPRESTIMO', descricao: 'Retorno de empréstimo', endpoint: '/api/movimentacoes/devolucao', statusEquipamentoPermitidos: ['EMPRESTADO'] },
+  { value: 'DOACAO',            label: '❤️ Doação',                    categoria: 'DOACAO',     descricao: 'Transferência definitiva para terceiro (terminal · retira do inventário)', terminal: true, apenasAdmin: true, endpoint: '/api/movimentacoes/doacao', statusEquipamentoPermitidos: ['DISPONIVEL','EM_USO'] },
+]
+
+const ROTULOS_CATEGORIA: Record<CategoriaTipo, { titulo: string; icone: string; ajuda?: string }> = {
+  BASICOS:    { titulo: '📦 Movimentações Básicas',    icone: '📦', ajuda: 'Uso diário: entrada, saída, transferência e descarte.' },
+  MANUTENCAO: { titulo: '🔧 Manutenção',               icone: '🔧', ajuda: 'Envio e retorno de equipamento para oficina/fornecedor.' },
+  EMPRESTIMO: { titulo: '🤝 Empréstimo',               icone: '🤝', ajuda: 'Empréstimos e devoluções temporárias.' },
+  DOACAO:     { titulo: '❤️ Doação',                   icone: '❤️', ajuda: 'Movimento terminal. Retira equipamento do inventário operacional.' },
+  AJUSTES:    { titulo: '🔧 Ajustes',                  icone: '⚙️', ajuda: 'Ajustes e correções de consistência (auditáveis).' },
+}
+
+const TIPOS_SERVICO_MANUT = ['GARANTIA','CONTRATO','AVULSO','INTERNO','OUTRO'] as const
+
+type FormManutencaoEnvio = {
+  fornecedorNome: string
+  fornecedorContato: string
+  numeroOS: string
+  tipoServico: string
+  tecnicoResponsavel: string
+  defeitoRelatado: string
+  dataEnvio: string
+  prazoRetorno: string
+  observacoes: string
+}
+const MANUT_ENVIO_INIT: FormManutencaoEnvio = {
+  fornecedorNome:'', fornecedorContato:'', numeroOS:'', tipoServico:'AVULSO', tecnicoResponsavel:'',
+  defeitoRelatado:'', dataEnvio: new Date().toISOString().slice(0,16), prazoRetorno:'', observacoes:''
+}
+
+type FormManutencaoRetorno = {
+  movimentacaoEnvioId: string
+  dataRetornoEfetiva: string
+  laudoTecnico: string
+  solucao: string
+  pecasTrocadasTexto: string
+  valorServico: string
+  statusFinal: 'DISPONIVEL' | 'EM_USO'
+  observacoes: string
+}
+const MANUT_RETORNO_INIT: FormManutencaoRetorno = {
+  movimentacaoEnvioId:'', dataRetornoEfetiva: new Date().toISOString().slice(0,16),
+  laudoTecnico:'', solucao:'', pecasTrocadasTexto:'', valorServico:'', statusFinal:'DISPONIVEL', observacoes:''
+}
+
+type FormDoacao = {
+  beneficiarioNome: string
+  beneficiarioCpfCnpj: string
+  beneficiarioContato: string
+  dataEntregaEfetiva: string
+  numeroPortaria: string
+  enderecoEntrega: string
+  responsavelEntrega: string
+  motivo: string
+  observacoesInternas: string
+}
+const DOACAO_INIT: FormDoacao = {
+  beneficiarioNome:'', beneficiarioCpfCnpj:'', beneficiarioContato:'',
+  dataEntregaEfetiva: new Date().toISOString().slice(0,10),
+  numeroPortaria:'', enderecoEntrega:'', responsavelEntrega:'', motivo:'', observacoesInternas:''
+}
+
+type FormEmprestimo = {
+  beneficiarioNome: string
+  beneficiarioDocumento: string
+  beneficiarioContato: string
+  tomadorNome: string
+  tomadorCargo: string
+  localDestino: string
+  dataSaida: string
+  dataPrevistaDevolucao: string
+  estadoConservacaoSaida: string
+  termoAssinado: boolean
+  termoUrl: string
+  observacoesInternas: string
+}
+const EMPRESTIMO_INIT: FormEmprestimo = {
+  beneficiarioNome:'', beneficiarioDocumento:'', beneficiarioContato:'',
+  tomadorNome:'', tomadorCargo:'', localDestino:'',
+  dataSaida: new Date().toISOString().slice(0,16),
+  dataPrevistaDevolucao:'', estadoConservacaoSaida:'BOM',
+  termoAssinado:false, termoUrl:'', observacoesInternas:''
+}
+
+type FormDevolucao = {
+  movimentacaoSaidaId: string
+  dataDevolucaoEfetiva: string
+  estadoConservacaoRetorno: string
+  statusFinal: 'DISPONIVEL' | 'EM_USO'
+  observacoesInternas: string
+}
+const DEVOLUCAO_INIT: FormDevolucao = {
+  movimentacaoSaidaId:'', dataDevolucaoEfetiva: new Date().toISOString().slice(0,16),
+  estadoConservacaoRetorno:'BOM', statusFinal:'DISPONIVEL', observacoesInternas:''
+}
 
 const TIPO_BADGE_CLASSES: Readonly<Record<string, string>> = {
   ENTRADA: 'bg-green-100 text-green-800',
   SAIDA: 'bg-red-100 text-red-800',
   TRANSFERENCIA: 'bg-blue-100 text-blue-800',
   MANUTENCAO: 'bg-yellow-100 text-yellow-800',
+  MANUTENCAO_ENVIO: 'bg-yellow-100 text-yellow-900',
+  MANUTENCAO_RETORNO: 'bg-yellow-200 text-yellow-900',
+  EMPRESTIMO: 'bg-indigo-100 text-indigo-800',
+  DEVOLUCAO: 'bg-indigo-200 text-indigo-900',
+  DOACAO: 'bg-rose-100 text-rose-800',
+  AJUSTE: 'bg-slate-300 text-slate-800',
   DESCARTE: 'bg-gray-100 text-gray-800',
 } as const
 
@@ -36,7 +176,25 @@ function getClasseBadgeTipo(tipo?: string): string {
   return TIPO_BADGE_CLASSES[tipo] ?? 'bg-gray-100 text-gray-800'
 }
 
+function formatarNomeEquipamento(eq?: Mov['equipamento'] | null): { titulo: string; detalhe: string | null } {
+  if (!eq) return { titulo: 'Equipamento não informado', detalhe: null }
+  const nome = (eq.nome || '').trim()
+  const modelo = (eq.modelo || '').trim()
+  const marca = (eq.marca || eq.fabricante || '').trim()
+  const patrimonio = (eq.patrimonio || '').trim()
+  const partesTitulo: string[] = []
+  if (nome) partesTitulo.push(nome)
+  if (modelo) partesTitulo.push(modelo)
+  const titulo = partesTitulo.join(' · ') || (patrimonio ? `Patrimônio ${patrimonio}` : 'Equipamento')
+  const detalhes: string[] = []
+  if (marca && !nome.includes(marca) && !modelo.includes(marca)) detalhes.push(marca)
+  if (patrimonio) detalhes.push(`Pat.: ${patrimonio}`)
+  if (eq.tipo && !nome.includes(eq.tipo) && !modelo.includes(eq.tipo)) detalhes.push(eq.tipo)
+  return { titulo, detalhe: detalhes.length ? detalhes.join(' • ') : null }
+}
+
 export default function MovimentacoesPage() {
+  const navigate = useNavigate()
   const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount)
   const setDiscardedCount = useAppStore((state) => state.setDiscardedCount)
   const setExpiredCount = useAppStore((state) => state.setExpiredCount)
@@ -53,18 +211,49 @@ export default function MovimentacoesPage() {
   const buscarInputRef = useRef<HTMLInputElement | null>(null)
 
   const [equipamentoId, setEquipamentoId] = useState('')
-  const [tipo, setTipo] = useState<string>('ENTRADA')
   const [origem, setOrigem] = useState('')
   const [destino, setDestino] = useState('')
   const [data, setData] = useState<string>('')
   const [descricao, setDescricao] = useState('')
 
+  const [formManutEnvio, setFormManutEnvio] = useState<FormManutencaoEnvio>({ ...MANUT_ENVIO_INIT })
+  const [formManutRetorno, setFormManutRetorno] = useState<FormManutencaoRetorno>({ ...MANUT_RETORNO_INIT })
+  const [formDoacao, setFormDoacao] = useState<FormDoacao>({ ...DOACAO_INIT })
+  const [formEmprestimo, setFormEmprestimo] = useState<FormEmprestimo>({ ...EMPRESTIMO_INIT })
+  const [formDevolucao, setFormDevolucao] = useState<FormDevolucao>({ ...DEVOLUCAO_INIT })
+  const [doacaoStep, setDoacaoStep] = useState<1 | 2>(1)
+  const [countdownDoacao, setCountdownDoacao] = useState<number>(3)
+
+  const [opcaoTipoSelecionada, setOpcaoTipoSelecionada] = useState<OpcaoTipoFormulario | undefined>(() => TIPOS_FORMULARIO.find(t => t.value === 'ENTRADA'))
+  const role = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
+  const isAdmin = role === 'ADMIN'
+
+  const TIPOS_PERMITIDOS_NA_CRIACAO = useMemo(() => {
+    return TIPOS_FORMULARIO
+      .filter((t) => !(t.apenasAdmin && !isAdmin))
+      .map((t) => t.value as string)
+  }, [isAdmin])
+
+  const TIPOS_PERMITIDOS_FORM = useMemo(() => {
+    return TIPOS_FORMULARIO.filter((t) => !(t.apenasAdmin && !isAdmin))
+  }, [isAdmin])
+
+  const CATEGORIAS_ORDENADAS: CategoriaTipo[] = ['BASICOS','MANUTENCAO','EMPRESTIMO','DOACAO','AJUSTES']
+
+  function resetarFormulariosEspecificos() {
+    setFormManutEnvio({ ...MANUT_ENVIO_INIT })
+    setFormManutRetorno({ ...MANUT_RETORNO_INIT })
+    setFormDoacao({ ...DOACAO_INIT })
+    setFormEmprestimo({ ...EMPRESTIMO_INIT })
+    setFormDevolucao({ ...DEVOLUCAO_INIT })
+    setDoacaoStep(1)
+    setCountdownDoacao(3)
+  }
+
   // Filtro de tipo de equipamento no cadastro
   const [filterEquipType, setFilterEquipType] = useState('ALL')
-
-  // Filtros e paginação
   const [filterText, setFilterText] = useState('')
-  const [filterTipo, setFilterTipo] = useState<'ALL' | typeof TIPOS[number]>('ALL')
+  const [filterTipo, setFilterTipo] = useState<'ALL' | typeof TIPOS_COMPLETOS[number]>('ALL')
   const [filterEscolaId, setFilterEscolaId] = useState('ALL')
   const [pageSize, setPageSize] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
@@ -77,8 +266,6 @@ export default function MovimentacoesPage() {
   const [editDestino, setEditDestino] = useState('')
   const [editData, setEditData] = useState<string>('')
   const [editDescricao, setEditDescricao] = useState('')
-  const role = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
-  const isAdmin = role === 'ADMIN'
 
   async function carregar() {
     setLoading(true)
@@ -98,11 +285,17 @@ export default function MovimentacoesPage() {
     try {
       if (departamentoSel === 'CENTRO_MIDIA') {
         const resp = await api.get('/api/centro-midia')
-        const data: EquipamentoOption[] = (resp.data || []).map((i: { id: string; nome?: string; tipo?: string }) => ({ id: i.id, nome: i.nome, tipo: i.tipo }))
+        const data: EquipamentoOption[] = (resp.data || []).map((i: { id: string; nome?: string; tipo?: string }) => ({ id: i.id, nome: i.nome, tipo: i.tipo, status: 'DISPONIVEL' }))
         setEquipamentos(data)
       } else {
         const resp = await api.get('/api/equipamentos')
-        const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string; localizacao?: string; tipo?: string }) => ({ id: e.id, nome: e.nome || e.nomeEquipamento, localizacao: e.localizacao, tipo: e.tipo }))
+        const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string; localizacao?: string; tipo?: string; statusEquipamento?: string; status?: string }) => ({
+          id: e.id,
+          nome: e.nome || e.nomeEquipamento,
+          localizacao: e.localizacao,
+          tipo: e.tipo,
+          status: e.statusEquipamento || e.status,
+        }))
         setEquipamentos(data)
       }
     } catch {
@@ -127,6 +320,70 @@ export default function MovimentacoesPage() {
       return String(a).localeCompare(String(b), 'pt-BR')
     })
   }, [equipamentos])
+
+  const rotuloFiltroEquipamentos = useMemo(() => {
+    const t = opcaoTipoSelecionada?.value
+    switch (t) {
+      case 'ENTRADA':            return 'Exibindo apenas equipamentos EM USO'
+      case 'SAIDA':              return 'Exibindo apenas equipamentos DISPONÍVEIS'
+      case 'TRANSFERENCIA':      return 'Exibindo equipamentos exceto em manutenção e descartados'
+      case 'DESCARTE':           return 'Exibindo todos os equipamentos'
+      case 'MANUTENCAO_ENVIO':   return 'Exibindo equipamentos disponíveis / em uso (não em manutenção ou emprestados)'
+      case 'MANUTENCAO_RETORNO': return 'Exibindo apenas equipamentos EM MANUTENÇÃO'
+      case 'EMPRESTIMO':         return 'Exibindo equipamentos disponíveis / em uso (não em manutenção ou emprestados)'
+      case 'DEVOLUCAO':          return 'Exibindo apenas equipamentos EMPRESTADOS'
+      case 'DOACAO':             return 'Exibindo equipamentos exceto doados e descartados'
+      case 'AJUSTE':             return 'Exibindo todos os equipamentos'
+      case 'MANUTENCAO':         return 'Exibindo equipamentos exceto doados e descartados'
+      default:                   return 'Exibindo todos os equipamentos'
+    }
+  }, [opcaoTipoSelecionada])
+
+  const equipamentosElegiveisParaTipo = useMemo(() => {
+    const t = opcaoTipoSelecionada?.value
+    const semStatusDefinido = (eq: EquipamentoOption) => !eq.status
+    switch (t) {
+      case 'ENTRADA':
+        return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'EM_USO')
+      case 'SAIDA':
+        return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'DISPONIVEL')
+      case 'TRANSFERENCIA':
+        return equipamentos.filter(eq => semStatusDefinido(eq) || (eq.status !== 'EM_MANUTENCAO' && eq.status !== 'DESCARTADO'))
+      case 'DESCARTE':
+        return equipamentos
+      case 'MANUTENCAO_ENVIO':
+        return equipamentos.filter(eq =>
+          semStatusDefinido(eq) ||
+          (eq.status !== 'EM_MANUTENCAO' && eq.status !== 'EMPRESTADO' && eq.status !== 'DESCARTADO' && eq.status !== 'DOADO')
+        )
+      case 'MANUTENCAO_RETORNO':
+        return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'EM_MANUTENCAO')
+      case 'EMPRESTIMO':
+        return equipamentos.filter(eq =>
+          semStatusDefinido(eq) ||
+          (eq.status !== 'EM_MANUTENCAO' && eq.status !== 'EMPRESTADO' && eq.status !== 'DESCARTADO' && eq.status !== 'DOADO')
+        )
+      case 'DEVOLUCAO':
+        return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'EMPRESTADO')
+      case 'DOACAO':
+        return equipamentos.filter(eq => semStatusDefinido(eq) || (eq.status !== 'DOADO' && eq.status !== 'DESCARTADO'))
+      case 'AJUSTE':
+        return equipamentos
+      case 'MANUTENCAO':
+        return equipamentos.filter(eq => semStatusDefinido(eq) || (eq.status !== 'DOADO' && eq.status !== 'DESCARTADO'))
+      default:
+        return equipamentos
+    }
+  }, [opcaoTipoSelecionada, equipamentos])
+
+  useEffect(() => {
+    if (!equipamentoId) return
+    const elegivelIds = new Set(equipamentosElegiveisParaTipo.map(e => e.id))
+    if (!elegivelIds.has(equipamentoId)) {
+      setEquipamentoId('')
+      setOrigem('')
+    }
+  }, [equipamentosElegiveisParaTipo, equipamentoId])
 
   const escolasDisponiveis = useMemo(() => {
     const merged = new Map<string, EscolaOption>()
@@ -161,41 +418,202 @@ export default function MovimentacoesPage() {
   const cancelCreate = () => {
     setShowCreate(false)
     setEquipamentoId('')
-    setTipo('ENTRADA')
     setOrigem('')
     setDestino('')
     setData('')
     setDescricao('')
     setDepartamentoSel('EQUIPAMENTOS')
+    const opcaoPadrao = TIPOS_FORMULARIO.find(t => t.value === 'ENTRADA')
+    setOpcaoTipoSelecionada(opcaoPadrao)
+    resetarFormulariosEspecificos()
   }
 
-  async function criar(ev: React.FormEvent) {
+  async function registrarMovimentoAvancado(ev: React.FormEvent) {
     ev.preventDefault()
     if (departamentoSel !== 'EQUIPAMENTOS') {
       showWarningToast('Apenas Equipamentos podem ser movimentados')
       return
     }
+    const opcao = opcaoTipoSelecionada
+    if (!opcao) {
+      showWarningToast('Selecione um tipo de movimentação')
+      return
+    }
+    if (opcao.apenasAdmin && !isAdmin) {
+      showWarningToast('Apenas administradores podem realizar esta operação')
+      return
+    }
     if (!equipamentoId.trim()) {
-      showWarningToast('Informe o ID do equipamento')
+      showWarningToast('Informe o equipamento')
       return
     }
-    if (!TIPOS.includes(tipo as (typeof TIPOS)[number])) {
-      showWarningToast('Tipo inválido')
-      return
+
+    let payload: Record<string, unknown>
+    const endpoint = opcao.endpoint || '/api/movimentacoes'
+
+    if (opcao.value === 'MANUTENCAO_ENVIO') {
+      const f = formManutEnvio
+      if (!f.fornecedorNome.trim()) return showWarningToast('Informe o fornecedor')
+      if (!f.dataEnvio) return showWarningToast('Informe a data de envio')
+      if (!f.defeitoRelatado.trim()) return showWarningToast('Descreva o defeito relatado')
+      payload = {
+        equipamentoId,
+        tipoMovimento: 'MANUTENCAO_ENVIO',
+        dataMovimento: f.dataEnvio ? new Date(f.dataEnvio).toISOString() : new Date().toISOString(),
+        origem: origem || undefined,
+        destino: destino || undefined,
+        observacoes: [f.defeitoRelatado, f.observacoes].filter(Boolean).join('\n') || undefined,
+        manutencao: {
+          fornecedorNome: f.fornecedorNome.trim() || null,
+          fornecedorContato: f.fornecedorContato.trim() || null,
+          numeroOS: f.numeroOS.trim() || null,
+          tipoServico: f.tipoServico || null,
+          tecnicoResponsavel: f.tecnicoResponsavel.trim() || null,
+          prazoRetorno: f.prazoRetorno ? new Date(f.prazoRetorno).toISOString() : null,
+          laudoTecnico: f.defeitoRelatado.trim() || null,
+          pecasTrocadas: null,
+          valorServico: null,
+          dataRetornoEfetiva: null,
+        },
+      }
+    } else if (opcao.value === 'MANUTENCAO_RETORNO') {
+      const f = formManutRetorno
+      if (!f.dataRetornoEfetiva) return showWarningToast('Informe a data de retorno')
+      if (!f.laudoTecnico.trim() && !f.solucao.trim()) return showWarningToast('Informe o diagnóstico ou a solução')
+      const pecas = f.pecasTrocadasTexto
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean)
+      const numeroValor = f.valorServico ? Number.parseFloat(f.valorServico) : Number.NaN
+      const valor = !Number.isNaN(numeroValor) ? numeroValor.toFixed(2) : null
+      payload = {
+        equipamentoId,
+        tipoMovimento: 'MANUTENCAO_RETORNO',
+        dataMovimento: new Date(f.dataRetornoEfetiva).toISOString(),
+        origem: origem || undefined,
+        destino: destino || undefined,
+        observacoes: [f.laudoTecnico, f.solucao, f.observacoes].filter(Boolean).join('\n') || undefined,
+        statusDestino: f.statusFinal,
+        manutencao: {
+          dataRetornoEfetiva: new Date(f.dataRetornoEfetiva).toISOString(),
+          laudoTecnico: f.laudoTecnico.trim() || f.solucao.trim() || null,
+          pecasTrocadas: pecas.length ? pecas : null,
+          valorServico: valor,
+          movimentacaoEnvioId: f.movimentacaoEnvioId.trim() || null,
+          numeroOS: null, fornecedorNome: null, fornecedorContato: null, tipoServico: null, tecnicoResponsavel: null, prazoRetorno: null,
+        },
+      }
+    } else if (opcao.value === 'DOACAO') {
+      if (doacaoStep === 1) {
+        const f = formDoacao
+        if (!f.beneficiarioNome.trim()) return showWarningToast('Informe o nome do beneficiário')
+        if (!f.dataEntregaEfetiva) return showWarningToast('Informe a data da doação')
+        if (!f.motivo.trim()) return showWarningToast('Informe o motivo da doação')
+        setDoacaoStep(2)
+        setCountdownDoacao(3)
+        showInfoToast('Revise os dados antes de confirmar a doação')
+        return
+      }
+      const f = formDoacao
+      payload = {
+        equipamentoId,
+        tipoMovimento: 'DOACAO',
+        dataMovimento: new Date(f.dataEntregaEfetiva).toISOString(),
+        origem: origem || undefined,
+        destino: destino || undefined,
+        observacoes: f.motivo.trim() || undefined,
+        doacao: {
+          beneficiarioNome: f.beneficiarioNome.trim(),
+          beneficiarioCpfCnpj: f.beneficiarioCpfCnpj.trim() || null,
+          beneficiarioContato: f.beneficiarioContato.trim() || null,
+          dataEntregaEfetiva: new Date(f.dataEntregaEfetiva).toISOString(),
+          numeroPortaria: f.numeroPortaria.trim() || null,
+          enderecoEntrega: f.enderecoEntrega.trim() || null,
+          responsavelEntrega: f.responsavelEntrega.trim() || null,
+          termoDoacaoUrl: null,
+          observacoesInternas: f.observacoesInternas.trim() || null,
+        },
+      }
+    } else if (opcao.value === 'EMPRESTIMO') {
+      const f = formEmprestimo
+      if (!f.beneficiarioNome.trim()) return showWarningToast('Informe o nome do beneficiário')
+      if (!f.dataSaida) return showWarningToast('Informe a data de saída')
+      if (!f.dataPrevistaDevolucao) return showWarningToast('Informe a data prevista de devolução')
+      payload = {
+        equipamentoId,
+        tipoMovimento: 'EMPRESTIMO',
+        dataMovimento: new Date(f.dataSaida).toISOString(),
+        origem: origem || undefined,
+        destino: destino || f.localDestino.trim() || undefined,
+        observacoes: f.observacoesInternas.trim() || undefined,
+        emprestimo: {
+          beneficiarioNome: f.beneficiarioNome.trim(),
+          beneficiarioDocumento: f.beneficiarioDocumento.trim() || null,
+          beneficiarioContato: f.beneficiarioContato.trim() || null,
+          tomadorNome: f.tomadorNome.trim() || null,
+          tomadorCargo: f.tomadorCargo.trim() || null,
+          localDestino: f.localDestino.trim() || null,
+          dataSaida: new Date(f.dataSaida).toISOString(),
+          dataPrevistaDevolucao: new Date(f.dataPrevistaDevolucao).toISOString(),
+          dataDevolucaoEfetiva: null,
+          estadoConservacaoSaida: f.estadoConservacaoSaida.trim() || null,
+          estadoConservacaoRetorno: null,
+          termoAssinado: Boolean(f.termoAssinado),
+          termoUrl: f.termoUrl.trim() || null,
+          observacoesInternas: f.observacoesInternas.trim() || null,
+          movimentacaoSaidaId: null,
+        },
+      }
+    } else if (opcao.value === 'DEVOLUCAO') {
+      const f = formDevolucao
+      if (!f.dataDevolucaoEfetiva) return showWarningToast('Informe a data de devolução')
+      payload = {
+        equipamentoId,
+        tipoMovimento: 'DEVOLUCAO',
+        dataMovimento: new Date(f.dataDevolucaoEfetiva).toISOString(),
+        origem: origem || undefined,
+        destino: destino || undefined,
+        statusDestino: f.statusFinal,
+        observacoes: f.observacoesInternas.trim() || undefined,
+        emprestimo: {
+          dataDevolucaoEfetiva: new Date(f.dataDevolucaoEfetiva).toISOString(),
+          estadoConservacaoRetorno: f.estadoConservacaoRetorno.trim() || null,
+          movimentacaoSaidaId: f.movimentacaoSaidaId.trim() || null,
+        },
+      }
+    } else {
+      if (!TIPOS_COMPLETOS.includes(opcao.value as (typeof TIPOS_COMPLETOS)[number])) {
+        showWarningToast('Tipo inválido')
+        return
+      }
+      payload = {
+        equipamentoId,
+        tipo: opcao.value,
+        tipoMovimento: opcao.value,
+        origem: origem || undefined,
+        destino: destino || undefined,
+        descricao: descricao || undefined,
+        observacoes: descricao || undefined,
+      }
+      if (data) {
+        payload.data = new Date(data).toISOString()
+        payload.dataMovimento = payload.data
+      }
     }
-    const payload: Record<string, unknown> = { equipamentoId, tipo, origem: origem || undefined, destino: destino || undefined, descricao: descricao || undefined }
-    if (data) {
-      payload.data = new Date(data).toISOString()
-    }
+
     try {
-      const resp = await api.post('/api/movimentacoes', payload)
-      showSuccessToast('Movimentação registrada')
+      const resp = await api.post(endpoint, payload)
+      showSuccessToast(`${opcao.label} registrado(a) com sucesso`)
       setEquipamentoId('')
       setOrigem('')
       setDestino('')
       setData('')
       setDescricao('')
+      resetarFormulariosEspecificos()
+      setOpcaoTipoSelecionada(TIPOS_FORMULARIO.find(t => t.value === 'ENTRADA'))
       setLista((prev) => [resp.data, ...prev])
+      void carregar()
+      if (opcao.value === 'DOACAO') setShowCreate(false)
     } catch (e: unknown) {
       showErrorToast((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao registrar movimentação')
     }
@@ -206,6 +624,14 @@ export default function MovimentacoesPage() {
       setTimeout(() => equipamentoSelectRef.current?.focus(), 0)
     }
   }, [showCreate])
+
+  useEffect(() => {
+    if (!showCreate) return
+    if (opcaoTipoSelecionada?.value !== 'DOACAO' || doacaoStep !== 2) return
+    if (countdownDoacao <= 0) return
+    const t = setTimeout(() => setCountdownDoacao((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [showCreate, opcaoTipoSelecionada?.value, doacaoStep, countdownDoacao])
 
   function startEdit(m: Mov) {
     setEditingId(m.id)
@@ -235,7 +661,7 @@ export default function MovimentacoesPage() {
       showWarningToast('Informe o ID do equipamento')
       return
     }
-    if (!TIPOS.includes(editTipo as (typeof TIPOS)[number])) {
+    if (!TIPOS_COMPLETOS.includes(editTipo as (typeof TIPOS_COMPLETOS)[number])) {
       showWarningToast('Tipo inválido')
       return
     }
@@ -410,8 +836,8 @@ export default function MovimentacoesPage() {
           </div>
           <div>
             <label htmlFor="filterTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-            <select id="filterTipo" className="w-full rounded border px-3 py-2" value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value as typeof TIPOS[number] | 'ALL'); setCurrentPage(1) }}>
-              {['ALL', ...TIPOS].map(t => <option key={t} value={t}>{t === 'ALL' ? 'Todos' : t}</option>)}
+            <select id="filterTipo" className="w-full rounded border px-3 py-2" value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value as typeof TIPOS_COMPLETOS[number] | 'ALL'); setCurrentPage(1) }}>
+              {['ALL', ...TIPOS_COMPLETOS].map(t => <option key={t} value={t}>{t === 'ALL' ? 'Todos' : t.replaceAll('_', ' ')}</option>)}
             </select>
           </div>
           <div>
@@ -446,23 +872,61 @@ export default function MovimentacoesPage() {
               </tr>
             </thead>
             <tbody>
-              {pagina.map((m) => (
+              {pagina.map((m) => {
+                const eqFmt = formatarNomeEquipamento(m.equipamento)
+                const eqId = m.equipamentoId
+                const eqHref = eqId ? `/equipamentos/${eqId}/relatorio` : null
+                const goEquip = () => eqHref && navigate(eqHref)
+                const detalhe = eqFmt.detalhe ? ` (${eqFmt.detalhe})` : ''
+                const eqLabel = `${eqFmt.titulo}${detalhe}`
+                return (
                 <tr key={m.id}>
-                  <td className="border px-3 py-2">{m.equipamento?.nome || m.equipamentoId}</td>
+                  <td className="border px-3 py-2">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={goEquip}
+                          className="text-left font-medium text-blue-700 hover:text-blue-900 hover:underline disabled:no-underline disabled:text-inherit disabled:cursor-default truncate"
+                          disabled={!eqHref}
+                          title={eqLabel}
+                          aria-label={`Abrir relatório do equipamento: ${eqLabel}`}
+                        >
+                          <span className="truncate">{eqFmt.titulo}</span>
+                        </button>
+                        {eqHref && (
+                          <button
+                            type="button"
+                            onClick={goEquip}
+                            className="text-blue-500 hover:text-blue-700 flex-shrink-0 p-0.5 rounded hover:bg-blue-50"
+                            aria-label={`Abrir detalhe do equipamento ${eqLabel} em nova aba do histórico`}
+                          >
+                            <ExternalLink size={14} aria-hidden />
+                          </button>
+                        )}
+                      </div>
+                      {eqFmt.detalhe && (
+                        <div className="text-xs text-gray-500 truncate">{eqFmt.detalhe}</div>
+                      )}
+                      {!m.equipamento && (
+                        <div className="text-xs text-gray-400 font-mono truncate" title="ID de referência do equipamento">{m.equipamentoId}</div>
+                      )}
+                    </div>
+                  </td>
                   <td className="border px-3 py-2">{m.escola?.nome || '-'}</td>
-                  <td className="border px-3 py-2">{m.tipo}</td>
+                  <td className="border px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs ${getClasseBadgeTipo(m.tipo)}`}>{m.tipo}</span></td>
                   <td className="border px-3 py-2">{m.origem || '-'}</td>
                   <td className="border px-3 py-2">{m.destino || '-'}</td>
-                  <td className="border px-3 py-2">{m.data ? new Date(m.data).toLocaleString() : '-'}</td>
-                  <td className="border px-3 py-2">{m.descricao || '-'}</td>
+                  <td className="border px-3 py-2 whitespace-nowrap">{m.data ? new Date(m.data).toLocaleString() : '-'}</td>
+                  <td className="border px-3 py-2 max-w-xs truncate" title={m.descricao || ''}>{m.descricao || '-'}</td>
                   <td className="border px-3 py-2">
                     <div className="flex gap-2">
-                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)} aria-label={`Editar a movimentação de ${m.equipamento?.nome || m.equipamentoId}`}>
+                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)} aria-label={`Editar a movimentação de ${eqLabel}`}>
                         <Pencil size={16} aria-hidden />
                         <span>Editar</span>
                       </button>
                       {isAdmin && (
-                        <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))} aria-label={`Excluir a movimentação de ${m.equipamento?.nome || m.equipamentoId}`}>
+                        <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))} aria-label={`Excluir (estornar) a movimentação de ${eqLabel}`}>
                           <Trash2 size={16} aria-hidden />
                           <span>Excluir</span>
                         </button>
@@ -470,7 +934,8 @@ export default function MovimentacoesPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
               {filtrada.length === 0 && !loading && (
                 <tr>
                   <td className="border px-3 py-4 text-center" colSpan={8}>Nenhuma movimentação encontrada.</td>
@@ -482,12 +947,31 @@ export default function MovimentacoesPage() {
 
         {/* Mobile Cards */}
         <div className="md:hidden space-y-3">
-          {pagina.map((m) => (
+          {pagina.map((m) => {
+            const eqFmt = formatarNomeEquipamento(m.equipamento)
+            const eqId = m.equipamentoId
+            const eqHref = eqId ? `/equipamentos/${eqId}/relatorio` : null
+            const goEquip = () => eqHref && navigate(eqHref)
+            const eqLabelDetalhe = eqFmt.detalhe ? ` (${eqFmt.detalhe})` : ''
+            const eqLabel = `${eqFmt.titulo}${eqLabelDetalhe}`
+            return (
             <div key={m.id} className="border rounded-lg p-3 bg-white shadow-sm">
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-start">
-                  <span className="font-medium">Equipamento:</span>
-                  <span className="text-gray-600">{m.equipamento?.nome || m.equipamentoId}</span>
+                <div className="flex justify-start items-start gap-2">
+                  <span className="font-medium flex-shrink-0">Equipamento:</span>
+                  <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={goEquip}
+                      className="text-left text-blue-700 hover:text-blue-900 hover:underline disabled:text-inherit disabled:no-underline disabled:cursor-default font-medium truncate w-full"
+                      disabled={!eqHref}
+                      title={eqLabel}
+                    >
+                      {eqFmt.titulo}
+                    </button>
+                    {eqFmt.detalhe && <div className="text-xs text-gray-500 truncate">{eqFmt.detalhe}</div>}
+                    {!m.equipamento && <div className="text-xs text-gray-400 font-mono truncate">{m.equipamentoId}</div>}
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Escola:</span>
@@ -512,7 +996,7 @@ export default function MovimentacoesPage() {
                 {m.data && (
                   <div className="flex justify-between">
                     <span className="font-medium">Data:</span>
-                    <span className="text-gray-600">{new Date(m.data).toLocaleString()}</span>
+                    <span className="text-gray-600 whitespace-nowrap">{new Date(m.data).toLocaleString()}</span>
                   </div>
                 )}
                 {m.descricao && (
@@ -522,20 +1006,21 @@ export default function MovimentacoesPage() {
                   </div>
                 )}
                 <div className="flex gap-2 pt-2">
-                  <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 text-xs flex items-center justify-center gap-1" onClick={() => startEdit(m)}>
-                    <Pencil size={14} />
+                  <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 text-xs flex items-center justify-center gap-1" onClick={() => startEdit(m)} aria-label={`Editar movimentação de ${eqFmt.titulo}`}>
+                    <Pencil size={14} aria-hidden />
                     <span>Editar</span>
                   </button>
                   {isAdmin && (
-                    <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))}>
-                      <Trash2 size={14} />
+                    <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))} aria-label={`Excluir movimentação de ${eqFmt.titulo}`}>
+                      <Trash2 size={14} aria-hidden />
                       <span>Excluir</span>
                     </button>
                   )}
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
           {filtrada.length === 0 && !loading && (
             <div className="text-center py-8 text-gray-500">Nenhuma movimentação encontrada.</div>
           )}
@@ -547,86 +1032,718 @@ export default function MovimentacoesPage() {
       </section>
 
       {showCreate && (
-      <section className="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-medium">Registrar Movimentação</h2>
-        <form onSubmit={criar} className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+        <div className="flex items-center gap-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white px-6 py-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-xl" aria-hidden>
+            <Plus size={20} className="text-blue-700" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold text-gray-900">Registrar Nova Movimentação</h2>
+            <p className="text-xs text-gray-500">Preencha os dados abaixo para lançar uma movimentação de equipamento.</p>
+          </div>
+        </div>
+        <form onSubmit={registrarMovimentoAvancado} className="grid gap-4 p-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
           <div className="md:col-span-2 xl:col-span-4">
-            <span className="mb-1 block text-sm font-medium">Departamento</span>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={departamentoSel === 'EQUIPAMENTOS'} onChange={() => setDepartamentoSel('EQUIPAMENTOS')} />
-                <span>Equipamentos</span>
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className="h-5 w-1 rounded-full bg-gradient-to-b from-blue-500 to-indigo-600" aria-hidden />
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">Departamento</span>
+            </div>
+            <div className="flex flex-wrap gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3">
+              <label htmlFor="dept_equip" className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-transparent px-3 py-2 transition hover:border-gray-300 hover:bg-white hover:shadow-sm">
+                <input id="dept_equip" type="checkbox" className="h-4 w-4 accent-blue-600" checked={departamentoSel === 'EQUIPAMENTOS'} onChange={() => setDepartamentoSel('EQUIPAMENTOS')} aria-label="Selecionar departamento Equipamentos" />
+                <span className="text-sm font-medium text-gray-800">🖥️ Equipamentos</span>
               </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={departamentoSel === 'CENTRO_MIDIA'} onChange={() => setDepartamentoSel('CENTRO_MIDIA')} />
-                <span>Centro de Mídia</span>
+              <label htmlFor="dept_cm" className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-transparent px-3 py-2 transition hover:border-gray-300 hover:bg-white hover:shadow-sm">
+                <input id="dept_cm" type="checkbox" className="h-4 w-4 accent-blue-600" checked={departamentoSel === 'CENTRO_MIDIA'} onChange={() => setDepartamentoSel('CENTRO_MIDIA')} aria-label="Selecionar departamento Centro de Mídia" />
+                <span className="text-sm font-medium text-gray-800">🎬 Centro de Mídia</span>
               </label>
             </div>
           </div>
-          <div>
-            <label htmlFor="filterEquipType" className="mb-1 block text-sm font-medium">Filtrar Equipamento por Tipo</label>
-            <select 
-              id="filterEquipType"
-              className="w-full rounded border px-3 py-2" 
-              value={filterEquipType} 
-              onChange={(e) => { setFilterEquipType(e.target.value); setEquipamentoId('') }}
-            >
-              <option value="ALL">Todos</option>
+          <div className="pt-3">
+            <label htmlFor="filterEquipType" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-600">Filtrar Equipamento por Tipo</label>
+            <select id="filterEquipType" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-sm transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200" value={filterEquipType} onChange={(e) => { setFilterEquipType(e.target.value); setEquipamentoId('') }}>
+              <option value="ALL">Todos os tipos</option>
               {tiposDisponiveis.map(t => <option key={t as string} value={t as string}>{t}</option>)}
             </select>
           </div>
-          <div>
-            <label htmlFor="equipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
-            <select id="equipamentoId" ref={equipamentoSelectRef} className="w-full rounded border px-3 py-2" value={equipamentoId} onChange={handleEquipamentoChange}>
-              <option value="">Selecione...</option>
-              {equipamentos
+          <div className="xl:col-span-3 pt-3">
+            <label htmlFor="equipamentoId" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-600">Equipamento <span className="text-red-600">*</span></label>
+            <select id="equipamentoId" ref={equipamentoSelectRef} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-sm transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200" value={equipamentoId} onChange={handleEquipamentoChange}>
+              <option value="">Selecione um equipamento...</option>
+              {equipamentosElegiveisParaTipo
                 .filter(eq => filterEquipType === 'ALL' || eq.tipo === filterEquipType)
-                .map((eq) => (
-                <option key={eq.id} value={eq.id}>{eq.nome || eq.id}</option>
-              ))}
+                .map((eq) => (<option key={eq.id} value={eq.id}>{eq.nome || eq.id}{eq.localizacao ? ` · ${eq.localizacao}` : ''}{eq.status ? ` [${eq.status}]` : ''}</option>))}
             </select>
+            <p className="mt-1.5 text-xs text-blue-700/90" role="status" aria-live="polite">{rotuloFiltroEquipamentos}</p>
           </div>
-          <div>
-            <label htmlFor="createTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-            <select id="createTipo" className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-              {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+
+          {/* ETAPA C1: RADIO CARDS TIPO AGRUPADOS POR CATEGORIA (REDESIGN PREMIUM) */}
+          <div className="xl:col-span-12 mt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="h-6 w-1.5 rounded-full bg-gradient-to-b from-blue-500 to-indigo-600" aria-hidden />
+              <span className="text-sm font-semibold uppercase tracking-wider text-gray-700">Tipo de movimentação</span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-5">
+              {CATEGORIAS_ORDENADAS.map((cat) => {
+                const catOpcs = TIPOS_PERMITIDOS_FORM.filter(o => o.categoria === cat)
+                if (!catOpcs.length) return null
+                const info = ROTULOS_CATEGORIA[cat]
+                const paletaCat: Record<CategoriaTipo, {
+                  header: string
+                  headerIcon: string
+                  headerText: string
+                  iconBg: string
+                  iconText: string
+                  cardActiveBg: string
+                  cardActiveBorder: string
+                  cardActiveRing: string
+                }> = {
+                  BASICOS: {
+                    header: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                    headerIcon: 'bg-emerald-100 text-emerald-700',
+                    headerText: 'text-emerald-900',
+                    iconBg: 'bg-emerald-100 text-emerald-600',
+                    iconText: 'text-emerald-800',
+                    cardActiveBg: 'bg-emerald-50/70',
+                    cardActiveBorder: 'border-emerald-400',
+                    cardActiveRing: 'ring-emerald-300/40',
+                  },
+                  MANUTENCAO: {
+                    header: 'bg-amber-50 text-amber-800 border-amber-200',
+                    headerIcon: 'bg-amber-100 text-amber-700',
+                    headerText: 'text-amber-900',
+                    iconBg: 'bg-amber-100 text-amber-600',
+                    iconText: 'text-amber-800',
+                    cardActiveBg: 'bg-amber-50/70',
+                    cardActiveBorder: 'border-amber-400',
+                    cardActiveRing: 'ring-amber-300/40',
+                  },
+                  EMPRESTIMO: {
+                    header: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+                    headerIcon: 'bg-indigo-100 text-indigo-700',
+                    headerText: 'text-indigo-900',
+                    iconBg: 'bg-indigo-100 text-indigo-600',
+                    iconText: 'text-indigo-800',
+                    cardActiveBg: 'bg-indigo-50/70',
+                    cardActiveBorder: 'border-indigo-400',
+                    cardActiveRing: 'ring-indigo-300/40',
+                  },
+                  DOACAO: {
+                    header: 'bg-rose-50 text-rose-800 border-rose-200',
+                    headerIcon: 'bg-rose-100 text-rose-700',
+                    headerText: 'text-rose-900',
+                    iconBg: 'bg-rose-100 text-rose-600',
+                    iconText: 'text-rose-800',
+                    cardActiveBg: 'bg-rose-50/70',
+                    cardActiveBorder: 'border-rose-400',
+                    cardActiveRing: 'ring-rose-300/40',
+                  },
+                  AJUSTES: {
+                    header: 'bg-violet-50 text-violet-800 border-violet-200',
+                    headerIcon: 'bg-violet-100 text-violet-700',
+                    headerText: 'text-violet-900',
+                    iconBg: 'bg-violet-100 text-violet-600',
+                    iconText: 'text-violet-800',
+                    cardActiveBg: 'bg-violet-50/70',
+                    cardActiveBorder: 'border-violet-400',
+                    cardActiveRing: 'ring-violet-300/40',
+                  },
+                }
+                const pal = paletaCat[cat]
+                return (
+                  <div
+                    key={cat}
+                    className={`flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md ${pal.header.split(' ').find((c) => c.startsWith('border-')) || 'border-gray-200'}`}
+                  >
+                    <div className={`flex items-center gap-2 border-b px-4 py-2.5 ${pal.header}`}>
+                      <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-sm ${pal.headerIcon}`} aria-hidden>
+                        {info.icone}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-sm font-bold ${pal.headerText}`}>{info.titulo}</p>
+                        {info.ajuda && <p className="truncate text-[11px] opacity-80">{info.ajuda}</p>}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 p-3">
+                      {catOpcs.map((opc) => {
+                        const ativo = opcaoTipoSelecionada?.value === opc.value
+                        const inputId = `tipo_${opc.value.toLowerCase()}`
+                        return (
+                          <label
+                            key={opc.value}
+                            htmlFor={inputId}
+                            className={`group relative flex cursor-pointer items-stretch gap-3 overflow-hidden rounded-xl border-2 p-3 transition-all duration-150
+                              ${ativo
+                                ? `${pal.cardActiveBg} ${pal.cardActiveBorder} shadow-sm ring-4 ${pal.cardActiveRing}`
+                                : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50'}
+                              ${opc.terminal ? 'border-r-transparent' : ''}`}
+                          >
+                            {opc.terminal && (
+                              <span className="absolute inset-y-0 right-0 w-1.5 rounded-r-xl bg-gradient-to-b from-rose-400 to-rose-600" aria-hidden />
+                            )}
+                            <span className={`pointer-events-none mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-lg transition
+                              ${ativo ? pal.iconBg + ' shadow-inner' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200/80'}`}
+                              aria-hidden
+                            >
+                              {opc.label.replace(/^[^\p{L}\p{N}]+/gu, '').slice(0, 2)}
+                            </span>
+                            <input
+                              id={inputId}
+                              type="radio"
+                              className="sr-only"
+                              name="tipoMov"
+                              value={opc.value}
+                              checked={ativo}
+                              aria-label={`Selecionar tipo de movimentação: ${opc.label}`}
+                              onChange={() => {
+                                setOpcaoTipoSelecionada(opc)
+                                resetarFormulariosEspecificos()
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className={`text-sm font-semibold ${ativo ? pal.iconText : 'text-gray-800'}`}>
+                                  {opc.label.replace(/^[^\p{L}\p{N}]+/gu, '').trim()}
+                                </span>
+                                {opc.terminal && (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-100/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700">
+                                    <span className="h-1 w-1 rounded-full bg-rose-500" aria-hidden />
+                                    <span>Terminal</span>
+                                  </span>
+                                )}
+                                {ativo && (
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${pal.headerIcon}`}>
+                                    ✓ Selecionado
+                                  </span>
+                                )}
+                              </div>
+                              {opc.descricao && (
+                                <p className={`mt-0.5 text-xs leading-snug ${ativo ? 'text-gray-600' : 'text-gray-500'}`}>
+                                  {opc.descricao}
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          <div>
-            <label htmlFor="origem" className="mb-1 block text-sm font-medium">Origem</label>
-            <input 
-              id="origem"
-              className="w-full rounded border px-3 py-2 bg-gray-100 cursor-not-allowed" 
-              value={origem} 
-              readOnly
-              title="A origem é definida automaticamente pela localização atual do equipamento"
-            />
-          </div>
-          <div>
-            <label htmlFor="destino" className="mb-1 block text-sm font-medium">Destino</label>
-            <input id="destino" className="w-full rounded border px-3 py-2" value={destino} onChange={(e) => setDestino(e.target.value)} />
-          </div>
-          <div>
-            <label htmlFor="createData" className="mb-1 block text-sm font-medium">Data</label>
-            <input id="createData" type="datetime-local" className="w-full rounded border px-3 py-2" value={data} onChange={(e) => setData(e.target.value)} />
-          </div>
-          <div className="xl:col-span-2">
-            <label htmlFor="createDescricao" className="mb-1 block text-sm font-medium">Descrição</label>
-            <input id="createDescricao" className="w-full rounded border px-3 py-2" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
-          </div>
-          <div className="md:col-span-2 xl:col-span-4 flex flex-col sm:flex-row gap-2">
-            <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
-              <Save size={16} />
-              <span>Salvar</span>
-            </button>
-            <button type="button" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2">
-              <RotateCcw size={16} />
-              <span>Recarregar</span>
-            </button>
-            <button type="button" onClick={() => { cancelCreate(); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="w-full sm:w-auto rounded border px-4 py-2 hover:bg-gray-50 flex items-center gap-2">
+
+          {/* FORMULÁRIOS ESPECÍFICOS CONDICIONAIS — REDESIGN PREMIUM */}
+          {opcaoTipoSelecionada?.value === 'MANUTENCAO_ENVIO' && (
+            <div className="xl:col-span-12 mt-4 overflow-hidden rounded-2xl border-2 border-amber-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50/80 px-5 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-xl" aria-hidden>🔧</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900">Envio para Manutenção</h3>
+                  <p className="text-xs text-amber-800/80">Dados do envio do equipamento para fornecedor ou oficina.</p>
+                </div>
+              </div>
+              <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <label htmlFor="me_origem" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Origem</label>
+                  <input id="me_origem" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400" value={origem} readOnly title="Origem automática pela localização atual do equipamento" />
+                </div>
+                <div>
+                  <label htmlFor="me_destino" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Destino</label>
+                  <input id="me_destino" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400" value={destino} onChange={(e) => setDestino(e.target.value)} placeholder="Ex: Oficina XYZ, Garantia Dell, etc." />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_forn">Fornecedor <span className="text-red-600">*</span></label>
+                  <input id="m_forn" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.fornecedorNome} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, fornecedorNome: e.target.value })} placeholder="Nome da empresa / técnico / oficina" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_tipo">Tipo de Serviço</label>
+                  <select id="m_tipo" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.tipoServico} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, tipoServico: e.target.value })}>
+                    {TIPOS_SERVICO_MANUT.map(t => <option key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_os">Nº OS</label>
+                  <input id="m_os" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.numeroOS} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, numeroOS: e.target.value })} placeholder="Ordem de Serviço" />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_cont">Contato do fornecedor (tel/email)</label>
+                  <input id="m_cont" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.fornecedorContato} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, fornecedorContato: e.target.value })} placeholder="(51) 99999-0000 / oficina@empresa.com" />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_tec">Técnico responsável pelo envio</label>
+                  <input id="m_tec" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.tecnicoResponsavel} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, tecnicoResponsavel: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_dataenv">Data envio <span className="text-red-600">*</span></label>
+                  <input id="m_dataenv" type="datetime-local" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.dataEnvio} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, dataEnvio: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_prazo">Previsão retorno</label>
+                  <input id="m_prazo" type="datetime-local" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.prazoRetorno} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, prazoRetorno: e.target.value })} />
+                </div>
+                <div className="xl:col-span-4">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_def">Defeito / Reclamação relatada <span className="text-red-600">*</span></label>
+                  <textarea id="m_def" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.defeitoRelatado} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, defeitoRelatado: e.target.value })} placeholder="Não liga, tela com linhas horizontais, HD não reconhecido etc." />
+                </div>
+                <div className="xl:col-span-4">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_obs">Observações adicionais</label>
+                  <textarea id="m_obs" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutEnvio.observacoes} onChange={(e) => setFormManutEnvio({ ...formManutEnvio, observacoes: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {opcaoTipoSelecionada?.value === 'MANUTENCAO_RETORNO' && (
+            <div className="xl:col-span-12 mt-4 overflow-hidden rounded-2xl border-2 border-amber-300 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50/80 px-5 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-xl" aria-hidden>🔩</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900">Retorno de Manutenção</h3>
+                  <p className="text-xs text-amber-800/80">Dados do retorno do equipamento e status final após o serviço.</p>
+                </div>
+              </div>
+              <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                <div className="xl:col-span-4 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+                  <p className="mb-2 flex items-start gap-2 text-xs font-medium text-amber-900">
+                    <span aria-hidden>ℹ️</span>
+                    <span>Após retorno o equipamento sai de <strong className="font-bold">EM_MANUTENCAO</strong> para o status abaixo selecionado.</span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-5">
+                    <label htmlFor="m_status_disp" className="flex cursor-pointer items-center gap-2 rounded-lg border border-amber-200 bg-white px-4 py-2 shadow-sm transition hover:border-amber-300 hover:bg-amber-50">
+                      <input id="m_status_disp" type="radio" name="m_status_final" value="DISPONIVEL" checked={formManutRetorno.statusFinal === 'DISPONIVEL'} onChange={() => setFormManutRetorno({ ...formManutRetorno, statusFinal: 'DISPONIVEL' })} className="h-4 w-4 accent-emerald-600" aria-label="Status final: Disponível em estoque" />
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+                        <span>Disponível em estoque</span>
+                      </span>
+                    </label>
+                    <label htmlFor="m_status_emuso" className="flex cursor-pointer items-center gap-2 rounded-lg border border-amber-200 bg-white px-4 py-2 shadow-sm transition hover:border-amber-300 hover:bg-amber-50">
+                      <input id="m_status_emuso" type="radio" name="m_status_final" value="EM_USO" checked={formManutRetorno.statusFinal === 'EM_USO'} onChange={() => setFormManutRetorno({ ...formManutRetorno, statusFinal: 'EM_USO' })} className="h-4 w-4 accent-blue-600" aria-label="Status final: Devolvido para uso" />
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                        <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden />
+                        <span>Devolvido para uso (EM_USO)</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="mr_origem" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Origem</label>
+                  <input id="mr_origem" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400" value={origem} readOnly title="Origem automática pela localização atual do equipamento" />
+                </div>
+                <div>
+                  <label htmlFor="mr_destino" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Destino</label>
+                  <input id="mr_destino" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400" value={destino} onChange={(e) => setDestino(e.target.value)} placeholder="Ex: Retornou para estoque, setor de TI, etc." />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_envid">Envio de manutenção associado</label>
+                  <select id="m_envid" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutRetorno.movimentacaoEnvioId} onChange={(e) => setFormManutRetorno({ ...formManutRetorno, movimentacaoEnvioId: e.target.value })}>
+                    <option value="">(vincular depois se preferir)</option>
+                    {lista
+                      .filter((m) => (m.tipo || '').includes('MANUTENCAO') && m.equipamentoId === equipamentoId)
+                      .map((m) => (<option key={m.id} value={m.id}>Envio #{m.id.slice(0,8)} — {m.data ? new Date(m.data).toLocaleDateString('pt-BR') : ''} {m.origem ? `· Origem: ${m.origem}` : ''}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_dataret">Data retorno efetiva <span className="text-red-600">*</span></label>
+                  <input id="m_dataret" type="datetime-local" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutRetorno.dataRetornoEfetiva} onChange={(e) => setFormManutRetorno({ ...formManutRetorno, dataRetornoEfetiva: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_valor">Valor serviço (R$)</label>
+                  <input id="m_valor" inputMode="decimal" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" placeholder="0,00" value={formManutRetorno.valorServico} onChange={(e) => setFormManutRetorno({ ...formManutRetorno, valorServico: e.target.value.replace(',', '.') })} />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_laudo">Diagnóstico / Laudo técnico <span className="text-red-600">*</span></label>
+                  <textarea id="m_laudo" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutRetorno.laudoTecnico} onChange={(e) => setFormManutRetorno({ ...formManutRetorno, laudoTecnico: e.target.value })} placeholder="Defeito constatado: placa-mãe com capacitor estufado..." />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_sol">Solução / Serviço executado</label>
+                  <textarea id="m_sol" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutRetorno.solucao} onChange={(e) => setFormManutRetorno({ ...formManutRetorno, solucao: e.target.value })} placeholder="Troca de placa-mãe; atualização BIOS; limpeza e nova pasta térmica..." />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_pecas">Peças trocadas (1 por linha)</label>
+                  <textarea id="m_pecas" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutRetorno.pecasTrocadasTexto} onChange={(e) => setFormManutRetorno({ ...formManutRetorno, pecasTrocadasTexto: e.target.value })} placeholder={["Placa-mãe Dell 08XXKJ","SSD Kingston NV2 512GB","Pasta térmica Arctic MX-4"].join('\n')} />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_obsr">Observações gerais</label>
+                  <textarea id="m_obsr" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutRetorno.observacoes} onChange={(e) => setFormManutRetorno({ ...formManutRetorno, observacoes: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {opcaoTipoSelecionada?.value === 'DOACAO' && doacaoStep === 1 && (
+            <div className="xl:col-span-12 mt-4 overflow-hidden rounded-2xl border-2 border-rose-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-rose-200 bg-rose-50/80 px-5 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-xl" aria-hidden>❤️</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-rose-900">Doação</h3>
+                  <p className="text-xs text-rose-800/80">Dados do beneficiário e entrega do equipamento doado.</p>
+                </div>
+              </div>
+              <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                <div className="xl:col-span-4 rounded-xl border border-rose-200 bg-rose-50/60 p-4">
+                  <p className="flex items-start gap-2 text-sm font-semibold text-rose-900">
+                    <span aria-hidden>⚠️</span>
+                    <span>Doação é um movimento terminal. Após confirmação o equipamento receberá status <strong className="font-bold">DOADO</strong> e não poderá participar de movimentos operacionais (exceto AJUSTE).</span>
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="do_origem" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Origem</label>
+                  <input id="do_origem" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-rose-200 focus:border-rose-400" value={origem} readOnly title="Origem automática pela localização atual do equipamento" />
+                </div>
+                <div>
+                  <label htmlFor="do_destino" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Destino</label>
+                  <input id="do_destino" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-rose-200 focus:border-rose-400" value={destino} onChange={(e) => setDestino(e.target.value)} placeholder="Ex: Entrega na sede da associação, retirada no campus, etc." />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_ben">Nome do beneficiário <span className="text-red-600">*</span></label>
+                  <input id="d_ben" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.beneficiarioNome} onChange={(e) => setFormDoacao({ ...formDoacao, beneficiarioNome: e.target.value })} placeholder="Entidade / Pessoa Física" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_cpf">CPF / CNPJ</label>
+                  <input id="d_cpf" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.beneficiarioCpfCnpj} onChange={(e) => setFormDoacao({ ...formDoacao, beneficiarioCpfCnpj: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_cont">Contato beneficiário</label>
+                  <input id="d_cont" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.beneficiarioContato} onChange={(e) => setFormDoacao({ ...formDoacao, beneficiarioContato: e.target.value })} placeholder="Fone / email responsável" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_data">Data da doação <span className="text-red-600">*</span></label>
+                  <input id="d_data" type="date" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.dataEntregaEfetiva} onChange={(e) => setFormDoacao({ ...formDoacao, dataEntregaEfetiva: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_port">Nº Portaria / Ofício</label>
+                  <input id="d_port" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.numeroPortaria} onChange={(e) => setFormDoacao({ ...formDoacao, numeroPortaria: e.target.value })} placeholder="ato jurídico da doação" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_resp">Responsável recebimento</label>
+                  <input id="d_resp" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.responsavelEntrega} onChange={(e) => setFormDoacao({ ...formDoacao, responsavelEntrega: e.target.value })} placeholder="quem recebeu na entidade" />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_end">Endereço de entrega</label>
+                  <input id="d_end" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.enderecoEntrega} onChange={(e) => setFormDoacao({ ...formDoacao, enderecoEntrega: e.target.value })} />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_motivo">Motivo da doação <span className="text-red-600">*</span></label>
+                  <textarea id="d_motivo" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.motivo} onChange={(e) => setFormDoacao({ ...formDoacao, motivo: e.target.value })} placeholder="Equipamento excedente após upgrade, destinado à escola X de comunidade carente..." />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_int">Observações internas (não públicas)</label>
+                  <textarea id="d_int" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-200" value={formDoacao.observacoesInternas} onChange={(e) => setFormDoacao({ ...formDoacao, observacoesInternas: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {opcaoTipoSelecionada?.value === 'DOACAO' && doacaoStep === 2 && (() => {
+            const eq = equipamentos.find(e => e.id === equipamentoId)
+            const eqDetalhe = lista.find(m => m.equipamentoId === equipamentoId)?.equipamento
+            const eqNome = eqDetalhe?.nome || eq?.nome || `Equipamento #${equipamentoId.slice(0,8)}`
+            const eqPatrimonio = eqDetalhe?.patrimonio
+            const eqSerial = eqDetalhe?.serial
+            const eqModelo = eqDetalhe?.modelo
+            const eqMarca = eqDetalhe?.marca || eqDetalhe?.fabricante
+            const eqEscola = (lista.find(m => m.equipamentoId === equipamentoId && m.escola?.nome)?.escola?.nome) || 'não informado'
+            const eqStatus = eqDetalhe?.status || 'desconhecido'
+            return (
+              <div className="xl:col-span-12 mt-4 overflow-hidden rounded-2xl border-2 border-rose-300 bg-white shadow-sm">
+                <div className="flex items-center gap-3 border-b border-rose-200 bg-rose-50/80 px-5 py-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-xl" aria-hidden>⚠️</span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-rose-900">Confirmação Obrigatória de Doação</h3>
+                    <p className="text-xs text-rose-800/80">Revise os dados abaixo antes de confirmar a transferência definitiva.</p>
+                  </div>
+                </div>
+                <div className="grid gap-4 p-5">
+                  <div className="grid gap-3 md:grid-cols-2 rounded-xl border border-rose-200 bg-rose-50/40 p-4">
+                    <div>
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-rose-700/80">Equipamento</span>
+                      <span className="font-semibold text-gray-900">{eqNome}{eqModelo ? ` · ${eqModelo}` : ''}{eqMarca ? ` (${eqMarca})` : ''}</span>
+                    </div>
+                    {eqPatrimonio && (
+                      <div>
+                        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-rose-700/80">Patrimônio</span>
+                        <span className="font-semibold text-gray-900">{eqPatrimonio}</span>
+                      </div>
+                    )}
+                    {eqSerial && (
+                      <div>
+                        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-rose-700/80">Nº Série</span>
+                        <span className="font-mono text-sm text-gray-900">{eqSerial}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-rose-700/80">Escola atual</span>
+                      <span className="text-gray-800">{eqEscola}</span>
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-rose-700/80">Status agora</span>
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${getClasseBadgeTipo(eqStatus)||'bg-slate-200 text-slate-800'}`}>{eqStatus}</span>
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-rose-700/80">Status após confirmação</span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-200 px-2.5 py-0.5 text-xs font-bold text-rose-900">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-600" aria-hidden />
+                        <span>DOADO</span>
+                      </span>
+                    </div>
+                  </div>
+                  <dl className="grid md:grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-gray-200 bg-white p-4">
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Beneficiário</dt>
+                      <dd className="mt-0.5 font-medium text-gray-900">{formDoacao.beneficiarioNome}</dd>
+                    </div>
+                    {formDoacao.beneficiarioCpfCnpj && (
+                      <div>
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">CPF/CNPJ</dt>
+                        <dd className="mt-0.5 text-gray-800">{formDoacao.beneficiarioCpfCnpj}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Data doação</dt>
+                      <dd className="mt-0.5 text-gray-800">{new Date(formDoacao.dataEntregaEfetiva).toLocaleDateString('pt-BR')}</dd>
+                    </div>
+                    {formDoacao.numeroPortaria && (
+                      <div>
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Portaria/Ofício</dt>
+                        <dd className="mt-0.5 text-gray-800">{formDoacao.numeroPortaria}</dd>
+                      </div>
+                    )}
+                    {formDoacao.motivo && (
+                      <div className="md:col-span-2">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Motivo</dt>
+                        <dd className="mt-0.5 text-gray-800">{formDoacao.motivo}</dd>
+                      </div>
+                    )}
+                  </dl>
+                  <div className={`rounded-xl border p-4 ${countdownDoacao > 0 ? 'border-amber-200 bg-amber-50/60' : 'border-rose-200 bg-rose-50/50'}`}>
+                    <p className={`text-sm font-medium ${countdownDoacao > 0 ? 'text-amber-900' : 'text-rose-900'}`}>
+                      {countdownDoacao > 0
+                        ? (
+                            <span className="flex items-center gap-2">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-200 text-xs font-bold text-amber-900" aria-live="polite">{countdownDoacao}</span>
+                              Aguarde {countdownDoacao}s para confirmar (evita clique acidental)
+                            </span>
+                          )
+                        : 'Confirme a doação. Esta ação é auditável e o equipamento sairá do inventário operacional.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3 pt-1">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                      onClick={() => { setDoacaoStep(1); setCountdownDoacao(3) }}
+                    >← Voltar e editar</button>
+                    <button
+                      type="submit"
+                      disabled={countdownDoacao > 0}
+                      className="inline-flex items-center gap-2 rounded-xl bg-rose-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >🔴 Confirmar Doação — Irreversível</button>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {opcaoTipoSelecionada?.value === 'EMPRESTIMO' && (
+            <div className="xl:col-span-12 mt-4 overflow-hidden rounded-2xl border-2 border-indigo-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-indigo-200 bg-indigo-50/80 px-5 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-xl" aria-hidden>🤝</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-indigo-900">Saída de Empréstimo</h3>
+                  <p className="text-xs text-indigo-800/80">Dados do beneficiário, tomador e condições do empréstimo temporário.</p>
+                </div>
+              </div>
+              <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <label htmlFor="em_origem" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Origem</label>
+                  <input id="em_origem" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400" value={origem} readOnly title="Origem automática pela localização atual do equipamento" />
+                </div>
+                <div>
+                  <label htmlFor="em_destino" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Destino</label>
+                  <input id="em_destino" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400" value={destino} onChange={(e) => setDestino(e.target.value)} placeholder="Ex: Escola X, Setor Y, Reunião Z, etc." />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_ben">Nome do beneficiário / setor <span className="text-red-600">*</span></label>
+                  <input id="e_ben" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.beneficiarioNome} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, beneficiarioNome: e.target.value })} placeholder="Pessoa física ou órgão/setor receptor" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_doc">Documento (CPF/CNPJ)</label>
+                  <input id="e_doc" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.beneficiarioDocumento} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, beneficiarioDocumento: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_cont">Contato (fone/email)</label>
+                  <input id="e_cont" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.beneficiarioContato} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, beneficiarioContato: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_tom">Tomador / Responsável</label>
+                  <input id="e_tom" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.tomadorNome} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, tomadorNome: e.target.value })} placeholder="Nome da pessoa que está recebendo" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_carg">Cargo do tomador</label>
+                  <input id="e_carg" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.tomadorCargo} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, tomadorCargo: e.target.value })} />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_local">Local / Destino do empréstimo</label>
+                  <input id="e_local" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.localDestino} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, localDestino: e.target.value })} placeholder="Sala de reuniões, Escola X, Setor Y" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_saida">Data saída <span className="text-red-600">*</span></label>
+                  <input id="e_saida" type="datetime-local" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.dataSaida} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, dataSaida: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_prev">Previsão de retorno <span className="text-red-600">*</span></label>
+                  <input id="e_prev" type="datetime-local" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.dataPrevistaDevolucao} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, dataPrevistaDevolucao: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_cons">Estado conservação (saída)</label>
+                  <select id="e_cons" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.estadoConservacaoSaida} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, estadoConservacaoSaida: e.target.value })}>
+                    {['NOVO','BOM','REGULAR','RUIM','DANIFICADO'].map(o => <option key={o} value={o}>{o.charAt(0) + o.slice(1).toLowerCase()}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <div className="flex w-full items-center gap-3 h-[42px] rounded-lg border border-indigo-100 bg-indigo-50/40 px-3 py-0">
+                    <label htmlFor="e_term" className="flex w-full cursor-pointer items-center gap-3 text-sm font-medium text-indigo-900 h-full">
+                      <input id="e_term" type="checkbox" className="h-4 w-4 accent-indigo-600 shrink-0" checked={formEmprestimo.termoAssinado} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, termoAssinado: e.target.checked })} aria-label="Termo de empréstimo assinado" />
+                      <span>Termo de empréstimo assinado</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_url">URL do termo (opcional)</label>
+                  <input id="e_url" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.termoUrl} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, termoUrl: e.target.value })} placeholder="https://drive.../termo-emprestimo.pdf" />
+                </div>
+                <div className="xl:col-span-4">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="e_int">Observações internas</label>
+                  <textarea id="e_int" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formEmprestimo.observacoesInternas} onChange={(e) => setFormEmprestimo({ ...formEmprestimo, observacoesInternas: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {opcaoTipoSelecionada?.value === 'DEVOLUCAO' && (
+            <div className="xl:col-span-12 mt-4 overflow-hidden rounded-2xl border-2 border-indigo-300 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-indigo-200 bg-indigo-50/80 px-5 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-xl" aria-hidden>↩️</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-indigo-900">Devolução de Empréstimo</h3>
+                  <p className="text-xs text-indigo-800/80">Dados do retorno do equipamento e estado após o empréstimo.</p>
+                </div>
+              </div>
+              <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                <div className="xl:col-span-4 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
+                  <p className="mb-3 flex items-start gap-2 text-xs font-medium text-indigo-900">
+                    <span aria-hidden>ℹ️</span>
+                    <span>Após devolução o equipamento sai de <strong className="font-bold">EMPRESTADO</strong> para o status abaixo selecionado.</span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label htmlFor="e_status_disp" className="flex cursor-pointer items-center gap-2 rounded-lg border border-indigo-200 bg-white px-4 py-2 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50">
+                      <input id="e_status_disp" type="radio" name="e_status_final" value="DISPONIVEL" checked={formDevolucao.statusFinal === 'DISPONIVEL'} onChange={() => setFormDevolucao({ ...formDevolucao, statusFinal: 'DISPONIVEL' })} className="h-4 w-4 accent-emerald-600" aria-label="Status final após devolução: Disponível em estoque" />
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+                        <span>Disponível em estoque</span>
+                      </span>
+                    </label>
+                    <label htmlFor="e_status_emuso" className="flex cursor-pointer items-center gap-2 rounded-lg border border-indigo-200 bg-white px-4 py-2 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50">
+                      <input id="e_status_emuso" type="radio" name="e_status_final" value="EM_USO" checked={formDevolucao.statusFinal === 'EM_USO'} onChange={() => setFormDevolucao({ ...formDevolucao, statusFinal: 'EM_USO' })} className="h-4 w-4 accent-blue-600" aria-label="Status final após devolução: Devolvido para uso" />
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                        <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden />
+                        <span>Devolvido para uso (EM_USO)</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="dv_origem" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Origem</label>
+                  <input id="dv_origem" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400" value={origem} readOnly title="Origem automática pela localização atual do equipamento" />
+                </div>
+                <div>
+                  <label htmlFor="dv_destino" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Destino</label>
+                  <input id="dv_destino" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400" value={destino} onChange={(e) => setDestino(e.target.value)} placeholder="Ex: Devolvido para estoque, setor de origem, etc." />
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_said">Empréstimo associado (opcional)</label>
+                  <select id="d_said" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formDevolucao.movimentacaoSaidaId} onChange={(e) => setFormDevolucao({ ...formDevolucao, movimentacaoSaidaId: e.target.value })}>
+                    <option value="">(vincular depois se preferir)</option>
+                    {lista
+                      .filter((m) => (m.tipo === 'EMPRESTIMO') && m.equipamentoId === equipamentoId)
+                      .map((m) => (<option key={m.id} value={m.id}>Empréstimo #{m.id.slice(0,8)} — {m.data ? new Date(m.data).toLocaleDateString('pt-BR') : ''}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_datadev">Data devolução efetiva <span className="text-red-600">*</span></label>
+                  <input id="d_datadev" type="datetime-local" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formDevolucao.dataDevolucaoEfetiva} onChange={(e) => setFormDevolucao({ ...formDevolucao, dataDevolucaoEfetiva: e.target.value })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_conr">Estado conservação (retorno)</label>
+                  <select id="d_conr" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formDevolucao.estadoConservacaoRetorno} onChange={(e) => setFormDevolucao({ ...formDevolucao, estadoConservacaoRetorno: e.target.value })}>
+                    {['NOVO','BOM','REGULAR','RUIM','DANIFICADO'].map(o => <option key={o} value={o}>{o.charAt(0) + o.slice(1).toLowerCase()}</option>)}
+                  </select>
+                </div>
+                <div className="xl:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="d_intd">Observações internas</label>
+                  <textarea id="d_intd" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200" value={formDevolucao.observacoesInternas} onChange={(e) => setFormDevolucao({ ...formDevolucao, observacoesInternas: e.target.value })} placeholder="Itens devolvidos incompletos, avarias detectadas no retorno, etc." />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* FORM BÁSICO para tipos antigos (mantido para retrocompatibilidade) */}
+          {opcaoTipoSelecionada && ['ENTRADA','SAIDA','TRANSFERENCIA','DESCARTE','AJUSTE','MANUTENCAO'].includes(opcaoTipoSelecionada.value) && (() => {
+            const cor = (() => {
+              switch (opcaoTipoSelecionada.categoria) {
+                case 'BASICOS':  return { border: 'border-emerald-200', header: 'bg-emerald-50/80 border-emerald-200', headerText: 'text-emerald-900', headerSub: 'text-emerald-800/80', headerIcon: 'bg-emerald-100', headerIconEmoji: '📦', focusRing: 'focus:ring-emerald-200', focusBorder: 'focus:border-emerald-400' }
+                case 'AJUSTES':  return { border: 'border-violet-200', header: 'bg-violet-50/80 border-violet-200', headerText: 'text-violet-900', headerSub: 'text-violet-800/80', headerIcon: 'bg-violet-100', headerIconEmoji: '⚙️', focusRing: 'focus:ring-violet-200', focusBorder: 'focus:border-violet-400' }
+                default:         return { border: 'border-slate-200', header: 'bg-slate-50/80 border-slate-200', headerText: 'text-slate-900', headerSub: 'text-slate-800/80', headerIcon: 'bg-slate-100', headerIconEmoji: '📋', focusRing: 'focus:ring-slate-200', focusBorder: 'focus:border-slate-400' }
+              }
+            })()
+            return (
+              <div className={`xl:col-span-12 mt-4 overflow-hidden rounded-2xl border-2 ${cor.border} bg-white shadow-sm`}>
+                <div className={`flex items-center gap-3 border-b ${cor.header} px-5 py-3`}>
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${cor.headerIcon} text-xl`} aria-hidden>{cor.headerIconEmoji}</span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className={`text-sm font-bold uppercase tracking-wide ${cor.headerText}`}>{opcaoTipoSelecionada.label.replace(/^[^\p{L}\p{N}]+/gu, '').trim()}</h3>
+                    <p className={`text-xs ${cor.headerSub}`}>Campos básicos de localização e data da movimentação.</p>
+                  </div>
+                </div>
+                <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                  <div>
+                    <label htmlFor="origem" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Origem</label>
+                    <input id="origem" className={`w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm ${cor.focusRing} ${cor.focusBorder}`} value={origem} readOnly title="Origem automática pela localização atual do equipamento" />
+                  </div>
+                  <div>
+                    <label htmlFor="destino" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Destino</label>
+                    <input id="destino" className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 ${cor.focusRing} ${cor.focusBorder}`} value={destino} onChange={(e) => setDestino(e.target.value)} />
+                  </div>
+                  <div>
+                    <label htmlFor="createData" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Data</label>
+                    <input id="createData" type="datetime-local" className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 ${cor.focusRing} ${cor.focusBorder}`} value={data} onChange={(e) => setData(e.target.value)} />
+                  </div>
+                  <div className="xl:col-span-2">
+                    <label htmlFor="createDescricao" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Descrição</label>
+                    <input id="createDescricao" className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 ${cor.focusRing} ${cor.focusBorder}`} value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          <div className="md:col-span-2 xl:col-span-4 mt-5 flex flex-col sm:flex-row gap-3 sm:justify-start border-t pt-5 border-gray-100">
+            <button type="button" onClick={() => { cancelCreate(); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300">
               <X size={16} />
               <span>Fechar</span>
             </button>
+            <button type="button" onClick={carregar} className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300">
+              <RotateCcw size={16} />
+              <span>Recarregar</span>
+            </button>
+            {(!(opcaoTipoSelecionada?.value === 'DOACAO' && doacaoStep === 2)) && (
+              <button type="submit" className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">
+                <Save size={16} />
+                <span>{opcaoTipoSelecionada?.value === 'DOACAO' ? 'Avançar para confirmação' : 'Salvar Movimentação'}</span>
+              </button>
+            )}
           </div>
         </form>
       </section>
@@ -648,8 +1765,8 @@ export default function MovimentacoesPage() {
             <div>
               <label htmlFor="editTipo" className="mb-1 block text-sm font-medium">Tipo</label>
               <select id="editTipo" className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value)}>
-                {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              {TIPOS_PERMITIDOS_NA_CRIACAO.map(t => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}
+            </select>
             </div>
             <div>
               <label htmlFor="editOrigem" className="mb-1 block text-sm font-medium">Origem</label>

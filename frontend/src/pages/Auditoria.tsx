@@ -343,12 +343,14 @@ const camposBadge = (item: WinAuditLogListagemItem): { encontrados: number; impo
   }
   if (importados > encontrados && encontrados > 0) importados = encontrados
   const proporcao = importados > 0 && encontrados > 0 ? importados / encontrados : 0
-  const classe =
-    proporcao >= 0.9
-      ? 'bg-emerald-100 text-emerald-700 ring-emerald-200'
-      : proporcao >= 0.5
-        ? 'bg-amber-100 text-amber-700 ring-amber-200'
-        : 'bg-rose-100 text-rose-700 ring-rose-200'
+  let classe: string
+  if (proporcao >= 0.9) {
+    classe = 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+  } else if (proporcao >= 0.5) {
+    classe = 'bg-amber-100 text-amber-700 ring-amber-200'
+  } else {
+    classe = 'bg-rose-100 text-rose-700 ring-rose-200'
+  }
   return {
     encontrados,
     importados,
@@ -953,11 +955,13 @@ export default function AuditoriaPage() {
             </header>
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              {detalheCarregando ? (
+              {detalheCarregando && (
                 <div className="py-10 text-center text-sm text-gray-500">Carregando detalhes...</div>
-              ) : !detalhe ? (
+              )}
+              {!detalheCarregando && !detalhe && (
                 <div className="py-10 text-center text-sm text-gray-500">Não foi possível carregar os detalhes.</div>
-              ) : (
+              )}
+              {!detalheCarregando && detalhe && (
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
@@ -1053,7 +1057,7 @@ export default function AuditoriaPage() {
                           <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Erros coletados</p>
                           <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-amber-800">
                             {detalhe.erros.map((err, idx) => (
-                              <li key={idx}>{err}</li>
+                              <li key={`${String(err).slice(0, 40)}-${idx}`}>{err}</li>
                             ))}
                           </ul>
                         </div>

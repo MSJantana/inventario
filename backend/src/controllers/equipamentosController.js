@@ -1,5 +1,5 @@
 import { prisma } from '../index.js';
-import { getSchoolScopeWhere, hasSchoolAccess } from '../utils/schoolAccess.js';
+import { getSchoolScopeWhere, hasSchoolAccess, resolveManagedSchoolId } from '../utils/schoolAccess.js';
 import { escapeCsvQuotes } from '../utils/compat.js';
 import EquipamentoService from '../services/EquipamentoService.js';
 // Helper simples para formatar data em YYYY-MM-DD sem dependências externas
@@ -41,7 +41,25 @@ export const obterEquipamento = async (req, res, next) => {
       where: { id },
       include: {
         escola: true,
-        movimentacoes: true
+        movimentacoes: {
+          orderBy: [{ dataMovimento: 'desc' }, { id: 'desc' }],
+          include: {
+            escola: { select: { id:true, nome:true, sigla:true } },
+            usuario: { select: { id:true, nome:true, email:true } },
+            manutencao: {
+              include: {
+                movimentacaoEnvio: { select: { id:true, tipoMovimento:true, dataMovimento:true, observacoes:true } },
+              },
+            },
+            doacao: true,
+            emprestimo: {
+              include: {
+                movimentacaoSaida: { select: { id:true, tipoMovimento:true, dataMovimento:true, observacoes:true } },
+              },
+            },
+            movimentacaoEstorno: { select: { id:true, dataMovimento:true, motivoEstorno:true, estornado:true, estornadoEm:true, estornadoPorUsuarioId:true } },
+          },
+        },
       }
     });
 

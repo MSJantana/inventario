@@ -29,6 +29,8 @@ enum StatusEquipamento {
   EM_MANUTENCAO
   DESCARTADO
   RESERVADO
+  EMPRESTADO
+  DOADO
 }
 
 // Enums para Centro de Midia
@@ -48,6 +50,12 @@ enum TipoMovimento {
   TRANSFERENCIA
   MANUTENCAO
   DESCARTE
+  MANUTENCAO_ENVIO
+  MANUTENCAO_RETORNO
+  EMPRESTIMO
+  DEVOLUCAO
+  DOACAO
+  AJUSTE
 }
 
 // Enum para Roles de Usuário
@@ -82,6 +90,8 @@ model Equipamento {
   macaddress    String?
   observacoes   String?
   usuarioNome   String?
+  setor         String?
+  responsavel   String?
   escolaId      String?
   escola        Escola?                @relation(fields: [escolaId], references: [id])
   movimentacoes Movimentacao[]
@@ -103,22 +113,120 @@ model Usuario {
   escola           Escola?              @relation(fields: [escolaId], references: [id])
   escolasAcesso    UsuarioEscola[]
   importacoesWinAudit ImportacaoWinAudit[] @relation("UsuarioImportacoes")
+  movimentacoes    Movimentacao[]       @relation("UsuarioMovimentacoes")
+  movimentacoesEstorno Movimentacao[]   @relation("MovimentacaoEstorno")
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 }
 
 model Movimentacao {
-  id            String        @id @default(uuid())
-  equipamentoId String
-  equipamento   Equipamento   @relation(fields: [equipamentoId], references: [id])
-  responsavel   String
-  tipoMovimento TipoMovimento
-  origem        String?
-  destino       String?
-  escolaId      String?
-  escola        Escola?       @relation(fields: [escolaId], references: [id])
-  dataMovimento DateTime      @default(now())
-  observacoes   String?
+  id                      String        @id @default(uuid())
+  equipamentoId           String
+  equipamento             Equipamento   @relation(fields: [equipamentoId], references: [id])
+  responsavel             String
+  tipoMovimento           TipoMovimento
+  origem                  String?
+  destino                 String?
+  escolaId                String?
+  escola                  Escola?       @relation(fields: [escolaId], references: [id])
+  dataMovimento           DateTime      @default(now())
+  observacoes             String?
+  // Auditoria & Snapshots
+  usuarioId               String?
+  usuario                 Usuario?      @relation("UsuarioMovimentacoes", fields: [usuarioId], references: [id])
+  snapshotAntes           Json?
+  snapshotDepois          Json?
+  // Estorno auditável
+  estornado               Boolean       @default(false)
+  estornadoEm             DateTime?
+  estornadoPorUsuarioId   String?
+  estornadoPorUsuario     Usuario?      @relation("MovimentacaoEstorno", fields: [estornadoPorUsuarioId], references: [id])
+  motivoEstorno           String?       @db.Text
+  movimentacaoEstornoId   String?       @unique
+  movimentacaoEstorno     Movimentacao? @relation("MovEstornoPar", fields: [movimentacaoEstornoId], references: [id])
+  movimentacaoOriginal    Movimentacao? @relation("MovEstornoPar")
+  manutencao              MovimentacaoManutencao?
+  doacao                  MovimentacaoDoacao?
+  emprestimo              MovimentacaoEmprestimo?
+  retornosManutencao      MovimentacaoManutencao[] @relation("ManutEnvioRet")
+  retornosEmprestimo      MovimentacaoEmprestimo[] @relation("EmpSaidaDev")
+
+  @@index([escolaId, tipoMovimento, dataMovimento])
+  @@index([equipamentoId, dataMovimento])
+  @@index([usuarioId, dataMovimento])
+  @@index([dataMovimento])
+  @@index([estornado, dataMovimento])
+}
+
+model MovimentacaoManutencao {
+  id                  String        @id @default(uuid())
+  movimentacaoId      String        @unique
+  movimentacao        Movimentacao  @relation(fields: [movimentacaoId], references: [id], onDelete: Cascade)
+  movimentacaoEnvioId String?
+  movimentacaoEnvio   Movimentacao? @relation("ManutEnvioRet", fields: [movimentacaoEnvioId], references: [id], onDelete: SetNull)
+  tipoServico         String?
+  tecnicoResponsavel  String?
+  fornecedorNome      String?
+  fornecedorContato   String?
+  numeroOS            String?
+  prazoRetorno        DateTime?
+  dataRetornoEfetiva  DateTime?
+  pecasTrocadas       Json?
+  valorServico        Decimal?      @db.Decimal(12, 2)
+  laudoTecnico        String?       @db.Text
+  escolaId            String?
+  escola              Escola?       @relation(fields: [escolaId], references: [id])
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([movimentacaoEnvioId])
+}
+
+model MovimentacaoDoacao {
+  id                  String        @id @default(uuid())
+  movimentacaoId      String        @unique
+  movimentacao        Movimentacao  @relation(fields: [movimentacaoId], references: [id], onDelete: Cascade)
+  beneficiarioNome    String
+  beneficiarioCpfCnpj String?
+  beneficiarioContato String?
+  enderecoEntrega     String?
+  termoDoacaoUrl      String?
+  numeroPortaria      String?
+  dataEntregaEfetiva  DateTime?
+  responsavelEntrega  String?
+  observacoesInternas String?       @db.Text
+  escolaId            String?
+  escola              Escola?       @relation(fields: [escolaId], references: [id])
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+}
+
+model MovimentacaoEmprestimo {
+  id                       String        @id @default(uuid())
+  movimentacaoId           String        @unique
+  movimentacao             Movimentacao  @relation(fields: [movimentacaoId], references: [id], onDelete: Cascade)
+  movimentacaoSaidaId      String?
+  movimentacaoSaida        Movimentacao? @relation("EmpSaidaDev", fields: [movimentacaoSaidaId], references: [id], onDelete: SetNull)
+  beneficiarioNome         String
+  beneficiarioDocumento    String?
+  beneficiarioContato      String?
+  tomadorNome              String?
+  tomadorCargo             String?
+  localDestino             String?
+  dataSaida                DateTime?
+  dataPrevistaDevolucao    DateTime?
+  dataDevolucaoEfetiva     DateTime?
+  estadoConservacaoSaida   String?
+  estadoConservacaoRetorno String?
+  termoAssinado            Boolean?      @default(false)
+  termoUrl                 String?
+  observacoesInternas      String?       @db.Text
+  escolaId                 String?
+  escola                   Escola?       @relation(fields: [escolaId], references: [id])
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+
+  @@index([movimentacaoSaidaId])
 }
 
 model Escola {
@@ -137,6 +245,9 @@ model Escola {
   usuarios       Usuario[]
   usuariosAcesso UsuarioEscola[]
   movimentacoes  Movimentacao[]
+  movimentacoesManutencao MovimentacaoManutencao[]
+  movimentacoesDoacao MovimentacaoDoacao[]
+  movimentacoesEmprestimo MovimentacaoEmprestimo[]
   centroMidia    CentroMidia[]
   importacoesWinAudit ImportacaoWinAudit[]
   createdAt      DateTime             @default(now())

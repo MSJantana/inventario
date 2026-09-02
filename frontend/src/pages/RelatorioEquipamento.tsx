@@ -13,6 +13,12 @@ type Escola = {
   sigla?: string
 }
 
+type EscolaCatalogo = {
+  id: string
+  nome: string
+  sigla?: string
+}
+
 type Movimentacao = {
   id: string
   tipoMovimento?: string
@@ -21,6 +27,66 @@ type Movimentacao = {
   origem?: string
   destino?: string
   responsavel?: string
+  estornado?: boolean
+  estornadoEm?: string
+  motivoEstorno?: string
+  usuario?: { nome?: string; email?: string }
+  manutencao?: {
+    fornecedorNome?: string
+    fornecedorContato?: string
+    numeroOS?: string
+    tipoServico?: string
+    tecnicoResponsavel?: string
+    prazoRetorno?: string
+    dataRetornoEfetiva?: string
+    pecasTrocadas?: string[] | string | null
+    valorServico?: number | string | null
+    laudoTecnico?: string
+    observacoesInternas?: string
+    movimentacaoEnvio?: {
+      id?: string
+      tipoMovimento?: string
+      dataMovimento?: string
+      observacoes?: string
+      usuario?: { id?: string; nome?: string }
+    }
+  }
+  doacao?: {
+    beneficiarioNome?: string
+    beneficiarioCpfCnpj?: string
+    beneficiarioContato?: string
+    numeroPortaria?: string
+    dataEntregaEfetiva?: string
+    responsavelEntrega?: string
+    enderecoEntrega?: string
+    termoDoacaoUrl?: string
+    observacoesInternas?: string
+  }
+  emprestimo?: {
+    beneficiarioNome?: string
+    beneficiarioDocumento?: string
+    beneficiarioContato?: string
+    tomadorNome?: string
+    tomadorCargo?: string
+    localDestino?: string
+    dataSaida?: string
+    dataPrevistaDevolucao?: string
+    dataDevolucaoEfetiva?: string
+    estadoConservacaoSaida?: string
+    estadoConservacaoRetorno?: string
+    termoAssinado?: boolean
+    termoUrl?: string
+    observacoesInternas?: string
+    movimentacaoSaida?: {
+      id?: string
+      tipoMovimento?: string
+      dataMovimento?: string
+      observacoes?: string
+      usuario?: { id?: string; nome?: string }
+    }
+  }
+  snapshotAntes?: Record<string, unknown>
+  snapshotDepois?: Record<string, unknown>
 }
 
 type EquipamentoRelatorio = {
@@ -48,6 +114,10 @@ function getStatusClasses(status?: string, expired?: boolean): string {
       return 'border-blue-200 bg-blue-50 text-blue-700'
     case 'EM_MANUTENCAO':
       return 'border-amber-200 bg-amber-50 text-amber-700'
+    case 'EMPRESTADO':
+      return 'border-indigo-200 bg-indigo-50 text-indigo-700'
+    case 'DOADO':
+      return 'border-rose-200 bg-rose-50 text-rose-700'
     case 'DESCARTADO':
       return 'border-rose-200 bg-rose-50 text-rose-700'
     case 'RESERVADO':
@@ -66,7 +136,18 @@ function getTipoClasses(tipo?: string): string {
     case 'TRANSFERENCIA':
       return 'bg-blue-100 text-blue-700'
     case 'MANUTENCAO':
-      return 'bg-amber-100 text-amber-700'
+    case 'MANUTENCAO_ENVIO':
+      return 'bg-amber-100 text-amber-800'
+    case 'MANUTENCAO_RETORNO':
+      return 'bg-amber-200 text-amber-900'
+    case 'EMPRESTIMO':
+      return 'bg-indigo-100 text-indigo-700'
+    case 'DEVOLUCAO':
+      return 'bg-indigo-200 text-indigo-900'
+    case 'DOACAO':
+      return 'bg-rose-100 text-rose-800'
+    case 'AJUSTE':
+      return 'bg-slate-300 text-slate-800'
     case 'DESCARTE':
       return 'bg-slate-200 text-slate-700'
     default:
@@ -109,6 +190,7 @@ export default function RelatorioEquipamentoPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [escolas, setEscolas] = useState<EscolaCatalogo[]>([])
 
   useEffect(() => {
     async function carregarRelatorio() {
@@ -122,8 +204,12 @@ export default function RelatorioEquipamentoPage() {
       setError(null)
 
       try {
-        const resp = await api.get(`/api/equipamentos/${id}`)
-        setEquipamento(resp.data || null)
+        const [equipResp, escolasResp] = await Promise.all([
+          api.get(`/api/equipamentos/${id}`),
+          api.get('/api/escolas').catch(() => ({ data: [] })),
+        ])
+        setEquipamento(equipResp.data || null)
+        setEscolas(escolasResp.data || [])
       } catch (e: unknown) {
         const message =
           (e as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -146,6 +232,25 @@ export default function RelatorioEquipamentoPage() {
       return first - second
     })
   }, [equipamento])
+
+  const mapEscolasPorId = useMemo(() => {
+    const m = new Map<string, EscolaCatalogo>()
+    escolas.forEach((s) => m.set(s.id, s))
+    return m
+  }, [escolas])
+
+  const resolverNomeEscola = (snapshot: Record<string, unknown>): string => {
+    const objEscola = (snapshot.escola as { nome?: string } | undefined)?.nome
+    if (objEscola) return objEscola
+    const idEscola = (snapshot.escolaId as string | undefined)
+    if (idEscola) {
+      const cat = mapEscolasPorId.get(idEscola)
+      if (cat?.nome) return cat.nome
+      if (idEscola.length > 14) return idEscola.slice(0, 8)
+      return idEscola
+    }
+    return '-'
+  }
 
   const expired = isExpired(equipamento?.dataAquisicao)
   const statusLabel = expired ? 'VENCIDO' : (equipamento?.status || 'SEM STATUS')
@@ -228,12 +333,12 @@ export default function RelatorioEquipamentoPage() {
             <p className="mt-2 max-w-2xl text-sm text-red-700">{error || 'Equipamento não encontrado.'}</p>
           </div>
           <Link
-            to="/equipamentos"
-            aria-label="Voltar para lista de equipamentos"
+            to="/movimentacoes"
+            aria-label="Voltar para lista de movimentações"
             className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
           >
             <ArrowLeft size={16} aria-hidden="true" />
-            <span>Voltar para equipamentos</span>
+            <span>Voltar para movimentações</span>
           </Link>
         </div>
       </section>
@@ -270,12 +375,12 @@ export default function RelatorioEquipamentoPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-4">
               <Link
-                to="/equipamentos"
-                aria-label="Voltar para lista de equipamentos"
+                to="/movimentacoes"
+                aria-label="Voltar para lista de movimentações"
                 className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/10"
               >
                 <ArrowLeft size={16} aria-hidden="true" />
-                <span>Voltar para equipamentos</span>
+                <span>Voltar para movimentações</span>
               </Link>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -415,50 +520,311 @@ export default function RelatorioEquipamentoPage() {
           </div>
         ) : (
           <div className="space-y-5">
-            {historico.map((item, index) => (
-              <div key={item.id} className="relative rounded-[24px] border border-slate-200 bg-slate-50/80 p-5">
-                {index !== historico.length - 1 ? (
-                  <div className="absolute left-9 top-[88px] h-[calc(100%+20px)] w-px bg-slate-200" />
-                ) : null}
+            {historico.map((item, index) => {
+              const estornado = Boolean(item.estornado)
+              const snapAntes = item.snapshotAntes || ({} as Record<string, unknown>)
+              const snapDepois = item.snapshotDepois || ({} as Record<string, unknown>)
+              return (
+                <div
+                  key={item.id}
+                  className={`relative rounded-[24px] border p-5 ${estornado ? 'border-red-200 bg-red-50/40' : 'border-slate-200 bg-slate-50/80'}`}
+                >
+                  {index !== historico.length - 1 ? (
+                    <div
+                      className={`absolute left-9 top-[88px] h-[calc(100%+20px)] w-px ${estornado ? 'bg-red-200' : 'bg-slate-200'}`}
+                    />
+                  ) : null}
 
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="flex gap-4">
-                    <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                      {index + 1}
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${getTipoClasses(item.tipoMovimento)}`}>
-                          {(item.tipoMovimento || 'SEM TIPO').replaceAll('_', ' ')}
-                        </span>
-                        <span className="text-sm text-slate-500">{formatDateTime(item.dataMovimento)}</span>
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="flex gap-4">
+                      <div
+                        className={`mt-1 flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${estornado ? 'bg-red-500 line-through decoration-red-700' : 'bg-slate-900'}`}
+                      >
+                        {index + 1}
                       </div>
-
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <div className="rounded-2xl border border-white bg-white p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Origem</p>
-                          <p className="mt-2 text-sm font-medium text-slate-900">{item.origem || 'Não informada'}</p>
+                      <div className="space-y-3 flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${getTipoClasses(item.tipoMovimento)} ${estornado ? 'line-through opacity-70' : ''}`}
+                          >
+                            {(item.tipoMovimento || 'SEM TIPO').replaceAll('_', ' ')}
+                          </span>
+                          {estornado && (
+                            <span className="rounded-full border border-red-300 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-red-700">
+                              Estornada
+                            </span>
+                          )}
+                          <span className="text-sm text-slate-500">{formatDateTime(item.dataMovimento)}</span>
                         </div>
+
+                        {estornado && (
+                          <div className="rounded-2xl border border-red-200 bg-white p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-red-500">
+                              Motivo do estorno
+                            </p>
+                            <p className="mt-2 text-sm text-red-800">
+                              {item.motivoEstorno || 'Estorno sem justificativa registrada.'}
+                            </p>
+                            {item.estornadoEm && (
+                              <p className="mt-1 text-xs text-red-500">
+                                Estornado em {formatDateTime(item.estornadoEm)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="rounded-2xl border border-white bg-white p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                              Origem
+                            </p>
+                            <p className="mt-2 text-sm font-medium text-slate-900">{item.origem || 'Não informada'}</p>
+                          </div>
+                          <div className="rounded-2xl border border-white bg-white p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                              Destino
+                            </p>
+                            <p className="mt-2 text-sm font-medium text-slate-900">{item.destino || 'Não informado'}</p>
+                          </div>
+                        </div>
+
+                        {item.manutencao ? (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700">
+                              Detalhes da manutenção
+                            </p>
+                            <div className="mt-2 grid gap-2 md:grid-cols-2 text-sm">
+                              <div><span className="font-semibold text-amber-900">Fornecedor: </span>{item.manutencao.fornecedorNome || '-'}</div>
+                              <div><span className="font-semibold text-amber-900">Nº OS: </span>{item.manutencao.numeroOS || '-'}</div>
+                              <div><span className="font-semibold text-amber-900">Tipo de serviço: </span>{item.manutencao.tipoServico || '-'}</div>
+                              <div><span className="font-semibold text-amber-900">Técnico responsável: </span>{item.manutencao.tecnicoResponsavel || '-'}</div>
+                              <div><span className="font-semibold text-amber-900">Prazo de retorno: </span>{formatDate(item.manutencao.prazoRetorno) || '-'}</div>
+                              <div><span className="font-semibold text-amber-900">Retorno efetivo: </span>{formatDate(item.manutencao.dataRetornoEfetiva) || '-'}</div>
+                              {item.manutencao.pecasTrocadas != null && item.manutencao.pecasTrocadas !== '' && (
+                                <div className="md:col-span-2">
+                                  <span className="font-semibold text-amber-900">Peças trocadas: </span>
+                                  {Array.isArray(item.manutencao.pecasTrocadas)
+                                    ? item.manutencao.pecasTrocadas.join(', ')
+                                    : String(item.manutencao.pecasTrocadas)}
+                                </div>
+                              )}
+                              {item.manutencao.valorServico != null && item.manutencao.valorServico !== '' && (
+                                <div>
+                                  <span className="font-semibold text-amber-900">Valor do serviço: </span>R${' '}
+                                  {Number(item.manutencao.valorServico).toFixed(2).replace('.', ',')}
+                                </div>
+                              )}
+                              {item.manutencao.fornecedorContato && (
+                                <div><span className="font-semibold text-amber-900">Contato fornecedor: </span>{item.manutencao.fornecedorContato}</div>
+                              )}
+                              {item.manutencao.laudoTecnico && (
+                                <div className="md:col-span-2">
+                                  <span className="font-semibold text-amber-900">Laudo técnico: </span>
+                                  <span className="whitespace-pre-wrap">{item.manutencao.laudoTecnico}</span>
+                                </div>
+                              )}
+                              {item.manutencao.movimentacaoEnvio?.id && (
+                                <div className="md:col-span-2 rounded-xl border border-amber-200 bg-white/60 p-2">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                                    Vinculado ao envio original
+                                  </p>
+                                  <p className="mt-1 text-xs text-amber-900">
+                                    Data envio: {formatDateTime(item.manutencao.movimentacaoEnvio.dataMovimento)}
+                                    {item.manutencao.movimentacaoEnvio.usuario?.nome
+                                      ? ` · Por: ${item.manutencao.movimentacaoEnvio.usuario.nome}`
+                                      : ''}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {item.doacao ? (
+                          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-700">
+                              Detalhes da doação
+                            </p>
+                            <div className="mt-2 grid gap-2 md:grid-cols-2 text-sm">
+                              <div><span className="font-semibold text-rose-900">Beneficiário: </span>{item.doacao.beneficiarioNome || '-'}</div>
+                              <div><span className="font-semibold text-rose-900">CPF/CNPJ: </span>{item.doacao.beneficiarioCpfCnpj || '-'}</div>
+                              {item.doacao.beneficiarioContato && (
+                                <div><span className="font-semibold text-rose-900">Contato: </span>{item.doacao.beneficiarioContato}</div>
+                              )}
+                              <div><span className="font-semibold text-rose-900">Nº Portaria: </span>{item.doacao.numeroPortaria || '-'}</div>
+                              <div><span className="font-semibold text-rose-900">Data entrega efetiva: </span>{formatDate(item.doacao.dataEntregaEfetiva) || '-'}</div>
+                              <div><span className="font-semibold text-rose-900">Responsável entrega: </span>{item.doacao.responsavelEntrega || '-'}</div>
+                              {item.doacao.enderecoEntrega && (
+                                <div className="md:col-span-2"><span className="font-semibold text-rose-900">Endereço entrega: </span>{item.doacao.enderecoEntrega}</div>
+                              )}
+                              {item.doacao.termoDoacaoUrl && (
+                                <div className="md:col-span-2">
+                                  <span className="font-semibold text-rose-900">Termo de doação: </span>
+                                  <a
+                                    href={item.doacao.termoDoacaoUrl}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="text-rose-700 underline underline-offset-2 hover:text-rose-900"
+                                    aria-label="Abrir termo de doação em nova aba"
+                                  >
+                                    Visualizar documento
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {item.emprestimo ? (
+                          <div className="rounded-2xl border-2 border-indigo-200 bg-indigo-50/70 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700">
+                              Detalhes do empréstimo
+                            </p>
+                            <div className="mt-2 grid gap-2 md:grid-cols-2 text-sm">
+                              <div><span className="font-semibold text-indigo-900">Beneficiário: </span>{item.emprestimo.beneficiarioNome || '-'}</div>
+                              {item.emprestimo.beneficiarioDocumento && (
+                                <div><span className="font-semibold text-indigo-900">Documento: </span>{item.emprestimo.beneficiarioDocumento}</div>
+                              )}
+                              {item.emprestimo.beneficiarioContato && (
+                                <div><span className="font-semibold text-indigo-900">Contato: </span>{item.emprestimo.beneficiarioContato}</div>
+                              )}
+                              {item.emprestimo.tomadorNome && (
+                                <div>
+                                  <span className="font-semibold text-indigo-900">Tomador: </span>
+                                  {item.emprestimo.tomadorCargo
+                                    ? `${item.emprestimo.tomadorNome} (${item.emprestimo.tomadorCargo})`
+                                    : item.emprestimo.tomadorNome}
+                                </div>
+                              )}
+                              <div><span className="font-semibold text-indigo-900">Local de destino: </span>{item.emprestimo.localDestino || '-'}</div>
+                              <div><span className="font-semibold text-indigo-900">Data saída: </span>{formatDate(item.emprestimo.dataSaida) || '-'}</div>
+                              <div>
+                                <span className="font-semibold text-indigo-900">Previsão devolução: </span>
+                                {formatDate(item.emprestimo.dataPrevistaDevolucao) || '-'}
+                                {!item.emprestimo.dataDevolucaoEfetiva &&
+                                item.emprestimo.dataPrevistaDevolucao &&
+                                new Date(item.emprestimo.dataPrevistaDevolucao) < new Date() ? (
+                                  <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700">
+                                    Atrasado
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div>
+                                <span className="font-semibold text-indigo-900">Devolução efetiva: </span>
+                                {item.emprestimo.dataDevolucaoEfetiva ? (
+                                  <span className="text-emerald-800 font-medium">{formatDate(item.emprestimo.dataDevolucaoEfetiva)}</span>
+                                ) : (
+                                  <span className="text-amber-700">Pendente</span>
+                                )}
+                              </div>
+                              {item.emprestimo.estadoConservacaoSaida && (
+                                <div><span className="font-semibold text-indigo-900">Estado saída: </span>{item.emprestimo.estadoConservacaoSaida}</div>
+                              )}
+                              {item.emprestimo.estadoConservacaoRetorno && (
+                                <div><span className="font-semibold text-indigo-900">Estado retorno: </span>{item.emprestimo.estadoConservacaoRetorno}</div>
+                              )}
+                              <div>
+                                <span className="font-semibold text-indigo-900">Termo assinado: </span>
+                                {item.emprestimo.termoAssinado ? (
+                                  <span className="text-emerald-700 font-medium">Sim</span>
+                                ) : (
+                                  <span className="text-amber-700">Não</span>
+                                )}
+                              </div>
+                              {item.emprestimo.termoUrl && (
+                                <div>
+                                  <span className="font-semibold text-indigo-900">Termo: </span>
+                                  <a
+                                    href={item.emprestimo.termoUrl}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="text-indigo-700 underline underline-offset-2 hover:text-indigo-900"
+                                    aria-label="Abrir termo de empréstimo em nova aba"
+                                  >
+                                    Visualizar
+                                  </a>
+                                </div>
+                              )}
+                              {item.emprestimo.movimentacaoSaida?.id && (
+                                <div className="md:col-span-2 rounded-xl border border-indigo-200 bg-white/60 p-2">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
+                                    Vinculado à saída original
+                                  </p>
+                                  <p className="mt-1 text-xs text-indigo-900">
+                                    Data saída: {formatDateTime(item.emprestimo.movimentacaoSaida.dataMovimento)}
+                                    {item.emprestimo.movimentacaoSaida.usuario?.nome
+                                      ? ` · Por: ${item.emprestimo.movimentacaoSaida.usuario.nome}`
+                                      : ''}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {Object.keys(snapAntes).length > 0 || Object.keys(snapDepois).length > 0 ? (
+                          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700">
+                              Auditoria (antes → depois)
+                            </p>
+                            <div className="mt-2 grid gap-3 md:grid-cols-2 text-sm">
+                              <div className="rounded-xl bg-white p-2">
+                                <p className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wide mb-1">
+                                  Antes
+                                </p>
+                                <ul className="space-y-1 text-indigo-900">
+                                  <li>Status: <span className="font-medium">{String((snapAntes.status as string) || '-')}</span></li>
+                                  <li>Escola: <span className="font-medium">{resolverNomeEscola(snapAntes)}</span></li>
+                                  <li>Localização: <span className="font-medium">{String((snapAntes.localizacao as string) || '-')}</span></li>
+                                  <li>Setor: <span className="font-medium">{String((snapAntes.setor as string) || '-')}</span></li>
+                                </ul>
+                              </div>
+                              <div className="rounded-xl bg-white p-2">
+                                <p className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wide mb-1">
+                                  Depois
+                                </p>
+                                <ul className="space-y-1 text-indigo-900">
+                                  <li>Status: <span className="font-medium">{String((snapDepois.status as string) || '-')}</span></li>
+                                  <li>Escola: <span className="font-medium">{resolverNomeEscola(snapDepois)}</span></li>
+                                  <li>Localização: <span className="font-medium">{String((snapDepois.localizacao as string) || '-')}</span></li>
+                                  <li>Setor: <span className="font-medium">{String((snapDepois.setor as string) || '-')}</span></li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+
                         <div className="rounded-2xl border border-white bg-white p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Destino</p>
-                          <p className="mt-2 text-sm font-medium text-slate-900">{item.destino || 'Não informado'}</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            Descrição
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-slate-700">
+                            {item.observacoes || 'Sem observações registradas.'}
+                          </p>
                         </div>
                       </div>
-
-                      <div className="rounded-2xl border border-white bg-white p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Descrição</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-700">{item.observacoes || 'Sem observações registradas.'}</p>
-                      </div>
                     </div>
-                  </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 md:min-w-[200px]">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Responsável</p>
-                    <p className="mt-2 font-medium text-slate-900">{item.responsavel || 'Não informado'}</p>
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 md:min-w-[220px]">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        Realizada por
+                      </p>
+                      <p className="mt-2 font-medium text-slate-900">
+                        {item.usuario?.nome || item.responsavel || 'Não informado'}
+                      </p>
+                      {item.usuario?.email && (
+                        <p className="text-xs text-slate-500 break-all">{item.usuario.email}</p>
+                      )}
+                      {item.responsavel && item.usuario?.nome && item.responsavel !== item.usuario.nome && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          (Legado) Responsável: {item.responsavel}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </article>

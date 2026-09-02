@@ -18,16 +18,44 @@ export const getSchoolScopeWhere = (usuario, fieldName = 'escolaId') => {
   };
 };
 
-export const hasSchoolAccess = (usuario, escolaId) => {
+export const hasSchoolAccess = (usuario, escolaIdOrObj) => {
   if (usuario?.role === 'ADMIN') {
     return true;
   }
-
-  if (!escolaId) {
+  const idsPermitidos = getAccessibleSchoolIds(usuario);
+  if (idsPermitidos.length === 0) {
     return false;
   }
-
-  return getAccessibleSchoolIds(usuario).includes(escolaId);
+  let escolaIdDireto = null;
+  if (typeof escolaIdOrObj === 'string' || typeof escolaIdOrObj === 'number') {
+    escolaIdDireto = String(escolaIdOrObj);
+  } else if (
+    escolaIdOrObj
+    && typeof escolaIdOrObj === 'object'
+    && 'escolaId' in escolaIdOrObj
+    && escolaIdOrObj.escolaId != null
+  ) {
+    escolaIdDireto = String(escolaIdOrObj.escolaId);
+  }
+  let equipamentoEscolaId = null;
+  if (
+    escolaIdOrObj
+    && typeof escolaIdOrObj === 'object'
+    && 'equipamentoEscolaId' in escolaIdOrObj
+    && escolaIdOrObj.equipamentoEscolaId != null
+  ) {
+    equipamentoEscolaId = String(escolaIdOrObj.equipamentoEscolaId);
+  }
+  if (escolaIdDireto && idsPermitidos.includes(escolaIdDireto)) {
+    return true;
+  }
+  if (equipamentoEscolaId && idsPermitidos.includes(equipamentoEscolaId)) {
+    return true;
+  }
+  if (!escolaIdDireto && !equipamentoEscolaId) {
+    return false;
+  }
+  return false;
 };
 
 export const resolveManagedSchoolId = (usuario, requestedSchoolId) => {

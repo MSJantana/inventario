@@ -8,10 +8,15 @@ pnpm-debug.log*
 # Environment variables
 .env
 .env.local
+.env.dev
+.env-dev
 .env.development
 .env.test
 .env.production
 .env.example
+.env.*
+!.env.example
+!.env.sample
 
 # Logs
 logs/
@@ -42,6 +47,14 @@ temp/
 *.tmp
 *.temp
 tests/
+*_temp.mjs
+*_temp.js
+smoke_*.mjs
+smoke_*.js
+*_debug.mjs
+*_debug.js
+check_dev.*
+get_admin_jwt.*
 
 # IDE and Editor files
 .idea/

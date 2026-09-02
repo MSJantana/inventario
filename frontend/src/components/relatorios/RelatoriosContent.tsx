@@ -145,7 +145,7 @@ export function RelatoriosContent({
                     <th className={getCellClasses(true, 'w-[8%]')}>Status</th>
                     <th className={getCellClasses(true, 'w-[20%]')}>Escola</th>
                     <th className={getCellClasses(true, 'w-[22%]')}>Modelo</th>
-                    <th className={getCellClasses(true, 'w-[22%]')}>Serial</th>
+                    <th className={getCellClasses(true, 'w-[22%]')}>Número de Série</th>
                   </>
                 ) : (
                   <>
@@ -155,7 +155,7 @@ export function RelatoriosContent({
                     <th className={getCellClasses(true, 'w-[8%]')}>Escola</th>
                     <th className={getCellClasses(true, 'w-[8%]')}>Usuário</th>
                     <th className={getCellClasses(true, 'w-[12%]')}>Modelo</th>
-                    <th className={getCellClasses(true, 'w-[16%]')}>Serial</th>
+                    <th className={getCellClasses(true, 'w-[16%]')}>Número de Série</th>
                     <th className={getCellClasses(true, 'w-[10%]')}>Localização</th>
                     <th className={getCellClasses(true, 'w-[10%]')}>Aquisição</th>
                     <th className={getCellClasses(true, 'w-[12%]')}>Situação</th>
