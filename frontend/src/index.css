@@ -58,19 +58,39 @@ body {
 
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 10mm;
+    size: A4 landscape;
+    margin: 8mm;
   }
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    font-size: 11pt;
   }
   .print-area {
     width: 100%;
   }
+  .print-area table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  .print-area table thead {
+    display: table-header-group;
+  }
+  .print-area table tfoot {
+    display: table-footer-group;
+  }
   .print-area table th,
   .print-area table td {
-    border: 1px solid #777 !important;
+    border: 1px solid #555 !important;
+    padding: 4px 6px !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;    
+    vertical-align: top;
+  }
+  .print-area table th {
+    font-size: 10pt;
   }
   .print-total {
     border: 1px solid #777;

@@ -661,7 +661,8 @@ export default function App() {
   const whatsNewItems = [    
     'Bug Fixed: Corrigido Release Date.',
     'Bug Fixed: Usuários sem ser Adm podem editar equipamentos.',
-    'Nova Feature: Mudança nas movimentações dos equipamentos tem váris tipos de movimentação.',     
+    'Nova Feature: Mudança nas movimentações dos equipamentos.', 
+    'Atualização: Melhorias na interface ao editar um equipamento.'    
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
