@@ -59,8 +59,9 @@ export const validarUsuario = (req, res, next) => {
     });
   }
   
-  // Validar formato de email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Validar formato de email — sem backtracking superlinear (S8786)
+  // Usa atomicidade via negated character class e exige pelo menos 1 char em cada parte
+  const emailRegex = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({ error: 'Formato de email inválido.' });
   }
@@ -69,6 +70,20 @@ export const validarUsuario = (req, res, next) => {
 };
 
 // Validação para movimentações
+const TIPOS_MOVIMENTACAO_VALIDOS = Object.freeze([
+  'ENTRADA',
+  'SAIDA',
+  'TRANSFERENCIA',
+  'MANUTENCAO',
+  'MANUTENCAO_ENVIO',
+  'MANUTENCAO_RETORNO',
+  'EMPRESTIMO',
+  'DEVOLUCAO',
+  'DOACAO',
+  'AJUSTE',
+  'DESCARTE',
+]);
+
 export const validarMovimentacao = (req, res, next) => {
   // Aceitar aliases e normalizar campos para o controller
   const tipoAliased = req.body.tipo ?? req.body.tipoMovimento;
@@ -110,10 +125,9 @@ export const validarMovimentacao = (req, res, next) => {
   }
   
   // Validar tipo de movimentação
-  const tiposValidos = ['ENTRADA', 'SAIDA', 'TRANSFERENCIA', 'MANUTENCAO', 'DESCARTE'];
-  if (!tiposValidos.includes(tipo)) {
+  if (!TIPOS_MOVIMENTACAO_VALIDOS.includes(tipo)) {
     return res.status(400).json({ 
-      error: `Tipo de movimentação inválido. Valores aceitos: ${tiposValidos.join(', ')}` 
+      error: `Tipo de movimentação inválido. Valores aceitos: ${TIPOS_MOVIMENTACAO_VALIDOS.join(', ')}` 
     });
   }
 

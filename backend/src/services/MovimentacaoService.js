@@ -72,11 +72,15 @@ const normalizarDadosMov = (body) => {
     const valor = body?.[k];
     if (valor !== undefined && valor !== null) saida[k] = String(valor);
   });
+  if (body?.statusDestino !== undefined && body?.statusDestino !== null) {
+    saida.statusDestino = String(body.statusDestino);
+  }
   if (body?.dataMovimento) saida.dataMovimento = new Date(body.dataMovimento);
   if (typeof body?.manutencao === 'object' && body.manutencao) saida.manutencao = body.manutencao;
   if (typeof body?.doacao === 'object' && body.doacao) saida.doacao = body.doacao;
   if (typeof body?.emprestimo === 'object' && body.emprestimo) saida.emprestimo = body.emprestimo;
   if (typeof body?.transferencia === 'object' && body.transferencia) saida.transferencia = body.transferencia;
+  if (typeof body?.ajusteEquipamento === 'object' && body.ajusteEquipamento) saida.ajusteEquipamento = body.ajusteEquipamento;
   if (body?.motivoEstorno) saida.motivoEstorno = String(body.motivoEstorno);
   return saida;
 };
@@ -133,6 +137,49 @@ const montarUpdateEquipamento = (equipamentoAtual, tipoMovimento, dadosMov, prox
   }
   if (tipoMovimento === 'SAIDA' && dadosMov.destino) {
     updates.localizacao = dadosMov.destino;
+  }
+  if (tipoMovimento === 'AJUSTE' && dadosMov.ajusteEquipamento && typeof dadosMov.ajusteEquipamento === 'object') {
+    const aj = dadosMov.ajusteEquipamento;
+    const camposPermitidosAjuste = ['nome','patrimonio','escolaId','tipo','status','modelo','serial','dataAquisicao','localizacao','macaddress','fabricante','marca','processador','memoria','observacoes','usuarioNome','setor','responsavel'];
+    for (const campo of camposPermitidosAjuste) {
+      const valor = aj[campo];
+      if (valor === undefined || valor === null) continue;
+      const valorStr = String(valor).trim();
+      const camposAceitaVazio = new Set(['observacoes','macaddress','dataAquisicao','processador','memoria','usuarioNome','setor','responsavel']);
+      if (!valorStr && !camposAceitaVazio.has(campo)) continue;
+      if (campo === 'status') {
+        const statusValidos = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO'];
+        if (!statusValidos.includes(String(valor).toUpperCase())) continue;
+        updates.status = String(valor).toUpperCase();
+        continue;
+      }
+      if (campo === 'dataAquisicao') {
+        if (!valorStr) {
+          updates.dataAquisicao = null;
+          continue;
+        }
+        const dt = new Date(valorStr);
+        if (Number.isNaN(dt.getTime())) continue;
+        updates.dataAquisicao = dt;
+        continue;
+      }
+      if (campo === 'escolaId') {
+        updates.escolaId = valorStr || null;
+        continue;
+      }
+      if (!valorStr && camposAceitaVazio.has(campo)) {
+        updates[campo] = null;
+        continue;
+      }
+      updates[campo] = valorStr;
+    }
+    // Alias: marca <-> fabricante (equipamentos costumam ter ambos colunas)
+    if (aj.fabricante === undefined && aj.marca !== undefined && updates.marca !== undefined && updates.fabricante === undefined) {
+      updates.fabricante = updates.marca;
+    }
+    if (aj.marca === undefined && aj.fabricante !== undefined && updates.fabricante !== undefined && updates.marca === undefined) {
+      updates.marca = updates.fabricante;
+    }
   }
   return Object.keys(updates).length ? updates : null;
 };

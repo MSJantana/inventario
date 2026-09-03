@@ -30,9 +30,17 @@ type MovRel = {
 function escapeCsv(val: unknown): string {
   if (val === null || val === undefined) return ''
   if (typeof val === 'object') return escapeCsv(JSON.stringify(val))
-  const str = String(val)
-  if (/[,"\n\r]/.test(str)) return `"${str.replaceAll('"', '""')}"`
-  return str
+  if (typeof val === 'string') {
+    const str = val
+    if (/[,"\n\r]/.test(str)) return `"${str.replaceAll('"', '""')}"`
+    return str
+  }
+  if (typeof val === 'number' || typeof val === 'bigint' || typeof val === 'boolean') {
+    const str = String(val)
+    if (/[,"\n\r]/.test(str)) return `"${str.replaceAll('"', '""')}"`
+    return str
+  }
+  return ''
 }
 
 function applyHeaderStyles(xlsx: XlsxModule, ws: import('xlsx-js-style').WorkSheet, range: import('xlsx-js-style').Range, headers: string[]) {
@@ -144,12 +152,14 @@ export default function RelatorioMovimentacoesPage() {
   const [estornado, setEstornado] = useState<string>('ALL')
   const [pageSize, setPageSize] = useState<number>(25)
   const [currentPage, setCurrentPage] = useState<number>(1)
+  const [reloadToken, setReloadToken] = useState<number>(0)
 
   // Catálogos
   const [escolas, setEscolas] = useState<EscolaItem[]>([])
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
 
   const printRef = useRef<HTMLDivElement>(null)
+  const carregamentoEmAndamentoRef = useRef<number>(0)
 
   useEffect(() => {
     async function carregarCatalogos() {
@@ -167,7 +177,8 @@ export default function RelatorioMovimentacoesPage() {
     carregarCatalogos()
   }, [])
 
-  async function carregar(page = currentPage) {
+  async function carregar(page = currentPage, forcar = false) {
+    const ticketRequest = ++carregamentoEmAndamentoRef.current
     setLoading(true)
     setError(null)
     try {
@@ -182,14 +193,24 @@ export default function RelatorioMovimentacoesPage() {
       if (estornado !== 'ALL') params.set('estornado', estornado)
       params.set('page', String(page))
       params.set('perPage', String(pageSize))
+      if (forcar) {
+        params.set('_t', String(Date.now()))
+        params.set('_tok', String(reloadToken))
+      }
 
       const resp = await api.get<RelatorioResponse>(`/api/movimentacoes/relatorio?${params.toString()}`)
+      if (ticketRequest !== carregamentoEmAndamentoRef.current) {
+        return
+      }
       const dados = resp.data || ({} as RelatorioResponse)
       setItens(dados.items || [])
       setTotal(dados.total || 0)
       setTotalPages(dados.totalPages || 1)
       setCurrentPage(dados.currentPage || 1)
     } catch (e: unknown) {
+      if (ticketRequest !== carregamentoEmAndamentoRef.current) {
+        return
+      }
       const msg =
         (e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error ||
         (e as { message?: string })?.message ||
@@ -197,8 +218,15 @@ export default function RelatorioMovimentacoesPage() {
       setError(msg)
       showErrorToast(msg)
     } finally {
-      setLoading(false)
+      if (ticketRequest === carregamentoEmAndamentoRef.current) {
+        setLoading(false)
+      }
     }
+  }
+
+  function handleRecarregar() {
+    setReloadToken((t) => (t + 1) % 1_000_000)
+    void carregar(currentPage, true)
   }
 
   // Ao montar + mudar filtro/page/pageSize -> carregar
@@ -302,8 +330,8 @@ export default function RelatorioMovimentacoesPage() {
   }, [periodoInicio, periodoFim])
 
   return (
-    <div className="rounded-lg border bg-white p-4 pb-24 lg:pb-4 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+    <div className="rounded-lg border bg-white p-4 pb-24 lg:pb-4 shadow-sm print:border-0 print:shadow-none print:rounded-none print:p-0 print:pb-0">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap print:hidden">
         <div>
           <h1 className="text-lg font-medium flex items-center gap-2">
             <FileText className="h-5 w-5 text-slate-700" />
@@ -315,13 +343,13 @@ export default function RelatorioMovimentacoesPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded bg-red-50 p-2 text-sm text-red-700">
+        <div className="mb-4 rounded bg-red-50 p-2 text-sm text-red-700 print:hidden">
           {error}
         </div>
       )}
 
       {/* Filtros */}
-      <div className="mb-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
+      <div className="mb-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-4 print:hidden">
         <div>
           <label htmlFor="periodoInicio" className="mb-1 block text-sm font-medium flex items-center gap-1">
             <Filter className="h-3 w-3" aria-hidden /> Período inicial
@@ -439,28 +467,30 @@ export default function RelatorioMovimentacoesPage() {
         </button>
         <button
           type="button"
-          onClick={() => carregar(currentPage)}
-          className="rounded bg-gray-600 px-3 py-2 text-white hover:bg-gray-700 flex items-center gap-2 text-sm ml-auto"
+          onClick={handleRecarregar}
+          disabled={loading}
+          className="rounded bg-gray-600 px-3 py-2 text-white hover:bg-gray-700 flex items-center gap-2 text-sm ml-auto disabled:opacity-60 disabled:cursor-not-allowed"
           aria-label="Atualizar relatório"
+          aria-busy={loading}
         >
-          <RefreshCw className="h-4 w-4" /> Atualizar
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
         </button>
       </div>
 
       {/* Tabela / conteúdo impressão */}
-      <div ref={printRef} className="overflow-x-auto border rounded-lg">
+      <div ref={printRef} className="overflow-x-auto border rounded-lg print-area print:border-0 print:rounded-none print:overflow-visible">
         <table className="min-w-full border text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="border px-3 py-2 text-left whitespace-nowrap">Data</th>
-              <th className="border px-3 py-2 text-left whitespace-nowrap">Tipo</th>
-              <th className="border px-3 py-2 text-left">Equipamento</th>
-              <th className="border px-3 py-2 text-left whitespace-nowrap">Patrimônio</th>
-              <th className="border px-3 py-2 text-left whitespace-nowrap">Número de Série</th>
-              <th className="border px-3 py-2 text-left">Escola</th>
-              <th className="border px-3 py-2 text-left">Usuário</th>
-              <th className="border px-3 py-2 text-left">Observações</th>
-              <th className="border px-3 py-2 text-left whitespace-nowrap print:hidden">Status</th>
+              <th className="border px-3 py-2 text-left whitespace-nowrap print:whitespace-normal w-[12%]">Data</th>
+              <th className="border px-3 py-2 text-left whitespace-nowrap print:whitespace-normal w-[12%]">Tipo</th>
+              <th className="border px-3 py-2 text-left w-[16%]">Equipamento</th>
+              <th className="border px-3 py-2 text-left whitespace-nowrap print:whitespace-normal w-[9%]">Patrimônio</th>
+              <th className="border px-3 py-2 text-left whitespace-nowrap print:whitespace-normal w-[10%]">Número de Série</th>
+              <th className="border px-3 py-2 text-left w-[12%]">Escola</th>
+              <th className="border px-3 py-2 text-left w-[11%]">Usuário</th>
+              <th className="border px-3 py-2 text-left w-[28%]">Observações</th>
+              <th className="border px-3 py-2 text-left whitespace-nowrap print:hidden w-[10%]">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -473,18 +503,18 @@ export default function RelatorioMovimentacoesPage() {
             ) : (
               itens.map((m) => (
                 <tr key={m.id} className={m.estornado ? 'bg-red-50/40' : ''}>
-                  <td className="border px-3 py-2 whitespace-nowrap">{m.dataMovimento ? formatDate(m.dataMovimento) : '-'}</td>
-                  <td className="border px-3 py-2 whitespace-nowrap">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${getTipoClasse(m.tipoMovimento)}`}>
+                  <td className="border px-3 py-2 whitespace-nowrap print:whitespace-normal">{m.dataMovimento ? formatDate(m.dataMovimento) : '-'}</td>
+                  <td className="border px-3 py-2 whitespace-nowrap print:whitespace-normal">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide print:inline-block ${getTipoClasse(m.tipoMovimento)}`}>
                       {getTipoLabel(m.tipoMovimento)}
                     </span>
                   </td>
-                  <td className="border px-3 py-2">{m.equipamento?.nome || '-'}</td>
-                  <td className="border px-3 py-2 whitespace-nowrap font-mono text-xs">{m.equipamento?.patrimonio || '-'}</td>
-                  <td className="border px-3 py-2 whitespace-nowrap font-mono text-xs">{m.equipamento?.serial || '-'}</td>
-                  <td className="border px-3 py-2">{m.escola?.nome || '-'}</td>
-                  <td className="border px-3 py-2">{m.usuario?.nome || '-'}</td>
-                  <td className="border px-3 py-2 max-w-[360px] truncate" title={m.observacoes || ''}>
+                  <td className="border px-3 py-2 print:break-words">{m.equipamento?.nome || '-'}</td>
+                  <td className="border px-3 py-2 whitespace-nowrap print:whitespace-normal font-mono text-xs print:font-normal print:text-[10pt]">{m.equipamento?.patrimonio || '-'}</td>
+                  <td className="border px-3 py-2 whitespace-nowrap print:whitespace-normal font-mono text-xs print:font-normal print:text-[10pt]">{m.equipamento?.serial || '-'}</td>
+                  <td className="border px-3 py-2 print:break-words">{m.escola?.nome || '-'}</td>
+                  <td className="border px-3 py-2 print:break-words">{m.usuario?.nome || '-'}</td>
+                  <td className="border px-3 py-2 max-w-[360px] truncate print:max-w-none print:whitespace-normal print:break-words print:overflow-visible" title={m.observacoes || ''}>
                     {m.observacoes || (m.manutencao?.fornecedor ? `Manutenção: ${m.manutencao.fornecedor}` : '') || (m.doacao?.beneficiarioNome ? `Doado para: ${m.doacao.beneficiarioNome}` : '') || '-'}
                   </td>
                   <td className="border px-3 py-2 whitespace-nowrap print:hidden">

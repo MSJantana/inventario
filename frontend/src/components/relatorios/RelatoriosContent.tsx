@@ -41,9 +41,7 @@ export function RelatoriosContent({
   const getCellClasses = (isHeader = false, width?: string) => {
     const base = 'px-1 align-top break-words'
     const headerBase = 'text-left font-medium'
-    const pdfClasses = isHeader
-      ? 'text-[9px] py-2 leading-tight'
-      : 'text-[9px] py-2 leading-tight'
+    const pdfClasses = 'text-[9px] py-2 leading-tight'
     const previewClasses = isHeader ? 'text-xs py-2' : 'text-xs py-1.5'
     const standardClasses = isHeader
       ? 'text-xs sm:text-sm py-3 print:text-[9px] print:py-2.5'

@@ -50,21 +50,21 @@ export const toastTheme: ToasterProps = {
 };
 
 // Helper functions for different toast types
-export const showSuccessToast = (message: string, duration?: number) => {
+export const showSuccessToast = (message: Renderable, duration?: number) => {
   return toast.success(message, {
     duration,
     icon: React.createElement(CheckCircle, { className: 'w-5 h-5' }),
   });
 };
 
-export const showErrorToast = (message: string, duration?: number) => {
+export const showErrorToast = (message: Renderable, duration?: number) => {
   return toast.error(message, {
     duration,
     icon: React.createElement(XCircle, { className: 'w-5 h-5' }),
   });
 };
 
-export const showWarningToast = (message: string, duration?: number) => {
+export const showWarningToast = (message: Renderable, duration?: number) => {
   return toast(message, {
     duration,
     icon: React.createElement(AlertCircle, { className: 'w-5 h-5 text-yellow-500' }),
@@ -76,7 +76,7 @@ export const showWarningToast = (message: string, duration?: number) => {
   });
 };
 
-export const showInfoToast = (message: string, duration?: number) => {
+export const showInfoToast = (message: Renderable, duration?: number) => {
   return toast(message, {
     duration,
     icon: React.createElement(Info, { className: 'w-5 h-5 text-blue-500' }),
@@ -88,7 +88,7 @@ export const showInfoToast = (message: string, duration?: number) => {
   });
 };
 
-export const showLoadingToast = (message: string) => {
+export const showLoadingToast = (message: Renderable) => {
   return toast.loading(message, {
     icon: React.createElement(Loader2, { className: 'w-5 h-5 animate-spin' }),
   });
@@ -98,9 +98,9 @@ export const showLoadingToast = (message: string) => {
 export const toastPromise = <T>(
   promise: Promise<T>,
   messages: {
-    loading: string;
-    success: string | ((data: T) => string);
-    error: string | ((err: unknown) => string);
+    loading: Renderable;
+    success: Renderable | ((data: T) => Renderable);
+    error: Renderable | ((err: unknown) => Renderable);
   },
 ) => {
   return toast.promise(promise, messages, {
@@ -118,7 +118,7 @@ export const toastPromise = <T>(
 
 // Custom toast with custom styling
 export const showCustomToast = (
-  message: string,
+  message: Renderable,
   options?: {
     duration?: number;
     icon?: Renderable;
@@ -136,7 +136,7 @@ export const showCustomToast = (
 };
 
 export const showConfirmToast = (
-  message: string,
+  message: Renderable,
   onConfirm: () => void,
   onCancel?: () => void,
   options?: { confirmText?: string; cancelText?: string; duration?: number }
@@ -156,6 +156,7 @@ export const showConfirmToast = (
                 'button',
                 {
                   key: 'confirm',
+                  type: 'button',
                   className: 'rounded bg-red-600 px-3 py-1.5 text-white hover:bg-red-700',
                   onClick: () => {
                     toast.dismiss(t.id);
@@ -168,6 +169,7 @@ export const showConfirmToast = (
                 'button',
                 {
                   key: 'cancel',
+                  type: 'button',
                   className: 'rounded border px-3 py-1.5 hover:bg-gray-50',
                   onClick: () => {
                     toast.dismiss(t.id);

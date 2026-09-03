@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Save, RotateCcw, X, Filter, ExternalLink } from '
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
 import { useAppStore } from '../store/useAppStore'
+import { getBloquearEditarExcluirDoado } from '../services/settings'
 
 type Mov = {
   id: string
@@ -28,8 +29,126 @@ type Mov = {
   escola?: { nome?: string }
 }
 
-type EquipamentoOption = { id: string; nome?: string; localizacao?: string; tipo?: string; status?: string }
+type EquipamentoOption = {
+  id: string
+  nome?: string
+  localizacao?: string
+  tipo?: string
+  status?: string
+  patrimonio?: string
+  modelo?: string
+  serial?: string
+  fabricante?: string
+  marca?: string
+  escolaId?: string | null
+  escolaNome?: string | null
+  usuarioNome?: string
+  dataAquisicao?: string | Date | null
+  macaddress?: string
+  processador?: string
+  memoria?: string
+  observacoes?: string
+}
 type EscolaOption = { id: string; nome: string; sigla?: string }
+
+const STATUS_EQUIPAMENTO_MOV: readonly string[] = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO'] as const
+
+const LABEL_STATUS_EQUIPAMENTO_MOV: Readonly<Record<string, string>> = {
+  DISPONIVEL: 'Disponível',
+  EM_USO: 'Em uso',
+  EM_MANUTENCAO: 'Em manutenção',
+  DESCARTADO: 'Descartado',
+  RESERVADO: 'Reservado',
+  EMPRESTADO: 'Emprestado',
+  DOADO: 'Doado',
+} as const
+
+const CLASSE_BADGE_STATUS_EDIT_MOV: Readonly<Record<string, string>> = {
+  DISPONIVEL: 'bg-emerald-100 text-emerald-900 border-emerald-200',
+  EM_USO: 'bg-blue-100 text-blue-900 border-blue-200',
+  EM_MANUTENCAO: 'bg-amber-100 text-amber-900 border-amber-200',
+  DESCARTADO: 'bg-gray-100 text-gray-900 border-gray-300',
+  RESERVADO: 'bg-violet-100 text-violet-900 border-violet-200',
+  EMPRESTADO: 'bg-indigo-100 text-indigo-900 border-indigo-200',
+  DOADO: 'bg-rose-100 text-rose-900 border-rose-200',
+} as const
+
+type RegraLayoutStatusMov = {
+  tituloBadge: string
+  descricao: string
+  severidade: 'info' | 'atencao' | 'terminal' | 'operacional'
+  camposEditaveis: readonly string[]
+}
+
+const LAYOUT_POR_STATUS_MOV: Readonly<Record<string, RegraLayoutStatusMov>> = {
+  DISPONIVEL: {
+    tituloBadge: 'Estoque: disponível para uso',
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'operacional',
+    camposEditaveis: ['descricao'],
+  },
+  EM_USO: {
+    tituloBadge: 'Atribuído / em uso',
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'operacional',
+    camposEditaveis: ['descricao'],
+  },
+  EM_MANUTENCAO: {
+    tituloBadge: '🛾 Em fluxo de Manutenção / Oficina',
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'atencao',
+    camposEditaveis: ['descricao'],
+  },
+  RESERVADO: {
+    tituloBadge: 'Reservado (separado)',
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'info',
+    camposEditaveis: ['descricao'],
+  },
+  EMPRESTADO: {
+    tituloBadge: '🤝 Em empréstimo temporário',
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'atencao',
+    camposEditaveis: ['descricao'],
+  },
+  DESCARTADO: {
+    tituloBadge: '🗑️ Descartado (terminal)',
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'terminal',
+    camposEditaveis: ['descricao'],
+  },
+  DOADO: {
+    tituloBadge: '❤️ Doado (terminal)',
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'terminal',
+    camposEditaveis: ['descricao'],
+  },
+} as const
+
+function statusEquipamentoValidoMov(status: string): boolean {
+  return STATUS_EQUIPAMENTO_MOV.includes(status)
+}
+
+function regraStatusOrDefaultMov(status: string): RegraLayoutStatusMov {
+  const statusNormalizado = statusEquipamentoValidoMov(status) ? status : (STATUS_EQUIPAMENTO_MOV[0] ?? 'DISPONIVEL')
+  return LAYOUT_POR_STATUS_MOV[statusNormalizado] ?? {
+    tituloBadge: `Status: ${statusNormalizado}`,
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'info' as const,
+    camposEditaveis: ['descricao'],
+  }
+}
+
+const COR_BANNER_POR_SEVERIDADE_MOV: Readonly<Record<RegraLayoutStatusMov['severidade'], { wrapper: string; badge: string; badgeTexto: string }>> = {
+  operacional: { wrapper: 'border-emerald-200 bg-emerald-50/60', badge: 'bg-emerald-600', badgeTexto: 'text-white' },
+  info:        { wrapper: 'border-blue-200 bg-blue-50/60',         badge: 'bg-blue-600',     badgeTexto: 'text-white' },
+  atencao:     { wrapper: 'border-amber-200 bg-amber-50/60',       badge: 'bg-amber-600',    badgeTexto: 'text-white' },
+  terminal:    { wrapper: 'border-rose-200 bg-rose-50/60',         badge: 'bg-rose-600',     badgeTexto: 'text-white' },
+} as const
+
+function podeEditarCampoEditMov(campo: string, editaveis: readonly string[]): boolean {
+  return editaveis.includes(campo)
+}
 
 const TIPOS_COMPLETOS = [
   'ENTRADA','SAIDA','TRANSFERENCIA','MANUTENCAO','DESCARTE',
@@ -50,6 +169,37 @@ type OpcaoTipoFormulario = {
   endpoint?: string
   statusEquipamentoPermitidos?: string[] | null
 }
+
+type SnapshotAjusteEquipamento = {
+  id: string
+  nome: string
+  patrimonio: string
+  usuarioNome: string
+  escolaId: string
+  escolaNome: string
+  tipo: string
+  status: string
+  modelo: string
+  serial: string
+  dataAquisicao: string
+  localizacao: string
+  macaddress: string
+  fabricante: string
+  processador: string
+  memoria: string
+  observacoes: string
+  extraidoEm: string
+}
+
+function ajusteVazio(): SnapshotAjusteEquipamento {
+  return {
+    id: '', nome: '', patrimonio: '', usuarioNome: '', escolaId: '', escolaNome: '',
+    tipo: '', status: '', modelo: '', serial: '', dataAquisicao: '', localizacao: '',
+    macaddress: '', fabricante: '', processador: '', memoria: '', observacoes: '', extraidoEm: '',
+  }
+}
+
+const TIPOS_EQUIPAMENTO_AJUSTE: readonly string[] = ['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO'] as const
 
 const TIPOS_FORMULARIO: OpcaoTipoFormulario[] = [
   { value: 'ENTRADA',           label: 'Entrada',                     categoria: 'BASICOS',    descricao: 'Equipamento entra no estoque/instituição' },
@@ -86,10 +236,6 @@ type FormManutencaoEnvio = {
   prazoRetorno: string
   observacoes: string
 }
-const MANUT_ENVIO_INIT: FormManutencaoEnvio = {
-  fornecedorNome:'', fornecedorContato:'', numeroOS:'', tipoServico:'AVULSO', tecnicoResponsavel:'',
-  defeitoRelatado:'', dataEnvio: new Date().toISOString().slice(0,16), prazoRetorno:'', observacoes:''
-}
 
 type FormManutencaoRetorno = {
   movimentacaoEnvioId: string
@@ -100,10 +246,6 @@ type FormManutencaoRetorno = {
   valorServico: string
   statusFinal: 'DISPONIVEL' | 'EM_USO'
   observacoes: string
-}
-const MANUT_RETORNO_INIT: FormManutencaoRetorno = {
-  movimentacaoEnvioId:'', dataRetornoEfetiva: new Date().toISOString().slice(0,16),
-  laudoTecnico:'', solucao:'', pecasTrocadasTexto:'', valorServico:'', statusFinal:'DISPONIVEL', observacoes:''
 }
 
 type FormDoacao = {
@@ -116,11 +258,6 @@ type FormDoacao = {
   responsavelEntrega: string
   motivo: string
   observacoesInternas: string
-}
-const DOACAO_INIT: FormDoacao = {
-  beneficiarioNome:'', beneficiarioCpfCnpj:'', beneficiarioContato:'',
-  dataEntregaEfetiva: new Date().toISOString().slice(0,10),
-  numeroPortaria:'', enderecoEntrega:'', responsavelEntrega:'', motivo:'', observacoesInternas:''
 }
 
 type FormEmprestimo = {
@@ -137,13 +274,6 @@ type FormEmprestimo = {
   termoUrl: string
   observacoesInternas: string
 }
-const EMPRESTIMO_INIT: FormEmprestimo = {
-  beneficiarioNome:'', beneficiarioDocumento:'', beneficiarioContato:'',
-  tomadorNome:'', tomadorCargo:'', localDestino:'',
-  dataSaida: new Date().toISOString().slice(0,16),
-  dataPrevistaDevolucao:'', estadoConservacaoSaida:'BOM',
-  termoAssinado:false, termoUrl:'', observacoesInternas:''
-}
 
 type FormDevolucao = {
   movimentacaoSaidaId: string
@@ -151,10 +281,6 @@ type FormDevolucao = {
   estadoConservacaoRetorno: string
   statusFinal: 'DISPONIVEL' | 'EM_USO'
   observacoesInternas: string
-}
-const DEVOLUCAO_INIT: FormDevolucao = {
-  movimentacaoSaidaId:'', dataDevolucaoEfetiva: new Date().toISOString().slice(0,16),
-  estadoConservacaoRetorno:'BOM', statusFinal:'DISPONIVEL', observacoesInternas:''
 }
 
 const TIPO_BADGE_CLASSES: Readonly<Record<string, string>> = {
@@ -193,6 +319,63 @@ function formatarNomeEquipamento(eq?: Mov['equipamento'] | null): { titulo: stri
   return { titulo, detalhe: detalhes.length ? detalhes.join(' • ') : null }
 }
 
+const doisDigitos = (n: number): string => n.toString().padStart(2, '0')
+
+function formatarDateTimeLocal(d = new Date()): string {
+  const ano = d.getFullYear()
+  const mes = doisDigitos(d.getMonth() + 1)
+  const dia = doisDigitos(d.getDate())
+  const hora = doisDigitos(d.getHours())
+  const minuto = doisDigitos(d.getMinutes())
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}`
+}
+
+function formatarDateOnly(d = new Date()): string {
+  const ano = d.getFullYear()
+  const mes = doisDigitos(d.getMonth() + 1)
+  const dia = doisDigitos(d.getDate())
+  return `${ano}-${mes}-${dia}`
+}
+
+function getManutEnvioInit(): FormManutencaoEnvio {
+  return {
+    fornecedorNome:'', fornecedorContato:'', numeroOS:'', tipoServico:'AVULSO', tecnicoResponsavel:'',
+    defeitoRelatado:'', dataEnvio: formatarDateTimeLocal(), prazoRetorno:'', observacoes:''
+  }
+}
+
+function getManutRetornoInit(): FormManutencaoRetorno {
+  return {
+    movimentacaoEnvioId:'', dataRetornoEfetiva: formatarDateTimeLocal(),
+    laudoTecnico:'', solucao:'', pecasTrocadasTexto:'', valorServico:'', statusFinal:'DISPONIVEL', observacoes:''
+  }
+}
+
+function getDoacaoInit(): FormDoacao {
+  return {
+    beneficiarioNome:'', beneficiarioCpfCnpj:'', beneficiarioContato:'',
+    dataEntregaEfetiva: formatarDateOnly(),
+    numeroPortaria:'', enderecoEntrega:'', responsavelEntrega:'', motivo:'', observacoesInternas:''
+  }
+}
+
+function getEmprestimoInit(): FormEmprestimo {
+  return {
+    beneficiarioNome:'', beneficiarioDocumento:'', beneficiarioContato:'',
+    tomadorNome:'', tomadorCargo:'', localDestino:'',
+    dataSaida: formatarDateTimeLocal(),
+    dataPrevistaDevolucao:'', estadoConservacaoSaida:'BOM',
+    termoAssinado:false, termoUrl:'', observacoesInternas:''
+  }
+}
+
+function getDevolucaoInit(): FormDevolucao {
+  return {
+    movimentacaoSaidaId:'', dataDevolucaoEfetiva: formatarDateTimeLocal(),
+    estadoConservacaoRetorno:'BOM', statusFinal:'DISPONIVEL', observacoesInternas:''
+  }
+}
+
 export default function MovimentacoesPage() {
   const navigate = useNavigate()
   const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount)
@@ -209,24 +392,41 @@ export default function MovimentacoesPage() {
   const [showFilters, setShowFilters] = useState(false)
   const equipamentoSelectRef = useRef<HTMLSelectElement | null>(null)
   const buscarInputRef = useRef<HTMLInputElement | null>(null)
+  const ultimoHintAjusteRef = useRef<number>(0)
 
   const [equipamentoId, setEquipamentoId] = useState('')
   const [origem, setOrigem] = useState('')
   const [destino, setDestino] = useState('')
-  const [data, setData] = useState<string>('')
+  const [data, setData] = useState<string>(() => formatarDateTimeLocal())
   const [descricao, setDescricao] = useState('')
+  const [snapshotAjuste, setSnapshotAjuste] = useState<SnapshotAjusteEquipamento | null>(null)
+  const [ajusteEquip, setAjusteEquip] = useState<SnapshotAjusteEquipamento>(() => ajusteVazio())
+  const [ajusteDirty, setAjusteDirty] = useState(false)
 
-  const [formManutEnvio, setFormManutEnvio] = useState<FormManutencaoEnvio>({ ...MANUT_ENVIO_INIT })
-  const [formManutRetorno, setFormManutRetorno] = useState<FormManutencaoRetorno>({ ...MANUT_RETORNO_INIT })
-  const [formDoacao, setFormDoacao] = useState<FormDoacao>({ ...DOACAO_INIT })
-  const [formEmprestimo, setFormEmprestimo] = useState<FormEmprestimo>({ ...EMPRESTIMO_INIT })
-  const [formDevolucao, setFormDevolucao] = useState<FormDevolucao>({ ...DEVOLUCAO_INIT })
+  const [formManutEnvio, setFormManutEnvio] = useState<FormManutencaoEnvio>(() => getManutEnvioInit())
+  const [formManutRetorno, setFormManutRetorno] = useState<FormManutencaoRetorno>(() => getManutRetornoInit())
+  const [formDoacao, setFormDoacao] = useState<FormDoacao>(() => getDoacaoInit())
+  const [formEmprestimo, setFormEmprestimo] = useState<FormEmprestimo>(() => getEmprestimoInit())
+  const [formDevolucao, setFormDevolucao] = useState<FormDevolucao>(() => getDevolucaoInit())
   const [doacaoStep, setDoacaoStep] = useState<1 | 2>(1)
   const [countdownDoacao, setCountdownDoacao] = useState<number>(3)
 
   const [opcaoTipoSelecionada, setOpcaoTipoSelecionada] = useState<OpcaoTipoFormulario | undefined>(() => TIPOS_FORMULARIO.find(t => t.value === 'ENTRADA'))
   const role = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
   const isAdmin = role === 'ADMIN'
+  const bloquearEditarExcluirDoado = getBloquearEditarExcluirDoado()
+  const statusEquipamentoDaMov = (m: Mov): string => ((m.equipamento?.status as string) || '').toUpperCase()
+  const equipamentoEDoado = (m: Mov): boolean => statusEquipamentoDaMov(m) === 'DOADO'
+  const podeEditarMovBaseFn = (m: Mov): boolean => {
+    if (role === 'USUARIO') return false
+    if (bloquearEditarExcluirDoado && equipamentoEDoado(m)) return false
+    return true
+  }
+  const podeExcluirMovBaseFn = (m: Mov): boolean => {
+    if (!isAdmin) return false
+    if (bloquearEditarExcluirDoado && equipamentoEDoado(m)) return false
+    return true
+  }
 
   const TIPOS_PERMITIDOS_NA_CRIACAO = useMemo(() => {
     return TIPOS_FORMULARIO
@@ -241,11 +441,11 @@ export default function MovimentacoesPage() {
   const CATEGORIAS_ORDENADAS: CategoriaTipo[] = ['BASICOS','MANUTENCAO','EMPRESTIMO','DOACAO','AJUSTES']
 
   function resetarFormulariosEspecificos() {
-    setFormManutEnvio({ ...MANUT_ENVIO_INIT })
-    setFormManutRetorno({ ...MANUT_RETORNO_INIT })
-    setFormDoacao({ ...DOACAO_INIT })
-    setFormEmprestimo({ ...EMPRESTIMO_INIT })
-    setFormDevolucao({ ...DEVOLUCAO_INIT })
+    setFormManutEnvio(getManutEnvioInit())
+    setFormManutRetorno(getManutRetornoInit())
+    setFormDoacao(getDoacaoInit())
+    setFormEmprestimo(getEmprestimoInit())
+    setFormDevolucao(getDevolucaoInit())
     setDoacaoStep(1)
     setCountdownDoacao(3)
   }
@@ -260,6 +460,7 @@ export default function MovimentacoesPage() {
 
   // Edição
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingMov, setEditingMov] = useState<Mov | null>(null)
   const [editEquipamentoId, setEditEquipamentoId] = useState('')
   const [editTipo, setEditTipo] = useState<string>('ENTRADA')
   const [editOrigem, setEditOrigem] = useState('')
@@ -289,12 +490,35 @@ export default function MovimentacoesPage() {
         setEquipamentos(data)
       } else {
         const resp = await api.get('/api/equipamentos')
-        const data: EquipamentoOption[] = (resp.data || []).map((e: { id: string; nome?: string; nomeEquipamento?: string; localizacao?: string; tipo?: string; statusEquipamento?: string; status?: string }) => ({
+        const data: EquipamentoOption[] = (resp.data || []).map((e: {
+          id: string; nome?: string; nomeEquipamento?: string; localizacao?: string; tipo?: string
+          statusEquipamento?: string; status?: string
+          patrimonio?: string; modelo?: string; serial?: string
+          fabricante?: string; marca?: string
+          escolaId?: string | null
+          escola?: { nome?: string } | null
+          usuarioNome?: string
+          dataAquisicao?: string | Date | null
+          macaddress?: string; processador?: string; memoria?: string; observacoes?: string
+        }) => ({
           id: e.id,
           nome: e.nome || e.nomeEquipamento,
           localizacao: e.localizacao,
           tipo: e.tipo,
           status: e.statusEquipamento || e.status,
+          patrimonio: e.patrimonio,
+          modelo: e.modelo,
+          serial: e.serial,
+          fabricante: e.fabricante,
+          marca: e.marca,
+          escolaId: e.escolaId,
+          escolaNome: e.escola?.nome,
+          usuarioNome: e.usuarioNome,
+          dataAquisicao: e.dataAquisicao,
+          macaddress: e.macaddress,
+          processador: e.processador,
+          memoria: e.memoria,
+          observacoes: e.observacoes,
         }))
         setEquipamentos(data)
       }
@@ -352,17 +576,13 @@ export default function MovimentacoesPage() {
       case 'DESCARTE':
         return equipamentos
       case 'MANUTENCAO_ENVIO':
+      case 'EMPRESTIMO':
         return equipamentos.filter(eq =>
           semStatusDefinido(eq) ||
           (eq.status !== 'EM_MANUTENCAO' && eq.status !== 'EMPRESTADO' && eq.status !== 'DESCARTADO' && eq.status !== 'DOADO')
         )
       case 'MANUTENCAO_RETORNO':
         return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'EM_MANUTENCAO')
-      case 'EMPRESTIMO':
-        return equipamentos.filter(eq =>
-          semStatusDefinido(eq) ||
-          (eq.status !== 'EM_MANUTENCAO' && eq.status !== 'EMPRESTADO' && eq.status !== 'DESCARTADO' && eq.status !== 'DOADO')
-        )
       case 'DEVOLUCAO':
         return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'EMPRESTADO')
       case 'DOACAO':
@@ -401,6 +621,78 @@ export default function MovimentacoesPage() {
     return Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome))
   }, [escolas, lista])
 
+  const extrairSnapshotAjuste = useCallback((idEquip: string): SnapshotAjusteEquipamento | null => {
+    if (!idEquip) return null
+    const eqOp = equipamentos.find((eq) => eq.id === idEquip) || (null as EquipamentoOption | null)
+    const mov = lista.find((m) => m.equipamentoId === idEquip)
+    const eqDetalhe = mov?.equipamento
+    const idEscolaResolvido = (mov?.escolaId ?? eqOp?.escolaId) || ''
+    const opEscola = idEscolaResolvido ? escolasDisponiveis.find((sc) => sc.id === idEscolaResolvido) : undefined
+
+    const dataAquStr = (v: unknown): string => {
+      if (!v) return ''
+      if (v instanceof Date) return formatarDateOnly(v)
+      if (typeof v === 'string') {
+        const s = v.trim()
+        if (!s) return ''
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return formatarDateOnly(new Date(s))
+        return s
+      }
+      if (typeof v === 'number' || typeof v === 'bigint') {
+        const s = String(v).trim()
+        if (!s) return ''
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return formatarDateOnly(new Date(s))
+        return s
+      }
+      return ''
+    }
+    return {
+      id: idEquip,
+      nome: (eqDetalhe?.nome || eqOp?.nome || '').trim(),
+      patrimonio: (eqDetalhe?.patrimonio || eqOp?.patrimonio || '').trim(),
+      usuarioNome: (eqOp?.usuarioNome || '').trim(),
+      escolaId: idEscolaResolvido,
+      escolaNome: (opEscola?.nome || mov?.escola?.nome || eqOp?.escolaNome || '').trim(),
+      tipo: (eqDetalhe?.tipo || eqOp?.tipo || '').trim() || 'não informado',
+      status: String((eqDetalhe?.status || eqOp?.status || '—').toUpperCase()).replace(/^$/, '—'),
+      modelo: (eqDetalhe?.modelo || eqOp?.modelo || '').trim(),
+      serial: (eqDetalhe?.serial || eqOp?.serial || '').trim(),
+      dataAquisicao: dataAquStr(eqOp?.dataAquisicao),
+      localizacao: (eqOp?.localizacao || (eqDetalhe as { localizacao?: string } | undefined)?.localizacao || '').trim(),
+      macaddress: (eqOp?.macaddress || '').trim(),
+      fabricante: (eqDetalhe?.fabricante || eqDetalhe?.marca || eqOp?.fabricante || eqOp?.marca || '').trim(),
+      processador: (eqOp?.processador || '').trim(),
+      memoria: (eqOp?.memoria || '').trim(),
+      observacoes: (eqOp?.observacoes || '').trim(),
+      extraidoEm: formatarDateTimeLocal(),
+    }
+  }, [lista, equipamentos, escolasDisponiveis])
+
+  useEffect(() => {
+    if (opcaoTipoSelecionada?.value !== 'AJUSTE') {
+      if (snapshotAjuste !== null) setSnapshotAjuste(null)
+      if (ajusteEquip.id !== '' || ajusteDirty) {
+        setAjusteEquip(ajusteVazio())
+        setAjusteDirty(false)
+      }
+      return
+    }
+    if (!equipamentoId) {
+      if (snapshotAjuste !== null) setSnapshotAjuste(null)
+      if (ajusteEquip.id !== '' || ajusteDirty) {
+        setAjusteEquip(ajusteVazio())
+        setAjusteDirty(false)
+      }
+      return
+    }
+    if (snapshotAjuste?.id === equipamentoId) return
+    const snap = extrairSnapshotAjuste(equipamentoId)
+    setSnapshotAjuste(snap)
+    if (snap && !ajusteDirty) {
+      setAjusteEquip({ ...snap })
+    }
+  }, [opcaoTipoSelecionada, equipamentoId, extrairSnapshotAjuste, snapshotAjuste, ajusteEquip.id, ajusteDirty])
+
   const handleEquipamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value
     setEquipamentoId(selectedId)
@@ -422,10 +714,18 @@ export default function MovimentacoesPage() {
     setDestino('')
     setData('')
     setDescricao('')
+    setSnapshotAjuste(null)
+    setAjusteEquip(ajusteVazio())
+    setAjusteDirty(false)
     setDepartamentoSel('EQUIPAMENTOS')
     const opcaoPadrao = TIPOS_FORMULARIO.find(t => t.value === 'ENTRADA')
     setOpcaoTipoSelecionada(opcaoPadrao)
     resetarFormulariosEspecificos()
+  }
+
+  const atualizarCampoAjuste = <K extends keyof SnapshotAjusteEquipamento>(campo: K, valor: SnapshotAjusteEquipamento[K]) => {
+    setAjusteDirty(true)
+    setAjusteEquip((prev) => ({ ...prev, [campo]: valor }))
   }
 
   async function registrarMovimentoAvancado(ev: React.FormEvent) {
@@ -581,6 +881,86 @@ export default function MovimentacoesPage() {
           movimentacaoSaidaId: f.movimentacaoSaidaId.trim() || null,
         },
       }
+    } else if (opcao.value === 'AJUSTE') {
+      const ajustePayload: Record<string, unknown> | undefined = ((): Record<string, unknown> | undefined => {
+        if (!ajusteDirty) return undefined
+        const snapValido = Boolean(snapshotAjuste?.id && snapshotAjuste.id === ajusteEquip.id)
+        const origemSnap: SnapshotAjusteEquipamento = snapValido ? (snapshotAjuste as SnapshotAjusteEquipamento) : ajusteVazio()
+        const atual = ajusteEquip
+        // Sem snapshot confiável: envia todos os campos (backend filtra só o que difere de valor nulo/undefined)
+        if (!snapValido) {
+          const completo: Record<string, unknown> = {}
+          const todos: (keyof SnapshotAjusteEquipamento)[] = [
+            'nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial',
+            'dataAquisicao','localizacao','macaddress','fabricante','processador','memoria','observacoes'
+          ]
+          for (const campo of todos) {
+            if (campo === 'id' || campo === 'extraidoEm') continue
+            const v = atual[campo]
+            if (campo === 'escolaId') {
+              completo.escolaId = (String(v ?? '').trim() || null)
+            } else if (campo === 'dataAquisicao') {
+              completo.dataAquisicao = (String(v ?? '').trim() || null)
+            } else {
+              const str = String(v ?? '').trim()
+              completo[campo as string] = str
+            }
+          }
+          completo.marca = completo.fabricante
+          return completo
+        }
+        // Com snapshot válido: envia apenas campos DIFERENTES para evitar sobrescritas acidentais
+        const diff: Record<string, unknown> = {}
+        const camposComparar: readonly (keyof SnapshotAjusteEquipamento)[] = [
+          'nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial',
+          'dataAquisicao','localizacao','macaddress','fabricante','processador','memoria','observacoes'
+        ] as const
+        for (const campo of camposComparar) {
+          const valorAtual = atual[campo]
+          const valorOrigem = origemSnap[campo]
+          if (campo === 'escolaId') {
+            const atualStr = String(valorAtual ?? '').trim()
+            const origemStr = String(valorOrigem ?? '').trim()
+            if (atualStr !== origemStr) {
+              diff.escolaId = atualStr || null
+            }
+            continue
+          }
+          if (campo === 'dataAquisicao') {
+            const atualStr = String(valorAtual ?? '').trim()
+            const origemStr = String(valorOrigem ?? '').trim()
+            if (atualStr !== origemStr) {
+              diff.dataAquisicao = atualStr || null
+            }
+            continue
+          }
+          const atualStr = String(valorAtual ?? '').trim()
+          const origemStr = String(valorOrigem ?? '').trim()
+          if (atualStr !== origemStr) {
+            diff[campo as string] = atualStr
+          }
+        }
+        if (diff.fabricante !== undefined && diff.marca === undefined) {
+          diff.marca = diff.fabricante
+        } else if (diff.marca !== undefined && diff.fabricante === undefined) {
+          diff.fabricante = diff.marca
+        }
+        return Object.keys(diff).length ? diff : undefined
+      })()
+      payload = {
+        equipamentoId,
+        tipo: 'AJUSTE',
+        tipoMovimento: 'AJUSTE',
+        origem: origem || undefined,
+        destino: destino || undefined,
+        descricao: descricao || undefined,
+        observacoes: descricao || undefined,
+        ajusteEquipamento: ajustePayload,
+      }
+      if (data) {
+        payload.data = new Date(data).toISOString()
+        payload.dataMovimento = payload.data
+      }
     } else {
       if (!TIPOS_COMPLETOS.includes(opcao.value as (typeof TIPOS_COMPLETOS)[number])) {
         showWarningToast('Tipo inválido')
@@ -620,12 +1000,6 @@ export default function MovimentacoesPage() {
   }
 
   useEffect(() => {
-    if (showCreate) {
-      setTimeout(() => equipamentoSelectRef.current?.focus(), 0)
-    }
-  }, [showCreate])
-
-  useEffect(() => {
     if (!showCreate) return
     if (opcaoTipoSelecionada?.value !== 'DOACAO' || doacaoStep !== 2) return
     if (countdownDoacao <= 0) return
@@ -634,7 +1008,15 @@ export default function MovimentacoesPage() {
   }, [showCreate, opcaoTipoSelecionada?.value, doacaoStep, countdownDoacao])
 
   function startEdit(m: Mov) {
+    if (!podeEditarMovBaseFn(m)) {
+      const msg = equipamentoEDoado(m) && bloquearEditarExcluirDoado
+        ? 'Esta movimentação pertence a um equipamento DOADO e não pode ser editada. Ajuste a configuração "Bloquear Editar e Excluir equipamentos Doados" para permitir.'
+        : 'Você não tem permissão para editar movimentações.'
+      showWarningToast(msg)
+      return
+    }
     setEditingId(m.id)
+    setEditingMov(m)
     setEditEquipamentoId(m.equipamentoId || '')
     setEditTipo(m.tipo || 'ENTRADA')
     setEditOrigem(m.origem || '')
@@ -646,6 +1028,7 @@ export default function MovimentacoesPage() {
 
   function cancelEdit() {
     setEditingId(null)
+    setEditingMov(null)
     setEditEquipamentoId('')
     setEditTipo('ENTRADA')
     setEditOrigem('')
@@ -684,6 +1067,14 @@ export default function MovimentacoesPage() {
   }
 
   async function excluirMov(id: string) {
+    const mov = lista.find(m => m.id === id)
+    if (mov && !podeExcluirMovBaseFn(mov)) {
+      const msg = equipamentoEDoado(mov) && bloquearEditarExcluirDoado
+        ? 'Esta movimentação pertence a um equipamento DOADO e não pode ser excluída. Ajuste a configuração "Bloquear Editar e Excluir equipamentos Doados" para permitir.'
+        : 'Você não tem permissão para excluir movimentações.'
+      showWarningToast(msg)
+      return
+    }
     try {
       await api.delete(`/api/movimentacoes/${id}`)
       showSuccessToast('Movimentação excluída')
@@ -780,6 +1171,17 @@ export default function MovimentacoesPage() {
   useEffect(() => { carregar() }, [])
   useEffect(() => { carregarItens() }, [carregarItens])
   useEffect(() => { carregarEscolas() }, [carregarEscolas])
+
+  useEffect(() => {
+    if (!showCreate) return
+    setEquipamentoId('')
+    setOrigem('')
+    setDestino('')
+    setData(formatarDateTimeLocal())
+    setDescricao('')
+    resetarFormulariosEspecificos()
+    setTimeout(() => equipamentoSelectRef.current?.focus(), 0)
+  }, [showCreate])
 
   useEffect(() => {
     const maint = filtrada.filter(m => m.tipo === 'MANUTENCAO').length
@@ -921,11 +1323,13 @@ export default function MovimentacoesPage() {
                   <td className="border px-3 py-2 max-w-xs truncate" title={m.descricao || ''}>{m.descricao || '-'}</td>
                   <td className="border px-3 py-2">
                     <div className="flex gap-2">
-                      <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)} aria-label={`Editar a movimentação de ${eqLabel}`}>
-                        <Pencil size={16} aria-hidden />
-                        <span>Editar</span>
-                      </button>
-                      {isAdmin && (
+                      {podeEditarMovBaseFn(m) && (
+                        <button type="button" className="rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 flex items-center gap-1" onClick={() => startEdit(m)} aria-label={`Editar a movimentação de ${eqLabel}`}>
+                          <Pencil size={16} aria-hidden />
+                          <span>Editar</span>
+                        </button>
+                      )}
+                      {podeExcluirMovBaseFn(m) && (
                         <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))} aria-label={`Excluir (estornar) a movimentação de ${eqLabel}`}>
                           <Trash2 size={16} aria-hidden />
                           <span>Excluir</span>
@@ -1006,11 +1410,13 @@ export default function MovimentacoesPage() {
                   </div>
                 )}
                 <div className="flex gap-2 pt-2">
-                  <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 text-xs flex items-center justify-center gap-1" onClick={() => startEdit(m)} aria-label={`Editar movimentação de ${eqFmt.titulo}`}>
-                    <Pencil size={14} aria-hidden />
-                    <span>Editar</span>
-                  </button>
-                  {isAdmin && (
+                  {podeEditarMovBaseFn(m) && (
+                    <button type="button" className="flex-1 rounded bg-yellow-600 px-2 py-1 text-white hover:bg-yellow-700 text-xs flex items-center justify-center gap-1" onClick={() => startEdit(m)} aria-label={`Editar movimentação de ${eqFmt.titulo}`}>
+                      <Pencil size={14} aria-hidden />
+                      <span>Editar</span>
+                    </button>
+                  )}
+                  {podeExcluirMovBaseFn(m) && (
                     <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))} aria-label={`Excluir movimentação de ${eqFmt.titulo}`}>
                       <Trash2 size={14} aria-hidden />
                       <span>Excluir</span>
@@ -1199,6 +1605,20 @@ export default function MovimentacoesPage() {
                               onChange={() => {
                                 setOpcaoTipoSelecionada(opc)
                                 resetarFormulariosEspecificos()
+                                if (opc.value === 'AJUSTE' && !equipamentoId.trim()) {
+                                  const agora = Date.now()
+                                  if (agora - ultimoHintAjusteRef.current > 8000) {
+                                    ultimoHintAjusteRef.current = agora
+                                    showInfoToast(
+                                      <div className="flex flex-col gap-1.5">
+                                        <strong>Selecione um equipamento para ajustes</strong>
+                                        <p className="m-0 text-xs opacity-90">
+                                          Os 15 campos de dados do equipamento serão carregados automaticamente com o snapshot mais recente.
+                                        </p>
+                                      </div>
+                                    )
+                                  }
+                                }
                               }}
                             />
                             <div className="min-w-0 flex-1">
@@ -1690,7 +2110,7 @@ export default function MovimentacoesPage() {
           )}
 
           {/* FORM BÁSICO para tipos antigos (mantido para retrocompatibilidade) */}
-          {opcaoTipoSelecionada && ['ENTRADA','SAIDA','TRANSFERENCIA','DESCARTE','AJUSTE','MANUTENCAO'].includes(opcaoTipoSelecionada.value) && (() => {
+          {opcaoTipoSelecionada && ['ENTRADA','SAIDA','TRANSFERENCIA','DESCARTE','MANUTENCAO'].includes(opcaoTipoSelecionada.value) && (() => {
             const cor = (() => {
               switch (opcaoTipoSelecionada.categoria) {
                 case 'BASICOS':  return { border: 'border-emerald-200', header: 'bg-emerald-50/80 border-emerald-200', headerText: 'text-emerald-900', headerSub: 'text-emerald-800/80', headerIcon: 'bg-emerald-100', headerIconEmoji: '📦', focusRing: 'focus:ring-emerald-200', focusBorder: 'focus:border-emerald-400' }
@@ -1729,6 +2149,120 @@ export default function MovimentacoesPage() {
             )
           })()}
 
+          {opcaoTipoSelecionada?.value === 'AJUSTE' && snapshotAjuste && (
+            <div className="xl:col-span-12 mt-5 overflow-hidden rounded-2xl border-2 border-violet-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-violet-200 bg-violet-50/80 px-5 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-xl" aria-hidden>⚙️</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-violet-900">Ajuste dos dados do equipamento</h3>
+                    {ajusteDirty && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800" title="Campos foram alterados neste ajuste">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> Alterado
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-violet-800/80">
+                    Dados carregados do último snapshot do equipamento e prontos para correção.
+                    Snapshot extraído em: <span className="font-mono font-medium">{snapshotAjuste.extraidoEm}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-x-5 gap-y-4 p-5 md:grid-cols-2 xl:grid-cols-5">
+                <div>
+                  <label htmlFor="ajust-nome" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Nome do equipamento</label>
+                  <input id="ajust-nome" type="text" value={ajusteEquip.nome} onChange={(e) => atualizarCampoAjuste('nome', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-patrimonio" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Patrimônio</label>
+                  <input id="ajust-patrimonio" type="text" value={ajusteEquip.patrimonio} onChange={(e) => atualizarCampoAjuste('patrimonio', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-tipo" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Tipo</label>
+                  <select id="ajust-tipo" value={ajusteEquip.tipo} onChange={(e) => atualizarCampoAjuste('tipo', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200">
+                    <option value="">Selecione…</option>
+                    {TIPOS_EQUIPAMENTO_AJUSTE.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="ajust-status" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Status</label>
+                  <select id="ajust-status" value={ajusteEquip.status} onChange={(e) => atualizarCampoAjuste('status', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200">
+                    <option value="">Selecione…</option>
+                    {STATUS_EQUIPAMENTO_MOV.map((s) => (
+                      <option key={s} value={s}>{LABEL_STATUS_EQUIPAMENTO_MOV[s] || s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="ajust-escolaId" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Escola</label>
+                  <select id="ajust-escolaId" value={ajusteEquip.escolaId} onChange={(e) => {
+                    const opc = escolasDisponiveis.find((sc) => sc.id === e.target.value)
+                    atualizarCampoAjuste('escolaId', e.target.value)
+                    atualizarCampoAjuste('escolaNome', opc?.nome || '')
+                  }}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200">
+                    <option value="">Selecione…</option>
+                    {escolasDisponiveis.map((sc) => <option key={sc.id} value={sc.id}>{sc.nome}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="ajust-modelo" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Modelo</label>
+                  <input id="ajust-modelo" type="text" value={ajusteEquip.modelo} onChange={(e) => atualizarCampoAjuste('modelo', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-serial" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Número de Série</label>
+                  <input id="ajust-serial" type="text" value={ajusteEquip.serial} onChange={(e) => atualizarCampoAjuste('serial', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 font-mono text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-localizacao" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Localização</label>
+                  <input id="ajust-localizacao" type="text" value={ajusteEquip.localizacao} onChange={(e) => atualizarCampoAjuste('localizacao', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-fabricante" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Fabricante</label>
+                  <input id="ajust-fabricante" type="text" value={ajusteEquip.fabricante} onChange={(e) => atualizarCampoAjuste('fabricante', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-usuarioNome" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Usuário atual</label>
+                  <input id="ajust-usuarioNome" type="text" value={ajusteEquip.usuarioNome} onChange={(e) => atualizarCampoAjuste('usuarioNome', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-dataAquisicao" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Data de Aquisição</label>
+                  <input id="ajust-dataAquisicao" type="date" value={ajusteEquip.dataAquisicao} onChange={(e) => atualizarCampoAjuste('dataAquisicao', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-macaddress" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">MAC Address</label>
+                  <input id="ajust-macaddress" type="text" value={ajusteEquip.macaddress} onChange={(e) => atualizarCampoAjuste('macaddress', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 font-mono text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-processador" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Processador</label>
+                  <input id="ajust-processador" type="text" value={ajusteEquip.processador} onChange={(e) => atualizarCampoAjuste('processador', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div>
+                  <label htmlFor="ajust-memoria" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Memória</label>
+                  <input id="ajust-memoria" type="text" value={ajusteEquip.memoria} onChange={(e) => atualizarCampoAjuste('memoria', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+                <div className="md:col-span-2 xl:col-span-5">
+                  <label htmlFor="ajust-observacoes" className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-600">Observações</label>
+                  <textarea id="ajust-observacoes" rows={3} value={ajusteEquip.observacoes} onChange={(e) => atualizarCampoAjuste('observacoes', e.target.value)}
+                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="md:col-span-2 xl:col-span-4 mt-5 flex flex-col sm:flex-row gap-3 sm:justify-start border-t pt-5 border-gray-100">
             <button type="button" onClick={() => { cancelCreate(); setTimeout(() => buscarInputRef.current?.focus(), 0) }} className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300">
               <X size={16} />
@@ -1749,49 +2283,88 @@ export default function MovimentacoesPage() {
       </section>
       )}
 
-      {editingId && (
+      {editingId && editingMov && (
         <section className="rounded-lg border bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-lg font-medium">Editar Movimentação</h2>
-          <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-            <div>
-              <label htmlFor="editEquipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
-              <select id="editEquipamentoId" className="w-full rounded border px-3 py-2" value={editEquipamentoId} onChange={(e) => setEditEquipamentoId(e.target.value)}>
-                <option value="">Selecione...</option>
-                {equipamentos.map((eq) => (
-                  <option key={eq.id} value={eq.id}>{eq.nome || eq.id}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="editTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-              <select id="editTipo" className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value)}>
-              {TIPOS_PERMITIDOS_NA_CRIACAO.map(t => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}
-            </select>
-            </div>
-            <div>
-              <label htmlFor="editOrigem" className="mb-1 block text-sm font-medium">Origem</label>
-              <input id="editOrigem" className="w-full rounded border px-3 py-2" value={editOrigem} onChange={(e) => setEditOrigem(e.target.value)} />
-            </div>
-          <div>
-            <label htmlFor="editDestino" className="mb-1 block text-sm font-medium">Destino</label>
-            <input id="editDestino" className="w-full rounded border px-3 py-2" value={editDestino} onChange={(e) => setEditDestino(e.target.value)} />
-          </div>
-            <div>
-              <label htmlFor="editData" className="mb-1 block text-sm font-medium">Data</label>
-              <input id="editData" type="datetime-local" className="w-full rounded border px-3 py-2" value={editData} onChange={(e) => setEditData(e.target.value)} />
-            </div>
-            <div>
-              <label htmlFor="editDescricao" className="mb-1 block text-sm font-medium">Descrição</label>
-              <input id="editDescricao" className="w-full rounded border px-3 py-2" value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} />
-            </div>
-            <div className="md:col-span-2 xl:col-span-3 flex flex-col sm:flex-row gap-2">
-              <button type="submit" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
-                <Save size={16} />
-                <span>Salvar alterações</span>
-              </button>
-              <button type="button" onClick={cancelEdit} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
-            </div>
-          </form>
+          {(() => {
+            const statusAtual = statusEquipamentoDaMov(editingMov)
+            const regra = regraStatusOrDefaultMov(statusAtual)
+            const statusLabel = LABEL_STATUS_EQUIPAMENTO_MOV[statusAtual] || statusAtual
+            const severidade = COR_BANNER_POR_SEVERIDADE_MOV[regra.severidade]
+            const editaveis = regra.camposEditaveis
+            const somenteLeitura = (campo: string): boolean => !podeEditarCampoEditMov(campo, editaveis)
+            const classeLeitura = 'bg-gray-50 text-gray-600 cursor-not-allowed border-gray-200'
+            return (
+              <>
+                <div className={`mb-4 rounded-xl border ${severidade.wrapper} p-3 sm:p-4`}>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-semibold text-gray-900">Editar Movimentação</h2>
+                        <span className={`rounded-full border px-3 py-0.5 text-xs font-medium ${CLASSE_BADGE_STATUS_EDIT_MOV[statusAtual] || 'bg-slate-100 text-slate-800 border-slate-300'}`}>
+                          {statusLabel}
+                        </span>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${severidade.badge} ${severidade.badgeTexto}`}>
+                          {regra.tituloBadge}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-700 leading-6">{regra.descricao}</p>
+                    </div>
+                    <div className="flex flex-col gap-1 text-xs">
+                      <span className="text-gray-500">
+                        Campos editáveis: <strong className="text-gray-800">{editaveis.length}</strong> de 6
+                      </span>
+                      <span className="text-gray-500">
+                        Tipo de movimentação: <strong className="text-gray-800">{editingMov.tipo || '—'}</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+                  <div>
+                    <label htmlFor="editEquipamentoId" className="mb-1 block text-sm font-medium">Equipamento</label>
+                    <select id="editEquipamentoId" className={`w-full rounded border px-3 py-2 ${somenteLeitura('equipamentoId') ? classeLeitura : ''}`} value={editEquipamentoId} disabled={somenteLeitura('equipamentoId')} tabIndex={somenteLeitura('equipamentoId') ? -1 : 0} aria-disabled={somenteLeitura('equipamentoId')} onChange={(e) => setEditEquipamentoId(e.target.value)}>
+                      <option value="">Selecione...</option>
+                      {equipamentos.map((eq) => (
+                        <option key={eq.id} value={eq.id}>{eq.nome || eq.id}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="editTipo" className="mb-1 block text-sm font-medium">Tipo</label>
+                    <select id="editTipo" className={`w-full rounded border px-3 py-2 ${somenteLeitura('tipo') ? classeLeitura : ''}`} value={editTipo} disabled={somenteLeitura('tipo')} tabIndex={somenteLeitura('tipo') ? -1 : 0} aria-disabled={somenteLeitura('tipo')} onChange={(e) => setEditTipo(e.target.value)}>
+                      {TIPOS_PERMITIDOS_NA_CRIACAO.map(t => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="editOrigem" className="mb-1 block text-sm font-medium">Origem</label>
+                    <input id="editOrigem" className={`w-full rounded border px-3 py-2 ${somenteLeitura('origem') ? classeLeitura : ''}`} value={editOrigem} readOnly={somenteLeitura('origem')} tabIndex={somenteLeitura('origem') ? -1 : 0} aria-readonly={somenteLeitura('origem')} onChange={(e) => setEditOrigem(e.target.value)} />
+                  </div>
+                  <div>
+                    <label htmlFor="editDestino" className="mb-1 block text-sm font-medium">Destino</label>
+                    <input id="editDestino" className={`w-full rounded border px-3 py-2 ${somenteLeitura('destino') ? classeLeitura : ''}`} value={editDestino} readOnly={somenteLeitura('destino')} tabIndex={somenteLeitura('destino') ? -1 : 0} aria-readonly={somenteLeitura('destino')} onChange={(e) => setEditDestino(e.target.value)} />
+                  </div>
+                  <div>
+                    <label htmlFor="editData" className="mb-1 block text-sm font-medium">Data</label>
+                    <input id="editData" type="datetime-local" className={`w-full rounded border px-3 py-2 ${somenteLeitura('data') ? classeLeitura : ''}`} value={editData} readOnly={somenteLeitura('data')} tabIndex={somenteLeitura('data') ? -1 : 0} aria-readonly={somenteLeitura('data')} onChange={(e) => setEditData(e.target.value)} />
+                  </div>
+                  <div>
+                    <label htmlFor="editDescricao" className="mb-1 block text-sm font-medium">
+                      Descrição
+                      {somenteLeitura('descricao') ? null : <span className="ml-2 text-xs font-normal text-emerald-700">(sempre disponível para ajustes)</span>}
+                    </label>
+                    <input id="editDescricao" className={`w-full rounded border px-3 py-2 ${somenteLeitura('descricao') ? classeLeitura : ''}`} value={editDescricao} readOnly={somenteLeitura('descricao')} tabIndex={somenteLeitura('descricao') ? -1 : 0} aria-readonly={somenteLeitura('descricao')} onChange={(e) => setEditDescricao(e.target.value)} />
+                  </div>
+                  <div className="md:col-span-2 xl:col-span-3 flex flex-col sm:flex-row sm:justify-start gap-2">
+                    <button type="submit" aria-label="Salvar alterações da movimentação" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
+                      <Save size={16} aria-hidden="true" />
+                      <span>Salvar alterações</span>
+                    </button>
+                    <button type="button" aria-label="Cancelar edição da movimentação" onClick={cancelEdit} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">Cancelar</button>
+                  </div>
+                </form>
+              </>
+            )
+          })()}
         </section>
       )}
       

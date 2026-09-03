@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, Save, RotateCcw, AlertTriangle, Barcode, FileUp, 
 import Pagination from '../components/Pagination'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
-import { getValidityYears } from '../services/settings'
+import { getValidityYears, getBloquearEditarExcluirDoado } from '../services/settings'
 import { useAppStore } from '../store/useAppStore'
 import EquipmentIdCard from '../components/EquipmentIdCard'
 import {
@@ -17,6 +17,141 @@ import type {
   WinAuditDuplicidadeEntry,
   WinAuditMapeamentoWizard,
 } from '../types/winaudit'
+
+const STATUS_EQUIPAMENTO: readonly string[] = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO'] as const
+
+const LABEL_STATUS_EQUIPAMENTO: Readonly<Record<string, string>> = {
+  DISPONIVEL: 'Disponível',
+  EM_USO: 'Em uso',
+  EM_MANUTENCAO: 'Em manutenção',
+  DESCARTADO: 'Descartado',
+  RESERVADO: 'Reservado',
+  EMPRESTADO: 'Emprestado',
+  DOADO: 'Doado',
+} as const
+
+const CLASSE_BADGE_STATUS_EDIT: Readonly<Record<string, string>> = {
+  DISPONIVEL: 'bg-emerald-100 text-emerald-900 border-emerald-200',
+  EM_USO: 'bg-blue-100 text-blue-900 border-blue-200',
+  EM_MANUTENCAO: 'bg-amber-100 text-amber-900 border-amber-200',
+  DESCARTADO: 'bg-gray-100 text-gray-900 border-gray-300',
+  RESERVADO: 'bg-violet-100 text-violet-900 border-violet-200',
+  EMPRESTADO: 'bg-indigo-100 text-indigo-900 border-indigo-200',
+  DOADO: 'bg-rose-100 text-rose-900 border-rose-200',
+} as const
+
+type RegraLayoutStatus = {
+  tituloBadge: string
+  descricao: string
+  severidade: 'info' | 'atencao' | 'terminal' | 'operacional'
+  statusPermitidosMudanca: readonly string[]
+  camposEditaveis: readonly string[]
+}
+
+const LAYOUT_POR_STATUS: Readonly<Record<string, RegraLayoutStatus>> = {
+  DISPONIVEL: {
+    tituloBadge: 'Estoque: disponível para uso',
+    descricao: 'Equipamento em estoque ou disponível para atribuição a um usuário/setor.',
+    severidade: 'operacional',
+    statusPermitidosMudanca: ['DISPONIVEL','EM_USO','EM_MANUTENCAO','RESERVADO','EMPRESTIMO'].slice(0, 0).concat(['DISPONIVEL','EM_USO','EM_MANUTENCAO','RESERVADO','DESCARTADO','EMPRESTADO','DOADO']),
+    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','dataAquisicao','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
+  },
+  EM_USO: {
+    tituloBadge: 'Atribuído / em uso',
+    descricao: 'Equipamento com usuário/setor definido. Ajustes permitidos em identificação e localização.',
+    severidade: 'operacional',
+    statusPermitidosMudanca: ['DISPONIVEL','EM_USO','EM_MANUTENCAO','RESERVADO','DESCARTADO','EMPRESTADO','DOADO'],
+    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
+  },
+  EM_MANUTENCAO: {
+    tituloBadge: '🛾 Em fluxo de Manutenção / Oficina',
+    descricao: 'Evite alterar identificação enquanto o equipamento está em manutenção. Campos de identidade bloqueados; apenas dados técnicos e observações editáveis.',
+    severidade: 'atencao',
+    statusPermitidosMudanca: ['EM_MANUTENCAO','DISPONIVEL','EM_USO','DESCARTADO'],
+    camposEditaveis: ['status','localizacao','processador','memoria','macaddress','fabricante','modelo','observacoes'],
+  },
+  RESERVADO: {
+    tituloBadge: 'Reservado (separado)',
+    descricao: 'Equipamento reservado para uso futuro. Permite editar dados de identificação para preparo.',
+    severidade: 'info',
+    statusPermitidosMudanca: ['RESERVADO','DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','DOADO','EMPRESTADO'],
+    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
+  },
+  EMPRESTADO: {
+    tituloBadge: '🤝 Em empréstimo temporário',
+    descricao: 'Bloqueia mudança de identificação. Permite apenas ajustes em localização, dados técnicos e observações enquanto durar o empréstimo. Para devolver: use a tela Movimentações → Devolução.',
+    severidade: 'atencao',
+    statusPermitidosMudanca: ['EMPRESTADO','DISPONIVEL','EM_USO'],
+    camposEditaveis: ['status','localizacao','processador','memoria','macaddress','fabricante','modelo','observacoes'],
+  },
+  DESCARTADO: {
+    tituloBadge: '🗑️ Descartado (terminal)',
+    descricao: 'Status terminal: movimentação de descarte já foi registrada. Mantém histórico; apenas Observações permanece editável para complementar justificativa.',
+    severidade: 'terminal',
+    statusPermitidosMudanca: ['DESCARTADO'],
+    camposEditaveis: ['observacoes'],
+  },
+  DOADO: {
+    tituloBadge: '❤️ Doado (terminal)',
+    descricao: 'Status terminal: equipamento saiu do inventário por doação. Dados de identificação são bloqueados para preservar o histórico; apenas Observações pode ser editada.',
+    severidade: 'terminal',
+    statusPermitidosMudanca: ['DOADO'],
+    camposEditaveis: ['observacoes'],
+  },
+} as const
+
+function regraStatusOrDefault(status: string): RegraLayoutStatus {
+  return LAYOUT_POR_STATUS[status] ?? {
+    tituloBadge: `Status: ${status || '—'}`,
+    descricao: 'Layout genérico de edição.',
+    severidade: 'info' as const,
+    statusPermitidosMudanca: STATUS_EQUIPAMENTO,
+    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','dataAquisicao','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
+  }
+}
+
+const COR_BANNER_POR_SEVERIDADE: Readonly<Record<RegraLayoutStatus['severidade'], { wrapper: string; badge: string; badgeTexto: string }>> = {
+  operacional: { wrapper: 'border-emerald-200 bg-emerald-50/60', badge: 'bg-emerald-600', badgeTexto: 'text-white' },
+  info:        { wrapper: 'border-blue-200 bg-blue-50/60',         badge: 'bg-blue-600',     badgeTexto: 'text-white' },
+  atencao:     { wrapper: 'border-amber-200 bg-amber-50/60',       badge: 'bg-amber-600',    badgeTexto: 'text-white' },
+  terminal:    { wrapper: 'border-rose-200 bg-rose-50/60',         badge: 'bg-rose-600',     badgeTexto: 'text-white' },
+} as const
+
+function podeEditarCampoEdit(campo: string, editaveis: readonly string[]): boolean {
+  return editaveis.includes(campo)
+}
+
+type ContextoEdicao = {
+  readonly ativo: boolean
+  readonly statusAtual: string
+  readonly statusLabel: string
+  readonly regra: RegraLayoutStatus
+  readonly severidade: { readonly wrapper: string; readonly badge: string; readonly badgeTexto: string }
+  readonly editaveis: readonly string[]
+  readonly opcoesStatus: readonly string[]
+  readonly valorStatusControlado: string
+  readonly classeLeitura: string
+  readonly podeEditar: (campo: string) => boolean
+}
+
+const CTX_EDICAO_VAZIO: ContextoEdicao = {
+  ativo: false,
+  statusAtual: '',
+  statusLabel: '',
+  regra: {
+    tituloBadge: '',
+    descricao: '',
+    severidade: 'info',
+    statusPermitidosMudanca: STATUS_EQUIPAMENTO,
+    camposEditaveis: [],
+  },
+  severidade: { wrapper: '', badge: '', badgeTexto: '' },
+  editaveis: [],
+  opcoesStatus: [],
+  valorStatusControlado: '',
+  classeLeitura: '',
+  podeEditar: () => false,
+}
 
 // Formata Data: YYYY-MM-DDTHH:mm:ss.sssZ -> DD/MM/YYYY
 function formatData(isoStr: string | undefined): string {
@@ -65,6 +200,7 @@ type Equipamento = {
   modelo?: string
   serial?: string
   status?: string
+  statusEquipamento?: string
   localizacao?: string
   fabricante?: string
   dataAquisicao?: string
@@ -388,8 +524,23 @@ export default function EquipamentosPage() {
   const winauditWizardTimerRef = useRef<number | null>(null)
   const winauditFileRef = useRef<HTMLInputElement | null>(null)
   const userRole = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
-  const podeEditarEquipamento = userRole === 'ADMIN' || userRole === 'GESTOR' || userRole === 'TECNICO'
-  const podeExcluirEquipamento = userRole === 'ADMIN' || userRole === 'GESTOR'
+  const bloquearEditarExcluirDoado = getBloquearEditarExcluirDoado()
+  const statusDoEquipamento = (e: Equipamento): string => (e.statusEquipamento || e.status || '').toUpperCase()
+  const eDoado = (e: Equipamento): boolean => statusDoEquipamento(e) === 'DOADO'
+  const podeEditarEquipamentoBase = userRole === 'ADMIN' || userRole === 'GESTOR' || userRole === 'TECNICO'
+  const podeExcluirEquipamentoBase = userRole === 'ADMIN' || userRole === 'GESTOR'
+  const podeEditarEquipamentoFn = (e: Equipamento): boolean => {
+    if (!podeEditarEquipamentoBase) return false
+    if (bloquearEditarExcluirDoado && eDoado(e)) return false
+    return true
+  }
+  const podeExcluirEquipamentoFn = (e: Equipamento): boolean => {
+    if (!podeExcluirEquipamentoBase) return false
+    if (bloquearEditarExcluirDoado && eDoado(e)) return false
+    return true
+  }
+  const podeEditarEquipamento = podeEditarEquipamentoBase
+  const podeExcluirEquipamento = podeExcluirEquipamentoBase
 
   const keyOfMapeamento = (row: WinAuditMapeamentoWizard, idx: number) => {
     const base = `${row.campoRelatorio}|${row.campoCadastro}|${row.valorEncontrado}`
@@ -604,6 +755,7 @@ export default function EquipamentosPage() {
 
   // Edição
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editEquipamento, setEditEquipamento] = useState<Equipamento | null>(null)
   const [editNome, setEditNome] = useState('')
   const [editPatrimonio, setEditPatrimonio] = useState('')
   const [editUsuarioNome, setEditUsuarioNome] = useState('')
@@ -620,6 +772,33 @@ export default function EquipamentosPage() {
   const [editEscolaId, setEditEscolaId] = useState('')
   const [editStatus, setEditStatus] = useState<string>('DISPONIVEL')
   const editNomeInputRef = useRef<HTMLInputElement | null>(null)
+
+  const ctxEdicao: ContextoEdicao = useMemo((): ContextoEdicao => {
+    if (!editingId || !editEquipamento) return CTX_EDICAO_VAZIO
+    const statusAtual = statusDoEquipamento(editEquipamento)
+    const regra = regraStatusOrDefault(statusAtual)
+    const statusLabel = LABEL_STATUS_EQUIPAMENTO[statusAtual] || statusAtual
+    const severidade = COR_BANNER_POR_SEVERIDADE[regra.severidade]
+    const editaveis = regra.camposEditaveis
+    const opcoesStatus = regra.statusPermitidosMudanca
+    const valorStatusControlado = opcoesStatus.includes(editStatus)
+      ? editStatus
+      : (opcoesStatus[0] ?? statusAtual)
+    const classeLeitura = 'bg-gray-50 text-gray-600 cursor-not-allowed border-gray-200'
+    const podeEditar = (campo: string): boolean => podeEditarCampoEdit(campo, editaveis)
+    return {
+      ativo: true,
+      statusAtual,
+      statusLabel,
+      regra,
+      severidade,
+      editaveis,
+      opcoesStatus,
+      valorStatusControlado,
+      classeLeitura,
+      podeEditar,
+    }
+  }, [editingId, editEquipamento, editStatus])
 
   function clearCreateForm() {
     setNome('')
@@ -703,11 +882,15 @@ export default function EquipamentosPage() {
   }
 
   function startEdit(e: Equipamento) {
-    if (!podeEditarEquipamento) {
-      showWarningToast('Você não tem permissão para editar equipamentos.')
+    if (!podeEditarEquipamentoFn(e)) {
+      const msg = eDoado(e) && bloquearEditarExcluirDoado
+        ? 'Este equipamento está DOADO e não pode ser editado. Ajuste a configuração "Bloquear Editar e Excluir equipamentos Doados" para permitir.'
+        : 'Você não tem permissão para editar equipamentos.'
+      showWarningToast(msg)
       return
     }
     setEditingId(e.id)
+    setEditEquipamento(e)
     setEditNome(e.nome || e.nomeEquipamento || '')
     setEditPatrimonio(e.patrimonio || '')
     setEditUsuarioNome(e.usuarioNome || '')
@@ -722,12 +905,13 @@ export default function EquipamentosPage() {
     setEditObservacoes(e.observacoes || '')
     setEditMacAddress(e.macaddress || '')
     setEditEscolaId(e.escolaId || '')
-    setEditStatus(e.status || 'DISPONIVEL')
+    setEditStatus(statusDoEquipamento(e))
     showInfoToast('Editando equipamento')
   }
 
   function cancelEdit() {
     setEditingId(null)
+    setEditEquipamento(null)
     setEditNome('')
     setEditPatrimonio('')
     setEditTipo('OUTRO')
@@ -792,8 +976,13 @@ export default function EquipamentosPage() {
   }
 
   function confirmarExclusao(id: string) {
-    if (!podeExcluirEquipamento) {
-      showWarningToast('Você não tem permissão para excluir equipamentos.')
+    const equip = lista.find(x => x.id === id)
+    const podeFn = equip ? podeExcluirEquipamentoFn(equip) : podeExcluirEquipamento
+    if (!podeFn) {
+      const msg = equip && eDoado(equip) && bloquearEditarExcluirDoado
+        ? 'Este equipamento está DOADO e não pode ser excluído. Ajuste a configuração "Bloquear Editar e Excluir equipamentos Doados" para permitir.'
+        : 'Você não tem permissão para excluir equipamentos.'
+      showWarningToast(msg)
       return
     }
     showConfirmToast('Tem certeza que deseja excluir este equipamento?', () => excluirEquipamento(id))
@@ -902,7 +1091,7 @@ export default function EquipamentosPage() {
             </thead>
             <tbody>
               {pagina.map((e) => (
-                <EquipamentoRow key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} podeEditar={podeEditarEquipamento} podeExcluir={podeExcluirEquipamento} />
+                <EquipamentoRow key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} podeEditar={podeEditarEquipamentoFn(e)} podeExcluir={podeExcluirEquipamentoFn(e)} />
               ))}
               {filtrada.length === 0 && !loading && (
                 <tr>
@@ -916,7 +1105,7 @@ export default function EquipamentosPage() {
         {/* Cards para mobile */}
         <div className="md:hidden divide-y divide-gray-200 border">
           {pagina.map((e) => (
-            <EquipamentoCard key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} podeEditar={podeEditarEquipamento} podeExcluir={podeExcluirEquipamento} />
+            <EquipamentoCard key={e.id} item={e} onEdit={startEdit} onDelete={confirmarExclusao} onViewIdCard={setSelectedEquipamento} podeEditar={podeEditarEquipamentoFn(e)} podeExcluir={podeExcluirEquipamentoFn(e)} />
           ))}
           {filtrada.length === 0 && !loading && (
             <div className="p-4 text-center text-sm text-gray-600">Nenhum equipamento encontrado.</div>
@@ -1502,26 +1691,81 @@ export default function EquipamentosPage() {
       </section>
       )}
 
-      {editingId && (
+      {ctxEdicao.ativo && (
         <section className="rounded-lg border bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-lg font-medium">Editar Equipamento</h2>
+          <div className={`mb-4 rounded-xl border ${ctxEdicao.severidade.wrapper} p-3 sm:p-4`}>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900">Editar Equipamento</h2>
+                  <span className={`rounded-full border px-3 py-0.5 text-xs font-medium ${CLASSE_BADGE_STATUS_EDIT[ctxEdicao.statusAtual] || 'bg-slate-100 text-slate-800 border-slate-300'}`}>
+                    {ctxEdicao.statusLabel}
+                  </span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${ctxEdicao.severidade.badge} ${ctxEdicao.severidade.badgeTexto}`}>
+                    {ctxEdicao.regra.tituloBadge}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-gray-700 leading-6">{ctxEdicao.regra.descricao}</p>
+              </div>
+              <div className="flex flex-col gap-1 text-xs">
+                <span className="text-gray-500">
+                  Campos editáveis: <strong className="text-gray-800">{ctxEdicao.editaveis.length}</strong> de 15
+                </span>
+                <span className="text-gray-500">
+                  Status destino permitidos: <strong className="text-gray-800">{ctxEdicao.opcoesStatus.length}</strong>
+                </span>
+              </div>
+            </div>
+          </div>
           <form onSubmit={salvarEdicao} className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             <div className="md:col-span-2 lg:col-span-3 grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-5">
               <div>
                 <label htmlFor="editNome" className="mb-1 block text-sm font-medium">Nome</label>
-                <input id="editNome" ref={editNomeInputRef} className="w-full rounded border px-3 py-2" value={editNome} onChange={(e) => setEditNome(e.target.value)} />
+                <input
+                  id="editNome" ref={editNomeInputRef}
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('nome') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editNome}
+                  readOnly={!ctxEdicao.podeEditar('nome')}
+                  tabIndex={ctxEdicao.podeEditar('nome') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('nome')}
+                  onChange={(e) => setEditNome(e.target.value)}
+                />
               </div>
               <div>
                 <label htmlFor="editPatrimonio" className="mb-1 block text-sm font-medium">Nº do Patrimônio</label>
-                <input id="editPatrimonio" className="w-full rounded border px-3 py-2" value={editPatrimonio} onChange={(e) => setEditPatrimonio(e.target.value.toUpperCase())} />
+                <input
+                  id="editPatrimonio"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('patrimonio') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editPatrimonio}
+                  readOnly={!ctxEdicao.podeEditar('patrimonio')}
+                  tabIndex={ctxEdicao.podeEditar('patrimonio') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('patrimonio')}
+                  onChange={(e) => setEditPatrimonio(e.target.value.toUpperCase())}
+                />
               </div>
               <div>
                 <label htmlFor="editUsuarioNome" className="mb-1 block text-sm font-medium">Nome do Usuário</label>
-                <input id="editUsuarioNome" className="w-full rounded border px-3 py-2" value={editUsuarioNome} onChange={(e) => setEditUsuarioNome(e.target.value)} />
+                <input
+                  id="editUsuarioNome"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('usuarioNome') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editUsuarioNome}
+                  readOnly={!ctxEdicao.podeEditar('usuarioNome')}
+                  tabIndex={ctxEdicao.podeEditar('usuarioNome') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('usuarioNome')}
+                  onChange={(e) => setEditUsuarioNome(e.target.value)}
+                />
               </div>
               <div>
                 <label htmlFor="editEscolaId" className="mb-1 block text-sm font-medium">Escola</label>
-                <select id="editEscolaId" className="w-full rounded border px-3 py-2" value={editEscolaId} onChange={(e) => setEditEscolaId(e.target.value)}>
+                <select
+                  id="editEscolaId"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('escolaId') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editEscolaId}
+                  disabled={!ctxEdicao.podeEditar('escolaId')}
+                  tabIndex={ctxEdicao.podeEditar('escolaId') ? 0 : -1}
+                  aria-disabled={!ctxEdicao.podeEditar('escolaId')}
+                  onChange={(e) => setEditEscolaId(e.target.value)}
+                >
                   <option value="">Selecione...</option>
                   {escolas.map((esc) => (
                     <option key={esc.id} value={esc.id}>{esc.nome}</option>
@@ -1530,31 +1774,82 @@ export default function EquipamentosPage() {
               </div>
               <div>
                 <label htmlFor="editTipo" className="mb-1 block text-sm font-medium">Tipo</label>
-                <select id="editTipo" className="w-full rounded border px-3 py-2" value={editTipo} onChange={(e) => setEditTipo(e.target.value)}>
+                <select
+                  id="editTipo"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('tipo') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editTipo}
+                  disabled={!ctxEdicao.podeEditar('tipo')}
+                  tabIndex={ctxEdicao.podeEditar('tipo') ? 0 : -1}
+                  aria-disabled={!ctxEdicao.podeEditar('tipo')}
+                  onChange={(e) => setEditTipo(e.target.value)}
+                >
                   {['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO'].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label htmlFor="editStatus" className="mb-1 block text-sm font-medium">Status</label>
-                <select id="editStatus" className="w-full rounded border px-3 py-2" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-                  {['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO'].map(s => <option key={s} value={s}>{s}</option>)}
+                <select
+                  id="editStatus"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('status') ? '' : ctxEdicao.classeLeitura}`}
+                  value={ctxEdicao.valorStatusControlado}
+                  disabled={!ctxEdicao.podeEditar('status')}
+                  tabIndex={ctxEdicao.podeEditar('status') ? 0 : -1}
+                  aria-disabled={!ctxEdicao.podeEditar('status')}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                >
+                  {ctxEdicao.opcoesStatus.map((s) => {
+                    const lbl = LABEL_STATUS_EQUIPAMENTO[s] || s
+                    return <option key={s} value={s}>{lbl}</option>
+                  })}
                 </select>
               </div>
               <div>
                 <label htmlFor="editModelo" className="mb-1 block text-sm font-medium">Modelo</label>
-                <input id="editModelo" className="w-full rounded border px-3 py-2" value={editModelo} onChange={(e) => setEditModelo(e.target.value.toUpperCase())} />
+                <input
+                  id="editModelo"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('modelo') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editModelo}
+                  readOnly={!ctxEdicao.podeEditar('modelo')}
+                  tabIndex={ctxEdicao.podeEditar('modelo') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('modelo')}
+                  onChange={(e) => setEditModelo(e.target.value.toUpperCase())}
+                />
               </div>
               <div>
                 <label htmlFor="editSerial" className="mb-1 block text-sm font-medium">Número de Série</label>
-                <input id="editSerial" className="w-full rounded border px-3 py-2" value={editSerial} onChange={(e) => setEditSerial(e.target.value.toUpperCase())} />
+                <input
+                  id="editSerial"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('serial') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editSerial}
+                  readOnly={!ctxEdicao.podeEditar('serial')}
+                  tabIndex={ctxEdicao.podeEditar('serial') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('serial')}
+                  onChange={(e) => setEditSerial(e.target.value.toUpperCase())}
+                />
               </div>
               <div>
                 <label htmlFor="editDataAquisicao" className="mb-1 block text-sm font-medium">Data de Aquisição</label>
-                <input id="editDataAquisicao" type="date" className="w-full rounded border px-3 py-2" value={editDataAquisicao} onChange={(e) => setEditDataAquisicao(e.target.value)} />
+                <input
+                  id="editDataAquisicao" type="date"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('dataAquisicao') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editDataAquisicao}
+                  readOnly={!ctxEdicao.podeEditar('dataAquisicao')}
+                  tabIndex={ctxEdicao.podeEditar('dataAquisicao') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('dataAquisicao')}
+                  onChange={(e) => setEditDataAquisicao(e.target.value)}
+                />
               </div>
               <div>
                 <label htmlFor="editLocalizacao" className="mb-1 block text-sm font-medium">Localização</label>
-                <input id="editLocalizacao" className="w-full rounded border px-3 py-2" value={editLocalizacao} onChange={(e) => setEditLocalizacao(e.target.value.toUpperCase())} />
+                <input
+                  id="editLocalizacao"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('localizacao') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editLocalizacao}
+                  readOnly={!ctxEdicao.podeEditar('localizacao')}
+                  tabIndex={ctxEdicao.podeEditar('localizacao') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('localizacao')}
+                  onChange={(e) => setEditLocalizacao(e.target.value.toUpperCase())}
+                />
               </div>
             </div>
             <div className="md:col-span-2 lg:col-span-3 grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
@@ -1562,29 +1857,67 @@ export default function EquipamentosPage() {
                 <label htmlFor="editMacAddress" className="mb-1 block text-sm font-medium">MAC Address</label>
                 <input
                   id="editMacAddress"
-                  className="w-full rounded border px-3 py-2"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('macaddress') ? '' : ctxEdicao.classeLeitura}`}
                   placeholder="AA:BB:CC:DD:EE:FF"
                   value={editMacAddress}
+                  readOnly={!ctxEdicao.podeEditar('macaddress')}
+                  tabIndex={ctxEdicao.podeEditar('macaddress') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('macaddress')}
                   onChange={(e) => setEditMacAddress(e.target.value.toUpperCase())}
                   onBlur={() => setEditMacAddress(formatMac(editMacAddress))}
                 />
               </div>
               <div>
                 <label htmlFor="editFabricante" className="mb-1 block text-sm font-medium">Fabricante</label>
-                <input id="editFabricante" className="w-full rounded border px-3 py-2" value={editFabricante} onChange={(e) => setEditFabricante(e.target.value.toUpperCase())} />
+                <input
+                  id="editFabricante"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('fabricante') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editFabricante}
+                  readOnly={!ctxEdicao.podeEditar('fabricante')}
+                  tabIndex={ctxEdicao.podeEditar('fabricante') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('fabricante')}
+                  onChange={(e) => setEditFabricante(e.target.value.toUpperCase())}
+                />
               </div>
               <div>
                 <label htmlFor="editProcessador" className="mb-1 block text-sm font-medium">Processador</label>
-                <input id="editProcessador" className="w-full rounded border px-3 py-2" value={editProcessador} onChange={(e) => setEditProcessador(e.target.value.toUpperCase())} />
+                <input
+                  id="editProcessador"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('processador') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editProcessador}
+                  readOnly={!ctxEdicao.podeEditar('processador')}
+                  tabIndex={ctxEdicao.podeEditar('processador') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('processador')}
+                  onChange={(e) => setEditProcessador(e.target.value.toUpperCase())}
+                />
               </div>
               <div>
                 <label htmlFor="editMemoria" className="mb-1 block text-sm font-medium">Memória</label>
-                <input id="editMemoria" className="w-full rounded border px-3 py-2" value={editMemoria} onChange={(e) => setEditMemoria(e.target.value.toUpperCase())} />
+                <input
+                  id="editMemoria"
+                  className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('memoria') ? '' : ctxEdicao.classeLeitura}`}
+                  value={editMemoria}
+                  readOnly={!ctxEdicao.podeEditar('memoria')}
+                  tabIndex={ctxEdicao.podeEditar('memoria') ? 0 : -1}
+                  aria-readonly={!ctxEdicao.podeEditar('memoria')}
+                  onChange={(e) => setEditMemoria(e.target.value.toUpperCase())}
+                />
               </div>
             </div>
             <div className="md:col-span-2 lg:col-span-3">
-              <label htmlFor="editObservacoes" className="mb-1 block text-sm font-medium">Observações</label>
-              <input id="editObservacoes" className="w-full rounded border px-3 py-2" value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} />
+              <label htmlFor="editObservacoes" className="mb-1 block text-sm font-medium">
+                Observações
+                {ctxEdicao.podeEditar('observacoes') ? <span className="ml-2 text-xs font-normal text-emerald-700">(campo sempre disponível para ajustes)</span> : null}
+              </label>
+              <input
+                id="editObservacoes"
+                className={`w-full rounded border px-3 py-2 ${ctxEdicao.podeEditar('observacoes') ? '' : ctxEdicao.classeLeitura}`}
+                value={editObservacoes}
+                readOnly={!ctxEdicao.podeEditar('observacoes')}
+                tabIndex={ctxEdicao.podeEditar('observacoes') ? 0 : -1}
+                aria-readonly={!ctxEdicao.podeEditar('observacoes')}
+                onChange={(e) => setEditObservacoes(e.target.value)}
+              />
             </div>
             <div className="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row gap-2">
               <button type="submit" aria-label="Salvar alterações do equipamento" className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 flex items-center gap-2">
