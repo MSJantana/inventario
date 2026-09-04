@@ -216,6 +216,25 @@ export const criarMovimentacao = async (dadosMovRaw, usuario, opcoes) => {
   }
   const usuarioId = usuario?.id ?? null;
 
+  // Fallback AJUSTE: origem/destino garantidos a partir do equipamento ANTES/DEPOIS
+  if (dadosMov.tipoMovimento === 'AJUSTE') {
+    const aj = typeof dadosMov.ajusteEquipamento === 'object' && dadosMov.ajusteEquipamento ? dadosMov.ajusteEquipamento : null;
+    if (!dadosMov.origem) {
+      const origemLocal = (equipamento?.localizacao && String(equipamento.localizacao).trim()) || null;
+      dadosMov.origem = origemLocal;
+    }
+    if (!dadosMov.destino) {
+      const destinoPorAjuste = (aj?.localizacao && String(aj.localizacao).trim()) || null;
+      const destinoFinal = destinoPorAjuste || (equipamento?.localizacao && String(equipamento.localizacao).trim()) || null;
+      dadosMov.destino = destinoFinal;
+    }
+    // escolaId: se ajuste alterou escolaId, garante escolaId do movimento = escola destino
+    if (aj?.escolaId !== undefined && aj?.escolaId !== null && !dadosMov.escolaId) {
+      const escolaStr = String(aj.escolaId).trim();
+      if (escolaStr) dadosMov.escolaId = escolaStr;
+    }
+  }
+
   return prisma.$transaction(async (tx) => {
     const include = {};
     if (dadosMov.manutencao) {

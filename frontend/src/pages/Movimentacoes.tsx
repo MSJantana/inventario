@@ -683,6 +683,8 @@ export default function MovimentacoesPage() {
         setAjusteEquip(ajusteVazio())
         setAjusteDirty(false)
       }
+      setOrigem('')
+      setDestino('')
       return
     }
     if (snapshotAjuste?.id === equipamentoId) return
@@ -690,19 +692,35 @@ export default function MovimentacoesPage() {
     setSnapshotAjuste(snap)
     if (snap && !ajusteDirty) {
       setAjusteEquip({ ...snap })
+      const origemEquip = snap.localizacao
+        || (snap.escolaNome ? snap.escolaNome : '')
+      setOrigem(origemEquip)
+      setDestino(origemEquip)
     }
   }, [opcaoTipoSelecionada, equipamentoId, extrairSnapshotAjuste, snapshotAjuste, ajusteEquip.id, ajusteDirty])
 
   const handleEquipamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value
     setEquipamentoId(selectedId)
-    
+
     if (departamentoSel === 'EQUIPAMENTOS') {
       const selectedEquip = equipamentos.find(eq => eq.id === selectedId)
-      if (selectedEquip?.localizacao) {
-        setOrigem(selectedEquip.localizacao)
+      if (opcaoTipoSelecionada?.value === 'AJUSTE') {
+        if (selectedEquip) {
+          const locNome = selectedEquip.localizacao
+            || (selectedEquip.escolaNome ? selectedEquip.escolaNome : '')
+          setOrigem(locNome)
+          setDestino(locNome)
+        } else {
+          setOrigem('')
+          setDestino('')
+        }
       } else {
-        setOrigem('')
+        if (selectedEquip?.localizacao) {
+          setOrigem(selectedEquip.localizacao)
+        } else {
+          setOrigem('')
+        }
       }
     }
   }
@@ -887,7 +905,6 @@ export default function MovimentacoesPage() {
         const snapValido = Boolean(snapshotAjuste?.id && snapshotAjuste.id === ajusteEquip.id)
         const origemSnap: SnapshotAjusteEquipamento = snapValido ? (snapshotAjuste as SnapshotAjusteEquipamento) : ajusteVazio()
         const atual = ajusteEquip
-        // Sem snapshot confiável: envia todos os campos (backend filtra só o que difere de valor nulo/undefined)
         if (!snapValido) {
           const completo: Record<string, unknown> = {}
           const todos: (keyof SnapshotAjusteEquipamento)[] = [
@@ -909,7 +926,6 @@ export default function MovimentacoesPage() {
           completo.marca = completo.fabricante
           return completo
         }
-        // Com snapshot válido: envia apenas campos DIFERENTES para evitar sobrescritas acidentais
         const diff: Record<string, unknown> = {}
         const camposComparar: readonly (keyof SnapshotAjusteEquipamento)[] = [
           'nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial',
@@ -947,14 +963,30 @@ export default function MovimentacoesPage() {
         }
         return Object.keys(diff).length ? diff : undefined
       })()
+      const origemAntes = (snapshotAjuste?.localizacao
+        || (snapshotAjuste?.escolaNome ? snapshotAjuste.escolaNome : '')
+        || origem
+        || '').trim() || undefined
+      const destinoDepois = (ajusteEquip.localizacao
+        || (ajusteEquip.escolaNome ? ajusteEquip.escolaNome : '')
+        || destino
+        || '').trim() || undefined
+      const escolaIdAtualizado = (
+        (ajustePayload && typeof ajustePayload === 'object' && (ajustePayload as Record<string, unknown>).escolaId !== undefined)
+          ? String(((ajustePayload as Record<string, unknown>).escolaId) ?? '').trim() || null
+          : (snapshotAjuste?.escolaId ?? '')
+      )
       payload = {
         equipamentoId,
         tipo: 'AJUSTE',
         tipoMovimento: 'AJUSTE',
-        origem: origem || undefined,
-        destino: destino || undefined,
+        origem: origemAntes,
+        destino: destinoDepois,
+        escolaId: escolaIdAtualizado || undefined,
         descricao: descricao || undefined,
-        observacoes: descricao || undefined,
+        observacoes: [descricao, ajustePayload && typeof ajustePayload === 'object'
+          ? `Campos ajustados: ${Object.keys(ajustePayload).sort().join(', ')}`
+          : ''].filter(Boolean).join('\n') || undefined,
         ajusteEquipamento: ajustePayload,
       }
       if (data) {
