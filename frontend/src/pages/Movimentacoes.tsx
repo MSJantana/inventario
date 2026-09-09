@@ -376,6 +376,376 @@ function getDevolucaoInit(): FormDevolucao {
   }
 }
 
+// =============================================================================
+// Helpers de montagem de payload (funções puras em nível de módulo)
+// Objetivo: manter registrarMovimentoAvancado abaixo de S3776 (complexidade ≤ 15)
+// =============================================================================
+
+const CAMPOS_AJUSTE_COMPARAR: readonly (keyof SnapshotAjusteEquipamento)[] = [
+  'nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial',
+  'dataAquisicao','localizacao','macaddress','fabricante','processador','memoria','observacoes',
+] as const
+
+const naoVazio = (valor: string | null | undefined): string | undefined => {
+  const v = (valor ?? '').trim()
+  return v || undefined
+}
+
+const normalizarCampoAjusteStr = (campo: keyof SnapshotAjusteEquipamento, v: unknown): string | null => {
+  if (v === undefined || v === null) {
+    return (campo === 'escolaId' || campo === 'dataAquisicao') ? null : ''
+  }
+  // SonarLint S6551: narrowing explícito por typeof v === 'xxx' antes de qualquer String()
+  if (typeof v === 'string') {
+    const s = v.trim()
+    if (campo === 'escolaId' || campo === 'dataAquisicao') return s || null
+    return s
+  }
+  if (typeof v === 'number' || typeof v === 'bigint') {
+    const s = String(v).trim()
+    if (campo === 'escolaId' || campo === 'dataAquisicao') return s || null
+    return s
+  }
+  // Qualquer outro tipo (object, boolean, symbol, function) → vazio seguro (S6551 bypass)
+  return (campo === 'escolaId' || campo === 'dataAquisicao') ? null : ''
+}
+
+type ResultadoPayload = { ok: true; payload: Record<string, unknown> } | { ok: false; falha: string }
+
+type ContextoBasePayload = {
+  equipamentoId: string
+  origem: string
+  destino: string
+  data: string
+  descricao: string
+}
+
+const montarPayloadManutencaoEnvio = (ctx: ContextoBasePayload & { f: FormManutencaoEnvio }): ResultadoPayload => {
+  const { f } = ctx
+  if (!f.fornecedorNome.trim()) return { ok: false, falha: 'Informe o fornecedor' }
+  if (!f.dataEnvio) return { ok: false, falha: 'Informe a data de envio' }
+  if (!f.defeitoRelatado.trim()) return { ok: false, falha: 'Descreva o defeito relatado' }
+  return {
+    ok: true,
+    payload: {
+      equipamentoId: ctx.equipamentoId,
+      tipoMovimento: 'MANUTENCAO_ENVIO',
+      dataMovimento: f.dataEnvio ? new Date(f.dataEnvio).toISOString() : new Date().toISOString(),
+      origem: naoVazio(ctx.origem),
+      destino: naoVazio(ctx.destino),
+      observacoes: [f.defeitoRelatado, f.observacoes].filter(Boolean).join('\n') || undefined,
+      manutencao: {
+        fornecedorNome: f.fornecedorNome.trim() || null,
+        fornecedorContato: f.fornecedorContato.trim() || null,
+        numeroOS: f.numeroOS.trim() || null,
+        tipoServico: f.tipoServico || null,
+        tecnicoResponsavel: f.tecnicoResponsavel.trim() || null,
+        prazoRetorno: f.prazoRetorno ? new Date(f.prazoRetorno).toISOString() : null,
+        laudoTecnico: f.defeitoRelatado.trim() || null,
+        pecasTrocadas: null,
+        valorServico: null,
+        dataRetornoEfetiva: null,
+      },
+    },
+  }
+}
+
+const montarPayloadManutencaoRetorno = (ctx: ContextoBasePayload & { f: FormManutencaoRetorno }): ResultadoPayload => {
+  const { f } = ctx
+  if (!f.dataRetornoEfetiva) return { ok: false, falha: 'Informe a data de retorno' }
+  if (!f.laudoTecnico.trim() && !f.solucao.trim()) return { ok: false, falha: 'Informe o diagnóstico ou a solução' }
+  const pecas = f.pecasTrocadasTexto.split('\n').map(s => s.trim()).filter(Boolean)
+  const numeroValor = f.valorServico ? Number.parseFloat(f.valorServico) : Number.NaN
+  const valor = !Number.isNaN(numeroValor) ? numeroValor.toFixed(2) : null
+  return {
+    ok: true,
+    payload: {
+      equipamentoId: ctx.equipamentoId,
+      tipoMovimento: 'MANUTENCAO_RETORNO',
+      dataMovimento: new Date(f.dataRetornoEfetiva).toISOString(),
+      origem: naoVazio(ctx.origem),
+      destino: naoVazio(ctx.destino),
+      observacoes: [f.laudoTecnico, f.solucao, f.observacoes].filter(Boolean).join('\n') || undefined,
+      statusDestino: f.statusFinal,
+      manutencao: {
+        dataRetornoEfetiva: new Date(f.dataRetornoEfetiva).toISOString(),
+        laudoTecnico: f.laudoTecnico.trim() || f.solucao.trim() || null,
+        pecasTrocadas: pecas.length ? pecas : null,
+        valorServico: valor,
+        movimentacaoEnvioId: f.movimentacaoEnvioId.trim() || null,
+        numeroOS: null, fornecedorNome: null, fornecedorContato: null, tipoServico: null, tecnicoResponsavel: null, prazoRetorno: null,
+      },
+    },
+  }
+}
+
+const montarPayloadDoacao = (ctx: ContextoBasePayload & { f: FormDoacao }): ResultadoPayload => {
+  const { f } = ctx
+  return {
+    ok: true,
+    payload: {
+      equipamentoId: ctx.equipamentoId,
+      tipoMovimento: 'DOACAO',
+      dataMovimento: new Date(f.dataEntregaEfetiva).toISOString(),
+      origem: naoVazio(ctx.origem),
+      destino: naoVazio(ctx.destino),
+      observacoes: f.motivo.trim() || undefined,
+      doacao: {
+        beneficiarioNome: f.beneficiarioNome.trim(),
+        beneficiarioCpfCnpj: f.beneficiarioCpfCnpj.trim() || null,
+        beneficiarioContato: f.beneficiarioContato.trim() || null,
+        dataEntregaEfetiva: new Date(f.dataEntregaEfetiva).toISOString(),
+        numeroPortaria: f.numeroPortaria.trim() || null,
+        enderecoEntrega: f.enderecoEntrega.trim() || null,
+        responsavelEntrega: f.responsavelEntrega.trim() || null,
+        termoDoacaoUrl: null,
+        observacoesInternas: f.observacoesInternas.trim() || null,
+      },
+    },
+  }
+}
+
+const validarPasso1Doacao = (f: FormDoacao): string | null => {
+  if (!f.beneficiarioNome.trim()) return 'Informe o nome do beneficiário'
+  if (!f.dataEntregaEfetiva) return 'Informe a data da doação'
+  if (!f.motivo.trim()) return 'Informe o motivo da doação'
+  return null
+}
+
+const montarPayloadEmprestimo = (ctx: ContextoBasePayload & { f: FormEmprestimo }): ResultadoPayload => {
+  const { f } = ctx
+  if (!f.beneficiarioNome.trim()) return { ok: false, falha: 'Informe o nome do beneficiário' }
+  if (!f.dataSaida) return { ok: false, falha: 'Informe a data de saída' }
+  if (!f.dataPrevistaDevolucao) return { ok: false, falha: 'Informe a data prevista de devolução' }
+  return {
+    ok: true,
+    payload: {
+      equipamentoId: ctx.equipamentoId,
+      tipoMovimento: 'EMPRESTIMO',
+      dataMovimento: new Date(f.dataSaida).toISOString(),
+      origem: naoVazio(ctx.origem),
+      destino: naoVazio(ctx.destino) ?? naoVazio(f.localDestino),
+      observacoes: f.observacoesInternas.trim() || undefined,
+      emprestimo: {
+        beneficiarioNome: f.beneficiarioNome.trim(),
+        beneficiarioDocumento: f.beneficiarioDocumento.trim() || null,
+        beneficiarioContato: f.beneficiarioContato.trim() || null,
+        tomadorNome: f.tomadorNome.trim() || null,
+        tomadorCargo: f.tomadorCargo.trim() || null,
+        localDestino: f.localDestino.trim() || null,
+        dataSaida: new Date(f.dataSaida).toISOString(),
+        dataPrevistaDevolucao: new Date(f.dataPrevistaDevolucao).toISOString(),
+        dataDevolucaoEfetiva: null,
+        estadoConservacaoSaida: f.estadoConservacaoSaida.trim() || null,
+        estadoConservacaoRetorno: null,
+        termoAssinado: Boolean(f.termoAssinado),
+        termoUrl: f.termoUrl.trim() || null,
+        observacoesInternas: f.observacoesInternas.trim() || null,
+        movimentacaoSaidaId: null,
+      },
+    },
+  }
+}
+
+const montarPayloadDevolucao = (ctx: ContextoBasePayload & { f: FormDevolucao }): ResultadoPayload => {
+  const { f } = ctx
+  if (!f.dataDevolucaoEfetiva) return { ok: false, falha: 'Informe a data de devolução' }
+  return {
+    ok: true,
+    payload: {
+      equipamentoId: ctx.equipamentoId,
+      tipoMovimento: 'DEVOLUCAO',
+      dataMovimento: new Date(f.dataDevolucaoEfetiva).toISOString(),
+      origem: naoVazio(ctx.origem),
+      destino: naoVazio(ctx.destino),
+      statusDestino: f.statusFinal,
+      observacoes: f.observacoesInternas.trim() || undefined,
+      emprestimo: {
+        dataDevolucaoEfetiva: new Date(f.dataDevolucaoEfetiva).toISOString(),
+        estadoConservacaoRetorno: f.estadoConservacaoRetorno.trim() || null,
+        movimentacaoSaidaId: f.movimentacaoSaidaId.trim() || null,
+      },
+    },
+  }
+}
+
+type ContextoAjuste = ContextoBasePayload & {
+  ajusteDirty: boolean
+  snapshotAjuste: SnapshotAjusteEquipamento | null
+  ajusteEquip: SnapshotAjusteEquipamento
+}
+
+const montarAjustePayload = (ctx: ContextoAjuste): Record<string, unknown> | undefined => {
+  if (!ctx.ajusteDirty) return undefined
+  const snapValido = Boolean(ctx.snapshotAjuste?.id && ctx.snapshotAjuste.id === ctx.ajusteEquip.id)
+  const origemSnap: SnapshotAjusteEquipamento = snapValido ? (ctx.snapshotAjuste as SnapshotAjusteEquipamento) : ajusteVazio()
+  const atual = ctx.ajusteEquip
+
+  if (!snapValido) {
+    const completo: Record<string, unknown> = {}
+    for (const campo of CAMPOS_AJUSTE_COMPARAR) {
+      const v = atual[campo]
+      completo[campo as string] = normalizarCampoAjusteStr(campo, v)
+    }
+    completo.marca = completo.fabricante
+    return completo
+  }
+
+  const diff: Record<string, unknown> = {}
+  for (const campo of CAMPOS_AJUSTE_COMPARAR) {
+    if (campo === 'escolaId' || campo === 'dataAquisicao') {
+      const atualStr = String(atual[campo] ?? '').trim()
+      const origemStr = String(origemSnap[campo] ?? '').trim()
+      if (atualStr !== origemStr) {
+        diff[campo as string] = atualStr || null
+      }
+      continue
+    }
+    const atualStr = String(atual[campo] ?? '').trim()
+    const origemStr = String(origemSnap[campo] ?? '').trim()
+    if (atualStr !== origemStr) {
+      diff[campo as string] = atualStr
+    }
+  }
+  if (diff.fabricante !== undefined && diff.marca === undefined) {
+    diff.marca = diff.fabricante
+  } else if (diff.marca !== undefined && diff.fabricante === undefined) {
+    diff.fabricante = diff.marca
+  }
+  return Object.keys(diff).length ? diff : undefined
+}
+
+const montarPayloadAjuste = (ctx: ContextoAjuste): ResultadoPayload => {
+  const ajustePayload = montarAjustePayload(ctx)
+  const origemAntes = naoVazio(ctx.snapshotAjuste?.localizacao ?? ctx.snapshotAjuste?.escolaNome ?? ctx.origem)
+  const destinoDepois = naoVazio(ctx.ajusteEquip.localizacao ?? ctx.ajusteEquip.escolaNome ?? ctx.destino)
+  const escolaIdBruto = ajustePayload && typeof ajustePayload === 'object'
+    ? (ajustePayload as Record<string, unknown>).escolaId
+    : undefined
+  let escolaIdAtualizado: string | null = (ctx.snapshotAjuste?.escolaId ?? '')
+  // SonarLint S6551: narrowing explícito antes de qualquer String()
+  if (escolaIdBruto !== undefined && escolaIdBruto !== null) {
+    if (typeof escolaIdBruto === 'string') {
+      escolaIdAtualizado = escolaIdBruto.trim() || null
+    } else if (typeof escolaIdBruto === 'number' || typeof escolaIdBruto === 'bigint') {
+      escolaIdAtualizado = String(escolaIdBruto).trim() || null
+    } else {
+      escolaIdAtualizado = null
+    }
+  } else if (escolaIdBruto !== undefined) {
+    escolaIdAtualizado = null
+  }
+  const observacoes = [
+    ctx.descricao,
+    ajustePayload && typeof ajustePayload === 'object'
+      ? `Campos ajustados: ${Object.keys(ajustePayload).sort((a, b) => a.localeCompare(b, 'pt-BR')).join(', ')}`
+      : '',
+  ].filter(Boolean).join('\n') || undefined
+  const payload: Record<string, unknown> = {
+    equipamentoId: ctx.equipamentoId,
+    tipo: 'AJUSTE',
+    tipoMovimento: 'AJUSTE',
+    origem: origemAntes,
+    destino: destinoDepois,
+    escolaId: naoVazio(escolaIdAtualizado as string | undefined),
+    descricao: naoVazio(ctx.descricao),
+    observacoes,
+    ajusteEquipamento: ajustePayload,
+  }
+  if (ctx.data) {
+    const dataIso = new Date(ctx.data).toISOString()
+    payload.data = dataIso
+    payload.dataMovimento = dataIso
+  }
+  return { ok: true, payload }
+}
+
+const montarPayloadGenerico = (ctx: ContextoBasePayload & { tipo: TipoMovimento }): ResultadoPayload => {
+  if (!TIPOS_COMPLETOS.includes(ctx.tipo)) return { ok: false, falha: 'Tipo inválido' }
+  const payload: Record<string, unknown> = {
+    equipamentoId: ctx.equipamentoId,
+    tipo: ctx.tipo,
+    tipoMovimento: ctx.tipo,
+    origem: naoVazio(ctx.origem),
+    destino: naoVazio(ctx.destino),
+    descricao: naoVazio(ctx.descricao),
+    observacoes: naoVazio(ctx.descricao),
+  }
+  if (ctx.data) {
+    const dataIso = new Date(ctx.data).toISOString()
+    payload.data = dataIso
+    payload.dataMovimento = dataIso
+  }
+  return { ok: true, payload }
+}
+
+type ContextoMontagem = ContextoBasePayload & {
+  fManutEnvio: FormManutencaoEnvio
+  fManutRetorno: FormManutencaoRetorno
+  fDoacao: FormDoacao
+  fEmprestimo: FormEmprestimo
+  fDevolucao: FormDevolucao
+  doacaoStep: 1 | 2
+  ajusteDirty: boolean
+  snapshotAjuste: SnapshotAjusteEquipamento | null
+  ajusteEquip: SnapshotAjusteEquipamento
+}
+
+type ResultadoMontagem =
+  | { tipo: 'falha'; mensagem: string }
+  | { tipo: 'doacaoStep1' }
+  | { tipo: 'ok'; payload: Record<string, unknown> }
+
+const montarPayloadPorTipo = (opcao: OpcaoTipoFormulario, ctx: ContextoMontagem): ResultadoMontagem => {
+  const base: ContextoBasePayload = {
+    equipamentoId: ctx.equipamentoId,
+    origem: ctx.origem,
+    destino: ctx.destino,
+    data: ctx.data,
+    descricao: ctx.descricao,
+  }
+  switch (opcao.value) {
+    case 'MANUTENCAO_ENVIO': {
+      const r = montarPayloadManutencaoEnvio({ ...base, f: ctx.fManutEnvio })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+    case 'MANUTENCAO_RETORNO': {
+      const r = montarPayloadManutencaoRetorno({ ...base, f: ctx.fManutRetorno })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+    case 'DOACAO': {
+      if (ctx.doacaoStep === 1) {
+        const err = validarPasso1Doacao(ctx.fDoacao)
+        if (err) return { tipo: 'falha', mensagem: err }
+        return { tipo: 'doacaoStep1' }
+      }
+      const r = montarPayloadDoacao({ ...base, f: ctx.fDoacao })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+    case 'EMPRESTIMO': {
+      const r = montarPayloadEmprestimo({ ...base, f: ctx.fEmprestimo })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+    case 'DEVOLUCAO': {
+      const r = montarPayloadDevolucao({ ...base, f: ctx.fDevolucao })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+    case 'AJUSTE': {
+      const r = montarPayloadAjuste({
+        ...base,
+        ajusteDirty: ctx.ajusteDirty,
+        snapshotAjuste: ctx.snapshotAjuste,
+        ajusteEquip: ctx.ajusteEquip,
+      })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+    default: {
+      const r = montarPayloadGenerico({ ...base, tipo: opcao.value })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+  }
+}
+
 export default function MovimentacoesPage() {
   const navigate = useNavigate()
   const setMaintenanceCount = useAppStore((state) => state.setMaintenanceCount)
@@ -706,21 +1076,14 @@ export default function MovimentacoesPage() {
     if (departamentoSel === 'EQUIPAMENTOS') {
       const selectedEquip = equipamentos.find(eq => eq.id === selectedId)
       if (opcaoTipoSelecionada?.value === 'AJUSTE') {
-        if (selectedEquip) {
-          const locNome = selectedEquip.localizacao
-            || (selectedEquip.escolaNome ? selectedEquip.escolaNome : '')
-          setOrigem(locNome)
-          setDestino(locNome)
-        } else {
-          setOrigem('')
-          setDestino('')
-        }
+        const localizacao = selectedEquip?.localizacao ?? selectedEquip?.escolaNome ?? ''
+        const locNome = naoVazio(localizacao) ?? ''
+        setOrigem(locNome)
+        setDestino(locNome)
+      } else if (selectedEquip?.localizacao) {
+        setOrigem(selectedEquip.localizacao)
       } else {
-        if (selectedEquip?.localizacao) {
-          setOrigem(selectedEquip.localizacao)
-        } else {
-          setOrigem('')
-        }
+        setOrigem('')
       }
     }
   }
@@ -766,252 +1129,35 @@ export default function MovimentacoesPage() {
       return
     }
 
-    let payload: Record<string, unknown>
     const endpoint = opcao.endpoint || '/api/movimentacoes'
-
-    if (opcao.value === 'MANUTENCAO_ENVIO') {
-      const f = formManutEnvio
-      if (!f.fornecedorNome.trim()) return showWarningToast('Informe o fornecedor')
-      if (!f.dataEnvio) return showWarningToast('Informe a data de envio')
-      if (!f.defeitoRelatado.trim()) return showWarningToast('Descreva o defeito relatado')
-      payload = {
-        equipamentoId,
-        tipoMovimento: 'MANUTENCAO_ENVIO',
-        dataMovimento: f.dataEnvio ? new Date(f.dataEnvio).toISOString() : new Date().toISOString(),
-        origem: origem || undefined,
-        destino: destino || undefined,
-        observacoes: [f.defeitoRelatado, f.observacoes].filter(Boolean).join('\n') || undefined,
-        manutencao: {
-          fornecedorNome: f.fornecedorNome.trim() || null,
-          fornecedorContato: f.fornecedorContato.trim() || null,
-          numeroOS: f.numeroOS.trim() || null,
-          tipoServico: f.tipoServico || null,
-          tecnicoResponsavel: f.tecnicoResponsavel.trim() || null,
-          prazoRetorno: f.prazoRetorno ? new Date(f.prazoRetorno).toISOString() : null,
-          laudoTecnico: f.defeitoRelatado.trim() || null,
-          pecasTrocadas: null,
-          valorServico: null,
-          dataRetornoEfetiva: null,
-        },
-      }
-    } else if (opcao.value === 'MANUTENCAO_RETORNO') {
-      const f = formManutRetorno
-      if (!f.dataRetornoEfetiva) return showWarningToast('Informe a data de retorno')
-      if (!f.laudoTecnico.trim() && !f.solucao.trim()) return showWarningToast('Informe o diagnóstico ou a solução')
-      const pecas = f.pecasTrocadasTexto
-        .split('\n')
-        .map(s => s.trim())
-        .filter(Boolean)
-      const numeroValor = f.valorServico ? Number.parseFloat(f.valorServico) : Number.NaN
-      const valor = !Number.isNaN(numeroValor) ? numeroValor.toFixed(2) : null
-      payload = {
-        equipamentoId,
-        tipoMovimento: 'MANUTENCAO_RETORNO',
-        dataMovimento: new Date(f.dataRetornoEfetiva).toISOString(),
-        origem: origem || undefined,
-        destino: destino || undefined,
-        observacoes: [f.laudoTecnico, f.solucao, f.observacoes].filter(Boolean).join('\n') || undefined,
-        statusDestino: f.statusFinal,
-        manutencao: {
-          dataRetornoEfetiva: new Date(f.dataRetornoEfetiva).toISOString(),
-          laudoTecnico: f.laudoTecnico.trim() || f.solucao.trim() || null,
-          pecasTrocadas: pecas.length ? pecas : null,
-          valorServico: valor,
-          movimentacaoEnvioId: f.movimentacaoEnvioId.trim() || null,
-          numeroOS: null, fornecedorNome: null, fornecedorContato: null, tipoServico: null, tecnicoResponsavel: null, prazoRetorno: null,
-        },
-      }
-    } else if (opcao.value === 'DOACAO') {
-      if (doacaoStep === 1) {
-        const f = formDoacao
-        if (!f.beneficiarioNome.trim()) return showWarningToast('Informe o nome do beneficiário')
-        if (!f.dataEntregaEfetiva) return showWarningToast('Informe a data da doação')
-        if (!f.motivo.trim()) return showWarningToast('Informe o motivo da doação')
-        setDoacaoStep(2)
-        setCountdownDoacao(3)
-        showInfoToast('Revise os dados antes de confirmar a doação')
-        return
-      }
-      const f = formDoacao
-      payload = {
-        equipamentoId,
-        tipoMovimento: 'DOACAO',
-        dataMovimento: new Date(f.dataEntregaEfetiva).toISOString(),
-        origem: origem || undefined,
-        destino: destino || undefined,
-        observacoes: f.motivo.trim() || undefined,
-        doacao: {
-          beneficiarioNome: f.beneficiarioNome.trim(),
-          beneficiarioCpfCnpj: f.beneficiarioCpfCnpj.trim() || null,
-          beneficiarioContato: f.beneficiarioContato.trim() || null,
-          dataEntregaEfetiva: new Date(f.dataEntregaEfetiva).toISOString(),
-          numeroPortaria: f.numeroPortaria.trim() || null,
-          enderecoEntrega: f.enderecoEntrega.trim() || null,
-          responsavelEntrega: f.responsavelEntrega.trim() || null,
-          termoDoacaoUrl: null,
-          observacoesInternas: f.observacoesInternas.trim() || null,
-        },
-      }
-    } else if (opcao.value === 'EMPRESTIMO') {
-      const f = formEmprestimo
-      if (!f.beneficiarioNome.trim()) return showWarningToast('Informe o nome do beneficiário')
-      if (!f.dataSaida) return showWarningToast('Informe a data de saída')
-      if (!f.dataPrevistaDevolucao) return showWarningToast('Informe a data prevista de devolução')
-      payload = {
-        equipamentoId,
-        tipoMovimento: 'EMPRESTIMO',
-        dataMovimento: new Date(f.dataSaida).toISOString(),
-        origem: origem || undefined,
-        destino: destino || f.localDestino.trim() || undefined,
-        observacoes: f.observacoesInternas.trim() || undefined,
-        emprestimo: {
-          beneficiarioNome: f.beneficiarioNome.trim(),
-          beneficiarioDocumento: f.beneficiarioDocumento.trim() || null,
-          beneficiarioContato: f.beneficiarioContato.trim() || null,
-          tomadorNome: f.tomadorNome.trim() || null,
-          tomadorCargo: f.tomadorCargo.trim() || null,
-          localDestino: f.localDestino.trim() || null,
-          dataSaida: new Date(f.dataSaida).toISOString(),
-          dataPrevistaDevolucao: new Date(f.dataPrevistaDevolucao).toISOString(),
-          dataDevolucaoEfetiva: null,
-          estadoConservacaoSaida: f.estadoConservacaoSaida.trim() || null,
-          estadoConservacaoRetorno: null,
-          termoAssinado: Boolean(f.termoAssinado),
-          termoUrl: f.termoUrl.trim() || null,
-          observacoesInternas: f.observacoesInternas.trim() || null,
-          movimentacaoSaidaId: null,
-        },
-      }
-    } else if (opcao.value === 'DEVOLUCAO') {
-      const f = formDevolucao
-      if (!f.dataDevolucaoEfetiva) return showWarningToast('Informe a data de devolução')
-      payload = {
-        equipamentoId,
-        tipoMovimento: 'DEVOLUCAO',
-        dataMovimento: new Date(f.dataDevolucaoEfetiva).toISOString(),
-        origem: origem || undefined,
-        destino: destino || undefined,
-        statusDestino: f.statusFinal,
-        observacoes: f.observacoesInternas.trim() || undefined,
-        emprestimo: {
-          dataDevolucaoEfetiva: new Date(f.dataDevolucaoEfetiva).toISOString(),
-          estadoConservacaoRetorno: f.estadoConservacaoRetorno.trim() || null,
-          movimentacaoSaidaId: f.movimentacaoSaidaId.trim() || null,
-        },
-      }
-    } else if (opcao.value === 'AJUSTE') {
-      const ajustePayload: Record<string, unknown> | undefined = ((): Record<string, unknown> | undefined => {
-        if (!ajusteDirty) return undefined
-        const snapValido = Boolean(snapshotAjuste?.id && snapshotAjuste.id === ajusteEquip.id)
-        const origemSnap: SnapshotAjusteEquipamento = snapValido ? (snapshotAjuste as SnapshotAjusteEquipamento) : ajusteVazio()
-        const atual = ajusteEquip
-        if (!snapValido) {
-          const completo: Record<string, unknown> = {}
-          const todos: (keyof SnapshotAjusteEquipamento)[] = [
-            'nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial',
-            'dataAquisicao','localizacao','macaddress','fabricante','processador','memoria','observacoes'
-          ]
-          for (const campo of todos) {
-            if (campo === 'id' || campo === 'extraidoEm') continue
-            const v = atual[campo]
-            if (campo === 'escolaId') {
-              completo.escolaId = (String(v ?? '').trim() || null)
-            } else if (campo === 'dataAquisicao') {
-              completo.dataAquisicao = (String(v ?? '').trim() || null)
-            } else {
-              const str = String(v ?? '').trim()
-              completo[campo as string] = str
-            }
-          }
-          completo.marca = completo.fabricante
-          return completo
-        }
-        const diff: Record<string, unknown> = {}
-        const camposComparar: readonly (keyof SnapshotAjusteEquipamento)[] = [
-          'nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial',
-          'dataAquisicao','localizacao','macaddress','fabricante','processador','memoria','observacoes'
-        ] as const
-        for (const campo of camposComparar) {
-          const valorAtual = atual[campo]
-          const valorOrigem = origemSnap[campo]
-          if (campo === 'escolaId') {
-            const atualStr = String(valorAtual ?? '').trim()
-            const origemStr = String(valorOrigem ?? '').trim()
-            if (atualStr !== origemStr) {
-              diff.escolaId = atualStr || null
-            }
-            continue
-          }
-          if (campo === 'dataAquisicao') {
-            const atualStr = String(valorAtual ?? '').trim()
-            const origemStr = String(valorOrigem ?? '').trim()
-            if (atualStr !== origemStr) {
-              diff.dataAquisicao = atualStr || null
-            }
-            continue
-          }
-          const atualStr = String(valorAtual ?? '').trim()
-          const origemStr = String(valorOrigem ?? '').trim()
-          if (atualStr !== origemStr) {
-            diff[campo as string] = atualStr
-          }
-        }
-        if (diff.fabricante !== undefined && diff.marca === undefined) {
-          diff.marca = diff.fabricante
-        } else if (diff.marca !== undefined && diff.fabricante === undefined) {
-          diff.fabricante = diff.marca
-        }
-        return Object.keys(diff).length ? diff : undefined
-      })()
-      const origemAntes = (snapshotAjuste?.localizacao
-        || (snapshotAjuste?.escolaNome ? snapshotAjuste.escolaNome : '')
-        || origem
-        || '').trim() || undefined
-      const destinoDepois = (ajusteEquip.localizacao
-        || (ajusteEquip.escolaNome ? ajusteEquip.escolaNome : '')
-        || destino
-        || '').trim() || undefined
-      const escolaIdAtualizado = (
-        (ajustePayload && typeof ajustePayload === 'object' && (ajustePayload as Record<string, unknown>).escolaId !== undefined)
-          ? String(((ajustePayload as Record<string, unknown>).escolaId) ?? '').trim() || null
-          : (snapshotAjuste?.escolaId ?? '')
-      )
-      payload = {
-        equipamentoId,
-        tipo: 'AJUSTE',
-        tipoMovimento: 'AJUSTE',
-        origem: origemAntes,
-        destino: destinoDepois,
-        escolaId: escolaIdAtualizado || undefined,
-        descricao: descricao || undefined,
-        observacoes: [descricao, ajustePayload && typeof ajustePayload === 'object'
-          ? `Campos ajustados: ${Object.keys(ajustePayload).sort().join(', ')}`
-          : ''].filter(Boolean).join('\n') || undefined,
-        ajusteEquipamento: ajustePayload,
-      }
-      if (data) {
-        payload.data = new Date(data).toISOString()
-        payload.dataMovimento = payload.data
-      }
-    } else {
-      if (!TIPOS_COMPLETOS.includes(opcao.value as (typeof TIPOS_COMPLETOS)[number])) {
-        showWarningToast('Tipo inválido')
-        return
-      }
-      payload = {
-        equipamentoId,
-        tipo: opcao.value,
-        tipoMovimento: opcao.value,
-        origem: origem || undefined,
-        destino: destino || undefined,
-        descricao: descricao || undefined,
-        observacoes: descricao || undefined,
-      }
-      if (data) {
-        payload.data = new Date(data).toISOString()
-        payload.dataMovimento = payload.data
-      }
+    const ctxMontagem: ContextoMontagem = {
+      equipamentoId,
+      origem,
+      destino,
+      data,
+      descricao,
+      fManutEnvio: formManutEnvio,
+      fManutRetorno: formManutRetorno,
+      fDoacao: formDoacao,
+      fEmprestimo: formEmprestimo,
+      fDevolucao: formDevolucao,
+      doacaoStep,
+      ajusteDirty,
+      snapshotAjuste,
+      ajusteEquip,
     }
+    const resultado = montarPayloadPorTipo(opcao, ctxMontagem)
+    if (resultado.tipo === 'falha') {
+      showWarningToast(resultado.mensagem)
+      return
+    }
+    if (resultado.tipo === 'doacaoStep1') {
+      setDoacaoStep(2)
+      setCountdownDoacao(3)
+      showInfoToast('Revise os dados antes de confirmar a doação')
+      return
+    }
+    const payload = resultado.payload
 
     try {
       const resp = await api.post(endpoint, payload)

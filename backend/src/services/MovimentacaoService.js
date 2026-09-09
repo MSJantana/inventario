@@ -102,86 +102,165 @@ export const usuarioPodeAtuarNoEquipamento = (usuario, equipamento) => {
 /**
  * Aplica update em EQUIPAMENTO (status, localização, escola, setor, responsavel)
  * com base no TIPO e em dados extras (transferencia, emprestimo, manutencao retorno, etc).
+ *
+ * Funções auxiliares abaixo extraem cada ramo por tipo de movimento para
+ * manter a complexidade cognitiva da função principal abaixo do limite (S3776).
  */
-const montarUpdateEquipamento = (equipamentoAtual, tipoMovimento, dadosMov, proximoStatus) => {
+
+const STATUS_EQUIPAMENTO_VALIDOS = Object.freeze([
+  'DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO',
+]);
+
+const CAMPOS_PERMITIDOS_AJUSTE = Object.freeze([
+  'nome','patrimonio','escolaId','tipo','status','modelo','serial','dataAquisicao',
+  'localizacao','macaddress','fabricante','marca','processador','memoria','observacoes',
+  'usuarioNome','setor','responsavel',
+]);
+
+const CAMPOS_AJUSTE_ACEITA_VAZIO = new Set([
+  'observacoes','macaddress','dataAquisicao','processador','memoria',
+  'usuarioNome','setor','responsavel',
+]);
+
+const aplicarStatusUpdate = (updates, equipamentoAtual, proximoStatus) => {
+  if (!proximoStatus) return;
+  if (equipamentoAtual.status === proximoStatus) return;
+  updates.status = proximoStatus;
+};
+
+const montarUpdateTransferencia = (equipamentoAtual, dadosMov) => {
   const updates = {};
-  if (proximoStatus && equipamentoAtual.status !== proximoStatus) {
-    updates.status = proximoStatus;
+  if (!dadosMov.escolaId) return updates;
+  if (dadosMov.escolaId === equipamentoAtual.escolaId) return updates;
+  updates.escolaId = dadosMov.escolaId;
+  const locDestino = dadosMov.transferencia?.localizacaoDestino || dadosMov.destino;
+  if (locDestino) updates.localizacao = String(locDestino);
+  if (dadosMov.transferencia?.setorDestino) {
+    updates.setor = String(dadosMov.transferencia.setorDestino);
   }
-  if (tipoMovimento === 'TRANSFERENCIA' && dadosMov.escolaId && dadosMov.escolaId !== equipamentoAtual.escolaId) {
-    updates.escolaId = dadosMov.escolaId;
-    if (dadosMov.transferencia?.localizacaoDestino) {
-      updates.localizacao = String(dadosMov.transferencia.localizacaoDestino);
-    } else if (dadosMov.destino) {
-      updates.localizacao = dadosMov.destino;
+  if (dadosMov.transferencia?.responsavelDestino) {
+    updates.responsavel = String(dadosMov.transferencia.responsavelDestino);
+  }
+  return updates;
+};
+
+const montarUpdateEmprestimo = (equipamentoAtual, dadosMov) => {
+  const updates = {};
+  const e = dadosMov.emprestimo;
+  if (!e) return updates;
+  if (e.beneficiarioNome) updates.localizacao = '[EMPRÉSTIMO] ' + e.beneficiarioNome;
+  const obs = [];
+  if (e.responsavelContato) obs.push('Empréstimo: ' + e.responsavelContato);
+  if (!obs.length) return updates;
+  const prefixo = equipamentoAtual.observacoes ? equipamentoAtual.observacoes + ' | ' : '';
+  updates.observacoes = prefixo + obs.join(' | ');
+  return updates;
+};
+
+const montarUpdateDevolucao = (equipamentoAtual) => {
+  const updates = {};
+  const loc = (equipamentoAtual.localizacao || '').replace(/^\[EMPRÉSTIMO\]\s*/i, '');
+  updates.localizacao = loc.trim() ? loc : null;
+  return updates;
+};
+
+const montarUpdateSaida = (dadosMov) => {
+  const updates = {};
+  if (dadosMov.destino) updates.localizacao = dadosMov.destino;
+  return updates;
+};
+
+const validarDataAquisicao = (valorStr) => {
+  if (!valorStr) return { valido: true, data: null };
+  const dt = new Date(valorStr);
+  if (Number.isNaN(dt.getTime())) return { valido: false };
+  return { valido: true, data: dt };
+};
+
+const aplicarCampoAjuste = (updates, campo, valor) => {
+  if (valor === undefined || valor === null) return;
+  const valorStr = String(valor).trim();
+  const aceitaVazio = CAMPOS_AJUSTE_ACEITA_VAZIO.has(campo);
+  if (!valorStr && !aceitaVazio) return;
+
+  switch (campo) {
+    case 'status': {
+      const statusUpper = String(valor).toUpperCase();
+      if (!STATUS_EQUIPAMENTO_VALIDOS.includes(statusUpper)) return;
+      updates.status = statusUpper;
+      return;
     }
-    if (dadosMov.transferencia?.setorDestino) {
-      updates.setor = String(dadosMov.transferencia.setorDestino);
+    case 'dataAquisicao': {
+      const val = validarDataAquisicao(valorStr);
+      if (!val.valido) return;
+      updates.dataAquisicao = val.data;
+      return;
     }
-    if (dadosMov.transferencia?.responsavelDestino) {
-      updates.responsavel = String(dadosMov.transferencia.responsavelDestino);
+    case 'escolaId': {
+      updates.escolaId = valorStr || null;
+      return;
     }
-  }
-  if (tipoMovimento === 'EMPRESTIMO' && dadosMov.emprestimo) {
-    const e = dadosMov.emprestimo;
-    if (e.beneficiarioNome) updates.localizacao = '[EMPRÉSTIMO] ' + e.beneficiarioNome;
-    const observacoesAcumular = [];
-    if (e.responsavelContato) observacoesAcumular.push('Empréstimo: ' + e.responsavelContato);
-    if (observacoesAcumular.length) {
-      updates.observacoes = (equipamentoAtual.observacoes ? equipamentoAtual.observacoes + ' | ' : '') + observacoesAcumular.join(' | ');
-    }
-  }
-  if (tipoMovimento === 'DEVOLUCAO') {
-    const loc = (equipamentoAtual.localizacao || '').replace(/^\[EMPRÉSTIMO\]\s*/i, '');
-    updates.localizacao = loc.trim() ? loc : null;
-  }
-  if (tipoMovimento === 'SAIDA' && dadosMov.destino) {
-    updates.localizacao = dadosMov.destino;
-  }
-  if (tipoMovimento === 'AJUSTE' && dadosMov.ajusteEquipamento && typeof dadosMov.ajusteEquipamento === 'object') {
-    const aj = dadosMov.ajusteEquipamento;
-    const camposPermitidosAjuste = ['nome','patrimonio','escolaId','tipo','status','modelo','serial','dataAquisicao','localizacao','macaddress','fabricante','marca','processador','memoria','observacoes','usuarioNome','setor','responsavel'];
-    for (const campo of camposPermitidosAjuste) {
-      const valor = aj[campo];
-      if (valor === undefined || valor === null) continue;
-      const valorStr = String(valor).trim();
-      const camposAceitaVazio = new Set(['observacoes','macaddress','dataAquisicao','processador','memoria','usuarioNome','setor','responsavel']);
-      if (!valorStr && !camposAceitaVazio.has(campo)) continue;
-      if (campo === 'status') {
-        const statusValidos = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO'];
-        if (!statusValidos.includes(String(valor).toUpperCase())) continue;
-        updates.status = String(valor).toUpperCase();
-        continue;
-      }
-      if (campo === 'dataAquisicao') {
-        if (!valorStr) {
-          updates.dataAquisicao = null;
-          continue;
-        }
-        const dt = new Date(valorStr);
-        if (Number.isNaN(dt.getTime())) continue;
-        updates.dataAquisicao = dt;
-        continue;
-      }
-      if (campo === 'escolaId') {
-        updates.escolaId = valorStr || null;
-        continue;
-      }
-      if (!valorStr && camposAceitaVazio.has(campo)) {
+    default: {
+      if (!valorStr && aceitaVazio) {
         updates[campo] = null;
-        continue;
+        return;
       }
       updates[campo] = valorStr;
     }
-    // Alias: marca <-> fabricante (equipamentos costumam ter ambos colunas)
-    if (aj.fabricante === undefined && aj.marca !== undefined && updates.marca !== undefined && updates.fabricante === undefined) {
-      updates.fabricante = updates.marca;
-    }
-    if (aj.marca === undefined && aj.fabricante !== undefined && updates.fabricante !== undefined && updates.marca === undefined) {
-      updates.marca = updates.fabricante;
+  }
+};
+
+const aplicarAliasMarcaFabricante = (updates, ajusteEquip) => {
+  if (!updates) return;
+  const fabricanteVemDeAjuste = ajusteEquip.fabricante !== undefined;
+  const marcaVemDeAjuste = ajusteEquip.marca !== undefined;
+  if (!fabricanteVemDeAjuste && marcaVemDeAjuste && updates.marca !== undefined && updates.fabricante === undefined) {
+    updates.fabricante = updates.marca;
+  }
+  if (!marcaVemDeAjuste && fabricanteVemDeAjuste && updates.fabricante !== undefined && updates.marca === undefined) {
+    updates.marca = updates.fabricante;
+  }
+};
+
+const montarUpdateAjuste = (dadosMov) => {
+  const updates = {};
+  const aj = dadosMov.ajusteEquipamento;
+  if (!aj || typeof aj !== 'object') return updates;
+  for (const campo of CAMPOS_PERMITIDOS_AJUSTE) {
+    aplicarCampoAjuste(updates, campo, aj[campo]);
+  }
+  aplicarAliasMarcaFabricante(updates, aj);
+  return updates;
+};
+
+const montarUpdatePorTipo = (equipamentoAtual, tipoMovimento, dadosMov) => {
+  switch (tipoMovimento) {
+    case 'TRANSFERENCIA': return montarUpdateTransferencia(equipamentoAtual, dadosMov);
+    case 'EMPRESTIMO': return montarUpdateEmprestimo(equipamentoAtual, dadosMov);
+    case 'DEVOLUCAO': return montarUpdateDevolucao(equipamentoAtual);
+    case 'SAIDA': return montarUpdateSaida(dadosMov);
+    case 'AJUSTE': return montarUpdateAjuste(dadosMov);
+    default: return {};
+  }
+};
+
+const mesclarUpdates = (...parciais) => {
+  const resultado = {};
+  for (const p of parciais) {
+    if (!p || typeof p !== 'object') continue;
+    const chaves = Object.keys(p);
+    for (const k of chaves) {
+      resultado[k] = p[k];
     }
   }
-  return Object.keys(updates).length ? updates : null;
+  return Object.keys(resultado).length ? resultado : null;
+};
+
+const montarUpdateEquipamento = (equipamentoAtual, tipoMovimento, dadosMov, proximoStatus) => {
+  const updatesStatus = {};
+  aplicarStatusUpdate(updatesStatus, equipamentoAtual, proximoStatus);
+  const updatesTipo = montarUpdatePorTipo(equipamentoAtual, tipoMovimento, dadosMov);
+  return mesclarUpdates(updatesStatus, updatesTipo);
 };
 
 /**
