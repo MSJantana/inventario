@@ -142,6 +142,12 @@ export const criarEquipamento = async (input) => {
     observacoes: payloadNormalizado.observacoes,
     usuarioNome: payloadNormalizado.usuarioNome,
     escolaId: escolaResolvido.escolaId || undefined,
+    sourceExternalId: typeof payload.sourceExternalId === 'string' && payload.sourceExternalId
+      ? payload.sourceExternalId
+      : undefined,
+    importMetadata: typeof payload.importMetadata === 'object' && payload.importMetadata !== null
+      ? payload.importMetadata
+      : undefined,
   };
 
   const equipamento = await prisma.equipamento.create({ data });

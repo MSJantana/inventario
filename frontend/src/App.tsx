@@ -14,7 +14,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.5';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.6';
 
 const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
 const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
@@ -659,10 +659,8 @@ export default function App() {
   };
 
   const whatsNewItems = [    
-    'Bug Fixed: Corrigido Release Date.',
-    'Bug Fixed: Usuários sem ser Adm podem editar equipamentos.',
-    'Nova Feature: Mudança nas movimentações dos equipamentos.', 
-    'Atualização: Melhorias na interface ao editar um equipamento.'    
+    'Bug Fixed: Melhorias Internas no Sistema.',    
+    'Nova Feature: Importação de ChromeOS CSV para Equipamentos do Google Admin.',       
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);

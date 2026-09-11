@@ -1110,7 +1110,7 @@ export const gerarPreview = async (input) => {
     return '[' + rawLabelStr + contextoParte + ' → ' + rawValor + ']';
   }).join(' ');
   avisosExtracao.unshift('[DEBUG_DATA_AQUISICAO] qtd_entries=' + dataValidasEntries.length + ' | entries=' + (listaTodasEntries || 'nenhuma'));
-  if (dataValidasEntries.length > 0 && (!dataInfo || dataInfo.valido !== true)) {
+  if (dataValidasEntries.length > 0 && (!dataInfo?.valido || dataInfo.valido !== true)) {
     const primeira = dataValidasEntries[0];
     const rawLabelStr = primeira && typeof primeira.rawLabel === 'string' ? primeira.rawLabel : '';
     const contextoStr = primeira && typeof primeira.contexto === 'string' ? primeira.contexto : '';
@@ -1679,7 +1679,7 @@ export const obterLogPorId = async (input) => {
       usuarioId: true,
       usuario: { select: { id: true, nome: true, email: true, role: true } },
       escola: { select: { id: true, nome: true, sigla: true } },
-      equipamento: { select: { id: true, nome: true, patrimonio: true, status: true, modelo: true, serial: true, macaddress: true } },
+      equipamento: { select: { id: true, nome: true, patrimonio: true, status: true, modelo: true, serial: true, macaddress: true, usuarioNome: true, fabricante: true, processador: true, memoria: true, dataAquisicao: true } },
     },
   });
 
@@ -1695,6 +1695,56 @@ export const obterLogPorId = async (input) => {
     e.statusCode = 403;
     e.code = 'WINAUDIT_LOG_FORBIDDEN';
     throw e;
+  }
+
+  const ehChromeOSCsv = typeof log.tipoArquivo === 'string' && log.tipoArquivo.toUpperCase() === 'CSV';
+  const equip = log.equipamento && typeof log.equipamento === 'object' ? log.equipamento : null;
+  const equipFromDadosBrutos =
+    log.dadosBrutos && typeof log.dadosBrutos === 'object' && !Array.isArray(log.dadosBrutos) && 'equipamento' in log.dadosBrutos
+      ? (log.dadosBrutos.equipamento || null)
+      : null;
+  const finalEquip = equip || equipFromDadosBrutos;
+  if (ehChromeOSCsv && finalEquip && typeof finalEquip === 'object') {
+    const entry = (v, contexto, rawLabel) => (v == null || v === '' ? undefined : [{ valor: typeof v === 'string' ? v : String(v), displayLabel: typeof v === 'string' ? v : String(v), rawLabel: rawLabel || null, contexto: contexto || null, tipo: null }]);
+    const raw = log.dadosBrutos && typeof log.dadosBrutos === 'object' && !Array.isArray(log.dadosBrutos) ? log.dadosBrutos : {};
+    const row = 'row' in raw && raw.row && typeof raw.row === 'object' && !Array.isArray(raw.row) ? raw.row : null;
+    const nomeCb = finalEquip.nome;
+    const usuarioNome = finalEquip.usuarioNome ?? (row?.annotatedUser || '');
+    const fabricante = finalEquip.fabricante ?? '';
+    const modelo = finalEquip.modelo ?? row?.model ?? '';
+    const serial = finalEquip.serial ?? row?.serialNumber ?? row?.deviceId ?? '';
+    const mac = finalEquip.macaddress ?? row?.macAddress ?? row?.ethernetMacAddress ?? '';
+    const proc = finalEquip.processador ?? '';
+    const mem = finalEquip.memoria ?? '';
+    const dataAq = finalEquip.dataAquisicao ?? '';
+    const cbe = {
+      NOME: entry(nomeCb, 'ChromeOS nomeEquipamento CB-{serial|patrimonio}', 'Computer Name (nome equipamento)') ?? undefined,
+      USUARIO_NOME: entry(usuarioNome, 'ChromeOS annotatedUser (+ email extraido antes do @)', 'Annotated User / Recent Users') ?? undefined,
+      FABRICANTE: entry(fabricante, 'ChromeOS heuristica model regex', 'Manufacturer (heurística a partir de Model)') ?? undefined,
+      MODELO_ORIGINAL: entry(modelo, 'ChromeOS coluna model CSV Google Admin', 'Model') ?? undefined,
+      SERIAL: entry(serial, 'ChromeOS serialNumber || deviceId', 'Serial Number') ?? undefined,
+      MAC_ADDRESS: entry(mac, 'ChromeOS macAddress (Wi-Fi) || ethernetMacAddress', 'MAC Address (Wi-Fi / Ethernet)') ?? undefined,
+      PROCESSADOR: entry(proc, 'ChromeOS heuristica board firmware/platform', 'Processor Description (Board/Firmware)') ?? undefined,
+      MEMORIA: entry(mem, 'ChromeOS coluna ramTotal bytes ("usado / total")', 'Total Memory (bytes)') ?? undefined,
+      DATA_AQUISICAO: entry(dataAq, 'ChromeOS firstSync || (autoUpdateExpiration - 5 anos) || hoje', 'Release Date / Install Date (first sync)') ?? undefined,
+    };
+    const cbeLimpo = {};
+    for (const k of Object.keys(cbe)) {
+      if (Array.isArray(cbe[k]) && cbe[k].length > 0) cbeLimpo[k] = cbe[k];
+    }
+    const wrapper = raw && typeof raw === 'object' ? raw : {};
+    const wrapperCampos =
+      'camposBrutosExtraidos' in wrapper && wrapper.camposBrutosExtraidos && typeof wrapper.camposBrutosExtraidos === 'object'
+        ? wrapper.camposBrutosExtraidos
+        : {};
+    const dadosBrutosAtualizado = {
+      ...wrapper,
+      camposBrutosExtraidos: { ...cbeLimpo, ...wrapperCampos },
+      secoesEncontradas:
+        Array.isArray(wrapper.secoesEncontradas) ? wrapper.secoesEncontradas : ['ChromeOS CSV Google Admin Console'],
+      labelsMatchCount: typeof wrapper.labelsMatchCount === 'number' ? wrapper.labelsMatchCount : Object.keys(cbeLimpo).length,
+    };
+    return { ...log, dadosBrutos: dadosBrutosAtualizado };
   }
 
   return log;

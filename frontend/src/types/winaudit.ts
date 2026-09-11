@@ -108,6 +108,11 @@ export interface WinAuditLogEquipamento {
   readonly modelo?: string | null
   readonly serial?: string | null
   readonly macaddress?: string | null
+  readonly usuarioNome?: string | null
+  readonly fabricante?: string | null
+  readonly processador?: string | null
+  readonly memoria?: string | null
+  readonly dataAquisicao?: string | null
 }
 
 export interface WinAuditLogListagemItem {

@@ -2,11 +2,14 @@ import { normalizarMacEntrada, normalizarSerial, normalizarNome } from './normal
 
 const PRIORIDADE_TIPO = {
   serial: 1,
-  mac: 2,
-  nome: 3,
+  sourceExternalId: 2,
+  mac: 3,
+  nome: 4,
 };
 
 const montarCampoDuplicidade = (tipo, equipamento, campoValor) => {
+  const bloqueio = (tipo === 'serial' && equipamento.status !== 'DESCARTADO')
+    || tipo === 'sourceExternalId';
   return {
     tipo,
     campoValor,
@@ -14,12 +17,12 @@ const montarCampoDuplicidade = (tipo, equipamento, campoValor) => {
     nomeEquipamento: equipamento.nome,
     status: equipamento.status,
     patrimonio: equipamento.patrimonio ?? null,
-    bloqueio: tipo === 'serial' && equipamento.status !== 'DESCARTADO',
+    bloqueio,
   };
 };
 
 export const detectarDuplicidades = async (prisma, entrada) => {
-  const { serial, macs, nome } = entrada || {};
+  const { serial, macs, nome, sourceExternalId } = entrada || {};
 
   const duplicidades = [];
   const or = [];
@@ -27,6 +30,11 @@ export const detectarDuplicidades = async (prisma, entrada) => {
   const serialLimpo = normalizarSerial(serial);
   if (serialLimpo) {
     or.push({ serial: serialLimpo });
+  }
+
+  const sourceExtLimpo = typeof sourceExternalId === 'string' ? sourceExternalId.trim() : '';
+  if (sourceExtLimpo) {
+    or.push({ sourceExternalId: sourceExtLimpo });
   }
 
   const macsValidos = (macs || [])
@@ -47,6 +55,7 @@ export const detectarDuplicidades = async (prisma, entrada) => {
       duplicidades: [],
       possivelDuplicidade: false,
       bloqueioSerial: false,
+      bloqueioSourceExternalId: false,
     };
   }
 
@@ -57,6 +66,7 @@ export const detectarDuplicidades = async (prisma, entrada) => {
       nome: true,
       status: true,
       serial: true,
+      sourceExternalId: true,
       macaddress: true,
       patrimonio: true,
     },
@@ -65,6 +75,9 @@ export const detectarDuplicidades = async (prisma, entrada) => {
   candidatos.forEach((eq) => {
     if (serialLimpo && eq.serial === serialLimpo) {
       duplicidades.push(montarCampoDuplicidade('serial', eq, serialLimpo));
+    }
+    if (sourceExtLimpo && eq.sourceExternalId === sourceExtLimpo) {
+      duplicidades.push(montarCampoDuplicidade('sourceExternalId', eq, sourceExtLimpo));
     }
     for (const m of macsValidos) {
       if (m.valor && eq.macaddress === m.valor) {
@@ -84,13 +97,16 @@ export const detectarDuplicidades = async (prisma, entrada) => {
   });
 
   const bloqueioSerial = duplicidades.some((d) => d.tipo === 'serial' && d.bloqueio);
+  const bloqueioSourceExternalId = duplicidades.some((d) => d.tipo === 'sourceExternalId' && d.bloqueio);
 
   return {
     duplicidades,
     possivelDuplicidade: duplicidades.length > 0,
     bloqueioSerial,
+    bloqueioSourceExternalId,
     macsValidos: macsValidos.map((m) => ({ valor: m.valor })),
     serialLimpo,
     nomeLimpo,
+    sourceExtLimpo,
   };
 };
