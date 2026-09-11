@@ -23,13 +23,11 @@ RUN npm install --omit=dev --no-audit --no-fund --prefer-offline
 #    Segunda vez: reexecução explícita para garantir cliente atualizado contra schema embutido
 ARG DATABASE_URL="mysql://root:password@localhost:3306/inventario"
 ENV DATABASE_URL=${DATABASE_URL}
-RUN npx prisma generate || true
+RUN npx prisma generate
 
-# 4) Código fonte + assets + env templates
+# 4) Código fonte + assets (imagens/relatórios)
 COPY src ./src
 COPY assets ./assets
-COPY .dockerignore* .dockerignore* ./ 2>/dev/null || true
-COPY .env* .env.* ./ 2>/dev/null || true
 
 # 5) Entrypoint: regenera Prisma Client no startup (defensivo) e aplica migrations
 COPY docker-entrypoint.prod.sh /app/docker-entrypoint.sh
