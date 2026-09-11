@@ -6,7 +6,7 @@ services:
       PORT: ${PORT:-3002}
       LOG_STACK: ${LOG_STACK:-false}
       NODE_ENV: production
-      SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-true}
+      SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-AUTO}
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}

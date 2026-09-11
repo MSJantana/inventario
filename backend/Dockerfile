@@ -9,7 +9,7 @@ RUN apk add --no-cache openssl curl
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Prisma client (gerado em build)
+# Schema Prisma + migrations + scripts runtime helpers
 COPY prisma ./prisma
 ARG DATABASE_URL="mysql://root:password@localhost:3306/inventario"
 ENV DATABASE_URL=${DATABASE_URL}
@@ -17,8 +17,13 @@ RUN npx prisma generate
 
 # Código fonte
 COPY src ./src
+COPY assets ./assets
 
-# Imagem de producao: aplica migrations versionadas e inicia a API
+# Arquivos de configuração de ambientes suportados (caso runtime os utilize)
+COPY .dockerignore* .dockerignore* ./
+COPY .env* .env.* ./ || true
+
+# Entrypoint: regenera Prisma Client no startup (defensivo) e aplica migrations
 COPY docker-entrypoint.prod.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
