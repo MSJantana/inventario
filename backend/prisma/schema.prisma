@@ -21,6 +21,7 @@ enum TipoEquipamento {
   ROTEADOR
   SWITCH
   OUTRO
+  CHROMEBOOK
 }
 
 enum StatusEquipamento {
@@ -96,6 +97,8 @@ model Equipamento {
   escola        Escola?                @relation(fields: [escolaId], references: [id])
   movimentacoes Movimentacao[]
   importacoesWinAudit ImportacaoWinAudit[]
+  sourceExternalId String?
+  importMetadata Json?
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 }

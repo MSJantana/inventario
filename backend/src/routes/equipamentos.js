@@ -1,6 +1,7 @@
 import express from 'express';
 import * as equipamentosController from '../controllers/equipamentosController.js';
 import * as winauditImportController from '../controllers/winauditImportController.js';
+import * as chromeosImportController from '../controllers/chromeosImportController.js';
 import { validarEquipamento } from '../middlewares/validacao.js';
 import auth from '../middlewares/auth.js';
 import { permitRoles } from '../middlewares/authorize.js';
@@ -36,6 +37,22 @@ router.get(
   '/importar/winaudit/logs/:id',
   auth,
   winauditImportController.obterLogImportacaoPorId,
+);
+
+// Importação Chromebook CSV Google Admin
+router.post(
+  '/importar/chromeos/preview',
+  auth,
+  csrfProtect,
+  permitRoles('ADMIN', 'GESTOR', 'TECNICO'),
+  chromeosImportController.importarChromeosPreview,
+);
+router.post(
+  '/importar/chromeos/confirmar',
+  auth,
+  csrfProtect,
+  permitRoles('ADMIN', 'GESTOR', 'TECNICO'),
+  chromeosImportController.importarChromeosConfirmar,
 );
 
 router.get('/:id', auth, equipamentosController.obterEquipamento);

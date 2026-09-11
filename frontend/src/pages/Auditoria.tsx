@@ -235,6 +235,11 @@ const FALLBACK_POR_KEY_NO_EQUIPAMENTO: Readonly<
   SERIAL: (eq) => eq.serial,
   MAC_ADDRESS: (eq) => eq.macaddress,
   MODELO_ORIGINAL: (eq) => eq.modelo,
+  USUARIO_NOME: (eq) => eq.usuarioNome,
+  FABRICANTE: (eq) => eq.fabricante,
+  PROCESSADOR: (eq) => eq.processador,
+  MEMORIA: (eq) => eq.memoria,
+  DATA_AQUISICAO: (eq) => eq.dataAquisicao,
 } as const
 
 const montarLinhasMapeamento = (detalhe: WinAuditLogDetalhe): ReadonlyArray<{

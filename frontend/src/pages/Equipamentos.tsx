@@ -17,6 +17,10 @@ import type {
   WinAuditDuplicidadeEntry,
   WinAuditMapeamentoWizard,
 } from '../types/winaudit'
+import useChromeosImport from '../hooks/useChromeosImport'
+import ChromeosUploadPanel from '../components/chromeos/ChromeosUploadPanel'
+import ChromeosPreviewTable from '../components/chromeos/ChromeosPreviewTable'
+import ChromeosResultPanel from '../components/chromeos/ChromeosResultPanel'
 
 const STATUS_EQUIPAMENTO: readonly string[] = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO'] as const
 
@@ -216,6 +220,8 @@ type Escola = { id: string; nome: string; sigla?: string }
 
 type WinAuditFluxo = 'idle' | 'uploading' | 'review' | 'wizard'
 
+type ImportTab = 'winaudit' | 'chromeos'
+
 type TipoFrontend =
   | 'COMPUTADOR'
   | 'NOTEBOOK'
@@ -226,6 +232,7 @@ type TipoFrontend =
   | 'ROTEADOR'
   | 'SWITCH'
   | 'OUTRO'
+  | 'CHROMEBOOK'
 
 const TIPOS_EXATOS: Readonly<Record<string, TipoFrontend>> = {
   NOTEBOOK: 'NOTEBOOK',
@@ -523,7 +530,51 @@ export default function EquipamentosPage() {
   const [winauditWizardStep, setWinauditWizardStep] = useState<1 | 2 | 3>(1)
   const winauditWizardTimerRef = useRef<number | null>(null)
   const winauditFileRef = useRef<HTMLInputElement | null>(null)
+
+  const [importTab, setImportTab] = useState<ImportTab>('winaudit')
+
   const userRole = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
+
+  const carregar = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const resp = await api.get('/api/equipamentos')
+      const data: Equipamento[] = resp.data || []
+      setLista(data)
+      setCurrentPage(1)
+    } catch (e: unknown) {
+      setError(formatarMensagemErro(e, 'Erro ao carregar equipamentos'))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const carregarEscolas = useCallback(async () => {
+    try {
+      const resp = await api.get('/api/escolas')
+      setEscolas(resp.data || [])
+    } catch {
+      // silencioso; formulário ainda funciona sem escolas
+    }
+  }, [])
+
+  const chromeos = useChromeosImport({
+    escolaIdPadrao: escolaId || null,
+    userRole,
+    formatarMensagemErro,
+    aoFinalizar: async () => { await carregar() },
+  })
+  const {
+    crosFluxo, crosFile, crosPreview, crosRows, crosConfirmando, crosResultado,
+    crosPage, crosPageSize, crosTotalPages, crosPagina, crosSelecionadosCount,
+    crosTemEscolaPendenteSelecionado, crosFileRef, setCrosPage, clearCrosState,
+    toggleCrosRowSelecionado, setCrosRowEscola, setCrosRowIgnorarDup,
+    crosSelecionarTodos, crosDesmarcarTodos, crosMarcarPendencias,
+    onCrosFilePick, confirmarCrosImportacao,
+    crosEditIdx, abrirEditorLinha, fecharEditorLinha, setCrosRowField, aplicarValorEmLote,
+  } = chromeos
+
   const bloquearEditarExcluirDoado = getBloquearEditarExcluirDoado()
   const statusDoEquipamento = (e: Equipamento): string => (e.statusEquipamento || e.status || '').toUpperCase()
   const eDoado = (e: Equipamento): boolean => statusDoEquipamento(e) === 'DOADO'
@@ -817,31 +868,8 @@ export default function EquipamentosPage() {
     setEscolaId('')
     setStatus('DISPONIVEL')
     clearWinauditState()
+    clearCrosState()
   }
-
-  const carregar = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const resp = await api.get('/api/equipamentos')
-      const data: Equipamento[] = resp.data || []
-      setLista(data)
-      setCurrentPage(1)
-    } catch (e: unknown) {
-      setError(formatarMensagemErro(e, 'Erro ao carregar equipamentos'))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const carregarEscolas = useCallback(async () => {
-    try {
-      const resp = await api.get('/api/escolas')
-      setEscolas(resp.data || [])
-    } catch {
-      // silencioso; formulário ainda funciona sem escolas
-    }
-  }, [])
 
   async function criarEquipamento(ev: React.FormEvent) {
     ev.preventDefault()
@@ -1121,6 +1149,42 @@ export default function EquipamentosPage() {
       <section className="rounded-lg border bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-medium">Criar Equipamento</h2>
 
+        {/* Abas: WinAudit x Chromebook CSV */}
+        <div role="tablist" aria-label="Método de importação" className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm font-medium">
+          <button
+            role="tab"
+            type="button"
+            aria-selected={importTab === 'winaudit'}
+            aria-controls="panel-winaudit"
+            id="tab-winaudit"
+            onClick={() => setImportTab('winaudit')}
+            className={`px-3 sm:px-4 py-1.5 rounded-md transition-colors ${
+              importTab === 'winaudit'
+                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-600 hover:text-slate-800'
+            }`}
+          >
+            WinAudit (.html)
+          </button>
+          <button
+            role="tab"
+            type="button"
+            aria-selected={importTab === 'chromeos'}
+            aria-controls="panel-chromeos"
+            id="tab-chromeos"
+            onClick={() => setImportTab('chromeos')}
+            className={`px-3 sm:px-4 py-1.5 rounded-md transition-colors ${
+              importTab === 'chromeos'
+                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-600 hover:text-slate-800'
+            }`}
+          >
+            Chromebook CSV (.csv)
+          </button>
+        </div>
+
+        {/* Painel WinAudit */}
+        <section id="panel-winaudit" role="tabpanel" aria-labelledby="tab-winaudit" hidden={importTab !== 'winaudit'}>
         {/* Card info do arquivo (mostra durante upload E em wizard/review) */}
         {(winauditFluxo === 'uploading' || winauditFluxo === 'wizard' || winauditFluxo === 'review') && winauditFile && (
           <div className="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
@@ -1559,6 +1623,57 @@ export default function EquipamentosPage() {
           </div>
         )}
 
+        </section>
+
+        <section id="panel-chromeos" role="tabpanel" aria-labelledby="tab-chromeos" hidden={importTab !== 'chromeos'}>
+          <ChromeosUploadPanel
+            crosFluxo={crosFluxo}
+            crosFile={crosFile}
+            crosFileRef={crosFileRef}
+            crosPreview={crosPreview}
+            clearCrosState={clearCrosState}
+            onCrosFilePick={onCrosFilePick}
+          />
+          {crosFluxo === 'review' && crosPreview && (
+            <ChromeosPreviewTable
+              crosPreview={crosPreview}
+              crosRows={crosRows}
+              crosPagina={crosPagina}
+              crosPage={crosPage}
+              crosPageSize={crosPageSize}
+              crosTotalPages={crosTotalPages}
+              setCrosPage={setCrosPage}
+              crosSelecionadosCount={crosSelecionadosCount}
+              crosTemEscolaPendenteSelecionado={crosTemEscolaPendenteSelecionado}
+              crosConfirmando={crosConfirmando}
+              crosFileRef={crosFileRef}
+              clearCrosState={clearCrosState}
+              crosSelecionarTodos={crosSelecionarTodos}
+              crosDesmarcarTodos={crosDesmarcarTodos}
+              crosMarcarPendencias={crosMarcarPendencias}
+              toggleCrosRowSelecionado={toggleCrosRowSelecionado}
+              setCrosRowEscola={setCrosRowEscola}
+              setCrosRowIgnorarDup={setCrosRowIgnorarDup}
+              confirmarCrosImportacao={confirmarCrosImportacao}
+              crosEditIdx={crosEditIdx}
+              abrirEditorLinha={abrirEditorLinha}
+              fecharEditorLinha={fecharEditorLinha}
+              setCrosRowField={setCrosRowField}
+              aplicarValorEmLote={aplicarValorEmLote}
+              escolas={escolas}
+              userRole={userRole}
+            />
+          )}
+          {crosFluxo === 'resultado' && crosResultado && (
+            <ChromeosResultPanel
+              crosResultado={crosResultado}
+              crosRows={crosRows}
+              clearCrosState={clearCrosState}
+            />
+          )}
+        </section>
+
+        {!(importTab === 'chromeos' && crosFluxo !== 'idle') && (
         <form
           id="form-criar-equipamento"
           onSubmit={winauditFluxo === 'wizard' || winauditFluxo === 'review' ? confirmarImportacao : criarEquipamento}
@@ -1589,7 +1704,7 @@ export default function EquipamentosPage() {
             <div>
               <label htmlFor="tipo" className="mb-1 block text-sm font-medium">Tipo</label>
               <select id="tipo" className="w-full rounded border px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-                {['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO'].map(t => <option key={t} value={t}>{t}</option>)}
+                {['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO','CHROMEBOOK'].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
@@ -1688,6 +1803,7 @@ export default function EquipamentosPage() {
             </button>
           </div>
         </form>
+        )}
       </section>
       )}
 
@@ -1783,7 +1899,7 @@ export default function EquipamentosPage() {
                   aria-disabled={!ctxEdicao.podeEditar('tipo')}
                   onChange={(e) => setEditTipo(e.target.value)}
                 >
-                  {['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO'].map(t => <option key={t} value={t}>{t}</option>)}
+                  {['COMPUTADOR','NOTEBOOK','IMPRESSORA','PROJETOR','TABLET','MONITOR','ROTEADOR','SWITCH','OUTRO','CHROMEBOOK'].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>

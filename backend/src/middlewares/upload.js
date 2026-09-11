@@ -162,3 +162,130 @@ export const winauditFileLimitsInfo = {
   extensoesPermitidas: ['.html', '.htm'],
   fieldName: winauditFileField,
 };
+
+// ChromeOS CSV import — infraestrutura análoga ao WinAudit, extensões e mime CSV.
+const CHROMEOS_ALLOWED_EXTENSIONS = new Set(['.csv']);
+const CHROMEOS_ALLOWED_MIMES = new Set([
+  'text/csv',
+  'application/csv',
+  'text/x-csv',
+  'application/x-csv',
+  'text/plain',
+  'application/octet-stream',
+]);
+
+const chromeosStorage = multer.memoryStorage();
+
+const chromeosFileFilter = (req, file, cb) => {
+  const originalname = file.originalname || '';
+  const ext = path.extname(originalname).toLowerCase();
+  const extMatch = CHROMEOS_ALLOWED_EXTENSIONS.has(ext);
+  const mime = typeof file.mimetype === 'string' ? file.mimetype.toLowerCase() : '';
+  const mimeMatch = !mime || CHROMEOS_ALLOWED_MIMES.has(mime);
+
+  logEarly(req, 'info', {
+    etapa: 'multer:chromeos:fileFilter',
+    originalname,
+    ext,
+    extMatch,
+    mime,
+    mimeMatch,
+    sizeHeader: typeof file.size === 'number' ? file.size : undefined,
+  }, '[chromeos:upload] fileFilter');
+
+  if (!extMatch) {
+    const err = new Error('Extensão de arquivo inválida. Apenas arquivos .csv são permitidos.');
+    err.statusCode = 400;
+    err.code = 'CHROMEOS_INVALID_EXTENSION';
+    logEarly(req, 'warn', { ext, mime, originalname }, '[chromeos:upload] fileFilter bloqueado - extensao');
+    cb(err);
+    return;
+  }
+
+  if (!mimeMatch) {
+    const err = new Error(
+      'Tipo de conteúdo inválido. Selecione um arquivo CSV válido exportado do Google Admin Console.',
+    );
+    err.statusCode = 400;
+    err.code = 'CHROMEOS_INVALID_MIME';
+    logEarly(req, 'warn', { ext, mime, originalname }, '[chromeos:upload] fileFilter bloqueado - MIME');
+    cb(err);
+    return;
+  }
+
+  cb(null, true);
+};
+
+export const chromeosUpload = multer({
+  storage: chromeosStorage,
+  limits: {
+    fileSize: MAX_WINAUDIT_BYTES,
+    files: 1,
+    fields: 64,
+    fieldSize: MAX_WINAUDIT_BYTES,
+  },
+  fileFilter: chromeosFileFilter,
+});
+
+export const chromeosFileField = 'arquivo';
+
+const resolveChromeosMulterErrorCode = (code) => {
+  const map = {
+    LIMIT_FILE_SIZE: {
+      statusCode: 413,
+      code: 'CHROMEOS_FILE_TOO_LARGE',
+      message: `Arquivo excede o tamanho máximo permitido (${formatarBytes(MAX_WINAUDIT_BYTES)}).`,
+    },
+    LIMIT_FILE_COUNT: {
+      statusCode: 400,
+      code: 'CHROMEOS_TOO_MANY_FILES',
+      message: 'Envie apenas um arquivo por vez.',
+    },
+    LIMIT_FIELD_COUNT: {
+      statusCode: 400,
+      code: 'CHROMEOS_TOO_MANY_FIELDS',
+      message: 'Número excessivo de campos no formulário.',
+    },
+    LIMIT_FIELD_SIZE: {
+      statusCode: 413,
+      code: 'CHROMEOS_FIELD_TOO_LARGE',
+      message: 'Campo do formulário excede o tamanho máximo permitido.',
+    },
+    LIMIT_UNEXPECTED_FILE: {
+      statusCode: 400,
+      code: 'CHROMEOS_UNEXPECTED_FIELD',
+      message: 'Campo de arquivo inesperado no formulário.',
+    },
+    MISSING_FIELD_NAME: {
+      statusCode: 400,
+      code: 'CHROMEOS_MISSING_FIELD',
+      message: 'Nome do campo de arquivo ausente.',
+    },
+  };
+  return map[code] || null;
+};
+
+export const buildChromeosFileError = (error) => {
+  if (!error) return null;
+  const errorCode = typeof error.code === 'string' ? error.code : '';
+  const mapped = resolveChromeosMulterErrorCode(errorCode);
+  if (mapped) return mapped;
+
+  const statusCode = Number.isFinite(error.statusCode) && error.statusCode >= 400
+    ? error.statusCode
+    : 400;
+  const code = typeof error.code === 'string' && error.code.length > 0
+    ? error.code
+    : 'CHROMEOS_UPLOAD_ERROR';
+  const message = typeof error.message === 'string' && error.message.length > 0
+    ? error.message
+    : 'Erro ao receber arquivo CSV.';
+  return { statusCode, code, message };
+};
+
+export const chromeosFileLimitsInfo = {
+  maxBytes: MAX_WINAUDIT_BYTES,
+  maxBytesFormatado: formatarBytes(MAX_WINAUDIT_BYTES),
+  extensoesPermitidas: ['.csv'],
+  fieldName: chromeosFileField,
+};

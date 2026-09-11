@@ -44,6 +44,7 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
   const fabricante = equipamento.fabricante || '-';
   const processador = equipamento.processador || '-';
   const memoria = equipamento.memoria || '-';
+  const nomeEquipamento = equipamento.nomeEquipamento || equipamento.nome || `Equipamento ${equipamento.id?.slice(0, 8) ?? ''}`.trim();
   const statusLabel = expired ? 'VENCIDO' : (equipamento.status || 'ATIVO');
   
   return (
@@ -70,9 +71,17 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
           {/* Left Column */}
           <div className="flex-1 p-6 space-y-6">
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">DADOS DO USUÁRIO</p>
-              <h3 className="text-2xl font-bold text-slate-800">{usuario}</h3>
-              <p className="text-sm text-gray-500">Usuário responsável pelo equipamento</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">IDENTIFICAÇÃO DO EQUIPAMENTO</p>
+              <h3 className="text-2xl font-bold text-slate-800 break-all">{nomeEquipamento}</h3>
+              <p className="text-sm text-gray-500">{modelo}</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-slate-50/60 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Usuário responsável</p>
+              </div>
+              <p className="text-sm font-semibold text-slate-800 leading-tight">{usuario}</p>
+              <p className="text-xs text-gray-500">Usuário responsável pelo equipamento</p>
             </div>
 
             <div>
@@ -81,7 +90,7 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
             </div>
 
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">PATRIMONIO</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">PATRIMÔNIO</p>
               <h3 className="text-xl font-semibold text-slate-800">{patrimonio}</h3>
             </div>
 
