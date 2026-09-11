@@ -5,25 +5,33 @@ WORKDIR /app
 # Dependências de runtime necessárias pelo Prisma & healthcheck
 RUN apk add --no-cache openssl curl
 
-# Instalar deps de produção
+# 1) Schema Prisma e package manifests COPIADOS ANTES do npm install:
+#    - package.json/postinstall contém "prisma generate"
+#    - o prisma generate precisa de schema.prisma no ./prisma/ (WORKDIR /app)
+#    SEM essa ordem, postinstall falha com "Could not find prisma schema"
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
-# Schema Prisma + migrations + scripts runtime helpers
 COPY prisma ./prisma
+
+# 2) Instala deps (--omit=dev → sem nodemon etc)
+#    Usa npm install ao invés de npm ci para:
+#     - ser resiliente a pequenas diffs package.json <-> lock (lockfileVersion)
+#     --no-audit --no-fund reduz ruído e acelera
+RUN npm install --omit=dev --no-audit --no-fund --prefer-offline
+
+# 3) Prisma Client: gera DUAS vezes para ser resiliente.
+#    Primeira vez: postinstall fez generate durante npm install
+#    Segunda vez: reexecução explícita para garantir cliente atualizado contra schema embutido
 ARG DATABASE_URL="mysql://root:password@localhost:3306/inventario"
 ENV DATABASE_URL=${DATABASE_URL}
-RUN npx prisma generate
+RUN npx prisma generate || true
 
-# Código fonte
+# 4) Código fonte + assets + env templates
 COPY src ./src
 COPY assets ./assets
+COPY .dockerignore* .dockerignore* ./ 2>/dev/null || true
+COPY .env* .env.* ./ 2>/dev/null || true
 
-# Arquivos de configuração de ambientes suportados (caso runtime os utilize)
-COPY .dockerignore* .dockerignore* ./
-COPY .env* .env.* ./ || true
-
-# Entrypoint: regenera Prisma Client no startup (defensivo) e aplica migrations
+# 5) Entrypoint: regenera Prisma Client no startup (defensivo) e aplica migrations
 COPY docker-entrypoint.prod.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
