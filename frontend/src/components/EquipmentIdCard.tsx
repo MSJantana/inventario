@@ -35,6 +35,80 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
   const dataAquisicaoFmt = formatDate(equipamento.dataAquisicao);
   const reportPath = `/equipamentos/${encodeURIComponent(equipamento.id)}/relatorio`;
   const reportUrl = globalThis.location?.origin ? `${globalThis.location.origin}${reportPath}` : reportPath;
+
+  type StatusInfo = {
+    label: string;
+    badgeGrande: string;
+    badgePequeno: string;
+  };
+  const STATUSES: Record<string, StatusInfo> = {
+    DISPONIVEL: {
+      label: 'DISPONÍVEL',
+      badgeGrande: 'rounded-2xl border-2 border-blue-400 bg-blue-50 px-10 py-4 text-3xl font-extrabold tracking-widest text-blue-700 shadow-sm uppercase',
+      badgePequeno: 'rounded-full border border-blue-200 bg-blue-50 px-6 py-2 text-sm font-bold text-blue-600',
+    },
+    EM_USO: {
+      label: 'EM USO',
+      badgeGrande: 'rounded-2xl border-2 border-green-500 bg-green-50 px-10 py-4 text-3xl font-extrabold tracking-widest text-green-700 shadow-sm uppercase',
+      badgePequeno: 'rounded-full border border-green-200 bg-green-50 px-6 py-2 text-sm font-bold text-green-600',
+    },
+    EM_MANUTENCAO: {
+      label: 'MANUTENÇÃO',
+      badgeGrande: 'rounded-2xl border-2 border-yellow-400 bg-yellow-50 px-10 py-4 text-3xl font-extrabold tracking-widest text-yellow-700 shadow-sm uppercase',
+      badgePequeno: 'rounded-full border border-yellow-200 bg-yellow-50 px-6 py-2 text-sm font-bold text-yellow-700',
+    },
+    DESCARTADO: {
+      label: 'DESCARTADO',
+      badgeGrande: 'rounded-2xl border-2 border-gray-400 bg-gray-100 px-10 py-4 text-3xl font-extrabold tracking-widest text-gray-700 shadow-sm uppercase',
+      badgePequeno: 'rounded-full border border-gray-300 bg-gray-100 px-6 py-2 text-sm font-bold text-gray-700',
+    },
+    RESERVADO: {
+      label: 'RESERVADO',
+      badgeGrande: 'rounded-2xl border-2 border-purple-400 bg-purple-50 px-10 py-4 text-3xl font-extrabold tracking-widest text-purple-700 shadow-sm uppercase',
+      badgePequeno: 'rounded-full border border-purple-200 bg-purple-50 px-6 py-2 text-sm font-bold text-purple-600',
+    },
+    EMPRESTADO: {
+      label: 'EMPRESTADO',
+      badgeGrande: 'rounded-2xl border-2 border-cyan-500 bg-cyan-50 px-10 py-4 text-3xl font-extrabold tracking-widest text-cyan-700 shadow-sm uppercase',
+      badgePequeno: 'rounded-full border border-cyan-200 bg-cyan-50 px-6 py-2 text-sm font-bold text-cyan-600',
+    },
+    DOADO: {
+      label: 'DOADO',
+      badgeGrande: 'rounded-2xl border-2 border-red-400 bg-red-50 px-10 py-4 text-3xl font-extrabold tracking-widest text-red-600 shadow-sm uppercase',
+      badgePequeno: 'rounded-full border border-red-200 bg-red-50 px-6 py-2 text-sm font-bold text-red-600',
+    },
+  };
+
+  const EXPIRED_INFO: StatusInfo = {
+    label: 'VENCIDO',
+    badgeGrande: 'rounded-2xl border-2 border-red-500 bg-red-50 px-10 py-4 text-3xl font-extrabold tracking-widest text-red-700 shadow-sm uppercase',
+    badgePequeno: 'rounded-full border border-red-200 bg-red-50 px-6 py-2 text-sm font-bold text-red-600',
+  };
+
+  const statusKey = String(equipamento.status || '').toUpperCase();
+  const statusInfoBase = STATUSES[statusKey];
+
+  // Prioridade badge GRANDE: se expirado (validade vencida) E status NÃO é terminal/final (DOADO/DESCARTADO),
+  // mostra badge VENCIDO em destaque (pois validade vencida é mais relevante p/ equipamento ainda em circulação).
+  // Para status terminais (DOADO/DESCARTADO) mostra o próprio status (mais relevante).
+  let statusGrande: StatusInfo | null = statusInfoBase ?? null;
+  if (expired && statusKey !== 'DOADO' && statusKey !== 'DESCARTADO') {
+    statusGrande = EXPIRED_INFO;
+  }
+
+  // Badge PEQUENO (diretamente abaixo "STATUS"): sempre VENCIDO se expirou (mantém comportamento original).
+  let statusPequeno: StatusInfo;
+  let labelPequeno: string;
+  if (expired) {
+    statusPequeno = EXPIRED_INFO;
+    labelPequeno = EXPIRED_INFO.label;
+  } else if (statusInfoBase) {
+    statusPequeno = statusInfoBase;
+    labelPequeno = statusInfoBase.label;
+  } else {
+    statusPequeno = STATUSES.EM_USO;
+    labelPequeno = 'ATIVO';
+  }
   
   // Dados fictícios ou reais
   const escolaNome = equipamento.escola?.nome || 'Escola não definida';
@@ -45,7 +119,6 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
   const processador = equipamento.processador || '-';
   const memoria = equipamento.memoria || '-';
   const nomeEquipamento = equipamento.nomeEquipamento || equipamento.nome || `Equipamento ${equipamento.id?.slice(0, 8) ?? ''}`.trim();
-  const statusLabel = expired ? 'VENCIDO' : (equipamento.status || 'ATIVO');
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -138,11 +211,25 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
              <div className="flex flex-col h-full justify-center">
                 {/* Status & QR */}
                 <div className="flex flex-col items-center gap-8">
+
+                   {/* ===== BADGE GRANDE DE STATUS (conforme cada status) ===== */}
+                   {/* Posicionado ACIMA do STATUS/VENCIDO pequeno, igual solicitação print. */}
+                   {statusGrande && (
+                     <div className="w-full flex justify-center">
+                       <span
+                         className={`inline-flex items-center justify-center ${statusGrande.badgeGrande}`}
+                         aria-label={`Status do equipamento: ${statusGrande.label}`}
+                       >
+                         {statusGrande.label}
+                       </span>
+                     </div>
+                   )}
+
                    <div className="flex flex-col items-center gap-3">
                       <div className="flex items-center gap-3">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">STATUS</p>
-                        <span className={`inline-block rounded-full px-6 py-2 text-sm font-bold border ${expired ? 'border-red-200 bg-red-50 text-red-600' : 'border-green-200 bg-green-50 text-green-600'}`}>
-                           {statusLabel}
+                        <span className={`inline-block ${statusPequeno.badgePequeno}`}>
+                           {labelPequeno}
                         </span>
                       </div>
                       
