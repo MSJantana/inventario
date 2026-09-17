@@ -248,8 +248,299 @@ export default function RelatoriosEquipamentosPage() {
     }
   }, [filtrados, filtradosCm, filterDepartamento, setExpiredCount, setMaintenanceCount, setDiscardedCount])
 
-  const handlePrint = () => {
-    globalThis.print()
+  const handlePrint = async () => {
+    try {
+      let logoTopData: string | null = null
+      let logoBottomData: string | null = null
+      try {
+        const [a, b] = await Promise.all([toDataUrl(LogoAsrs), toDataUrl(LogoEa)])
+        logoTopData = a || null
+        logoBottomData = b || null
+      } catch {
+        logoTopData = null
+        logoBottomData = null
+      }
+
+      const isCm = filterDepartamento === 'CENTRO_MIDIA'
+      const titulo = isCm ? 'Relatório Centro de Mídia' : 'Relatório de Equipamentos'
+      const emitidoEm = new Date().toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+      const statusLbl = filterStatus === 'ALL' ? 'Todos' : String(filterStatus).replaceAll('_', ' ')
+      const tipoLbl = filterTipo === 'ALL' ? 'Todos' : String(filterTipo)
+      const escolaLbl = filterEscola === 'ALL' ? 'Todas' : String(filterEscola)
+
+      const logoTopHtml =
+        logoTopData
+          ? `<img src="${logoTopData}" alt="Logo ASRS" style="height:40px;object-fit:contain;" />`
+          : `<div style="height:40px;width:110px;display:flex;align-items:center;justify-content:center;border-radius:8px;background-color:#050B1A;color:#fff;font-weight:700;font-size:12px;">ASRS</div>`
+
+      const logoBottomHtml =
+        logoBottomData
+          ? `<img src="${logoBottomData}" alt="Logo EA" style="height:40px;object-fit:contain;" />`
+          : `<div style="height:40px;width:110px;display:flex;align-items:center;justify-content:center;border-radius:8px;background-color:#0f172a;color:#fff;font-weight:700;font-size:11px;">EA</div>`
+
+      const headers: string[] = isCm
+        ? ['Nome', 'Tipo', 'Status', 'Escola', 'Modelo', 'Número de Série']
+        : ['Nome', 'Tipo', 'Status', 'Escola', 'Usuário', 'Modelo', 'Número de Série', 'Localização', 'Aquisição', 'Situação']
+
+      const rows: string[][] = (isCm ? filtradosCm : filtrados).map((it) =>
+        isCm
+          ? [
+              String(it.nome || '-'),
+              String(it.tipo || '-'),
+              String(it.status || '-').replaceAll('_', ' '),
+              String(it.escola?.sigla || it.escola?.nome || '-'),
+              String(it.modelo || '-'),
+              String(it.serial || '-'),
+            ]
+          : [
+              String((it as Equipamento).nome || '-'),
+              String((it as Equipamento).tipo || '-'),
+              String((it as Equipamento).status || '-').replaceAll('_', ' '),
+              String((it as Equipamento).escola?.sigla || (it as Equipamento).escola?.nome || '-'),
+              String((it as Equipamento).usuarioNome || '-'),
+              String((it as Equipamento).modelo || '-'),
+              String((it as Equipamento).serial || '-'),
+              String((it as Equipamento).localizacao || '-'),
+              String(formatDate((it as Equipamento).dataAquisicao) || '-'),
+              isExpired((it as Equipamento).dataAquisicao) ? 'VENCIDO' : 'REGULAR',
+            ]
+      )
+
+      const escape = (v: unknown): string =>
+        String(v ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+
+      const headerHtml = headers
+        .map(
+          (h) =>
+            `<th style="padding:6px 8px;border:1px solid #cbd5e1;background-color:#1f2937 !important;color:#ffffff;font-size:9px;font-weight:700;text-align:left;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${escape(h)}</th>`
+        )
+        .join('')
+
+      const rowsHtml =
+        rows.length === 0
+          ? `<tr><td colspan="${headers.length}" style="padding:14px 10px;border:1px solid #e5e7eb;text-align:center;font-size:10px;color:#64748b;">Nenhum equipamento encontrado com os filtros aplicados.</td></tr>`
+          : rows
+              .map((row, i) => {
+                const isZebra = i % 2 === 0
+                const baseBg = isZebra ? '#ffffff' : '#f9fafb'
+                return (
+                  `<tr style="page-break-inside:avoid;background-color:${baseBg} !important;">` +
+                  row
+                    .map((cell, c) => {
+                      const lastCol = c === row.length - 1
+                      const vencido = !isCm && lastCol && cell === 'VENCIDO'
+                      const center = !isCm ? c === 1 || c === 2 : c === 1 || c === 2
+                      return (
+                        `<td style="padding:4px 8px;border:1px solid #e5e7eb;font-size:9px;vertical-align:top;word-break:break-word;${
+                          center ? 'text-align:center;' : 'text-align:left;'
+                        }${vencido ? 'color:#b91c1c !important;font-weight:700;' : ''}">${escape(cell)}</td>`
+                      )
+                    })
+                    .join('') +
+                  `</tr>`
+                )
+              })
+              .join('')
+
+      const totalHtml =
+        `<tr style="background-color:#ffffff !important;">
+           <td colspan="${headers.length}" style="padding:6px 8px;border-top:2px solid #475569;font-size:9px;font-weight:700;color:#0f172a;">Total: ${rows.length}</td>
+         </tr>`
+
+      const html = `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>${escape(titulo)}</title>
+<style>
+  @page { size: A4 landscape; margin: 22px 18px 46px 18px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; color: #0f172a; background-color: #ffffff; }
+  .page { width: 100%; padding: 0; }
+  .header { margin: 0 0 18px 0; position: relative; padding: 10px 0 14px 0; border-bottom: 2px solid #cbd5e1; }
+  .header-top { display:flex; justify-content:space-between; align-items:flex-start; }
+  .header h1 { margin: 0 0 6px 0; font-size: 20px; font-weight: 800; text-align: center; }
+  .header .sub { margin: 0 0 10px 0; text-align: center; font-size: 10px; color: #475569; }
+  .filters { font-size: 9px; color: #334155; line-height: 1.55; }
+  .filters strong { color: #0f172a; }
+  .section { margin: 0; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .footer {
+    position: fixed; left: 18px; right: 18px; bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 8px; border-top: 1px solid #cbd5e1;
+    font-size: 9px; color: #64748b;
+  }
+  thead th, tfoot td, tbody tr td, .header h1 {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="header-top">
+      <div style="flex:1;"></div>
+      ${logoTopHtml}
+    </div>
+    <h1>${escape(titulo)}</h1>
+    <p class="sub">Emitido em: ${escape(emitidoEm)}</p>
+    <div class="filters">
+      <p><strong>Filtros aplicados:</strong></p>
+      <p>Departamento: ${escape(isCm ? 'Centro de Mídia' : 'Equipamentos')}</p>
+      <p>Status: ${escape(statusLbl)}</p>
+      <p>Tipo: ${escape(tipoLbl)}</p>
+      <p>Escola: ${escape(escolaLbl)}</p>
+      ${filterText ? `<p>Busca: ${escape(filterText)}</p>` : ''}
+    </div>
+  </div>
+
+  <div class="section">
+    <table>
+      <thead><tr>${headerHtml}</tr></thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot>${totalHtml}</tfoot>
+    </table>
+  </div>
+</div>
+
+<div class="footer">
+  ${logoBottomHtml}
+  <div>
+    <p>Relatório gerado pelo Sistema de Inventário</p>
+  </div>
+  <span style="font-size:9px;color:#64748b;">Total de registros: ${rows.length}</span>
+</div>
+</body>
+</html>`
+
+      const rootId = 'print-root-list-' + Date.now().toString(36)
+      const styleId = rootId + '-style'
+      const printRoot = document.createElement('div')
+      printRoot.id = rootId
+      printRoot.dataset.printRoot = '1'
+      Object.assign(printRoot.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100vw',
+        height: '100vh',
+        margin: '0',
+        padding: '0',
+        backgroundColor: '#ffffff',
+        zIndex: '2147483647',
+        display: 'block',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+      })
+
+      const styleEl = document.createElement('style')
+      styleEl.id = styleId
+      styleEl.setAttribute('media', 'print')
+      styleEl.textContent = `
+        @media print {
+          html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+          body > *:not([data-print-root="1"]) { display: none !important; }
+          [data-print-root="1"],
+          [data-print-root="1"] iframe {
+            position: static !important;
+            width: 100% !important;
+            height: auto !important;
+            max-width: none !important;
+            max-height: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            background: #fff !important;
+            z-index: 2147483647 !important;
+            visibility: visible !important;
+            overflow: visible !important;
+          }
+          [data-print-root="1"] iframe { width: 297mm !important; min-height: 210mm !important; }
+        }
+      `
+      document.head.appendChild(styleEl)
+
+      const iframeEl = document.createElement('iframe')
+      iframeEl.setAttribute('title', 'Relatório para impressão')
+      iframeEl.setAttribute('frameborder', '0')
+      iframeEl.setAttribute('marginheight', '0')
+      iframeEl.setAttribute('marginwidth', '0')
+      iframeEl.setAttribute('srcdoc', html)
+      Object.assign(iframeEl.style, {
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        border: 'none',
+        display: 'block',
+        background: '#ffffff',
+        boxSizing: 'border-box',
+      })
+
+      printRoot.appendChild(iframeEl)
+      document.body.appendChild(printRoot)
+
+      const cleanup = () => {
+        try {
+          if (printRoot.parentNode) printRoot.parentNode.removeChild(printRoot)
+        } catch {
+          // no-op cleanup
+        }
+        try {
+          if (styleEl.parentNode) styleEl.parentNode.removeChild(styleEl)
+        } catch {
+          // no-op cleanup
+        }
+      }
+
+      const disparar = () => {
+        try {
+          window.focus()
+          setTimeout(() => {
+            try {
+              window.print()
+              setTimeout(cleanup, 1800)
+            } catch {
+              showErrorToast('Não foi possível disparar a impressão. Pressione Ctrl+P.')
+              setTimeout(cleanup, 3500)
+            }
+          }, 1700)
+        } catch {
+          showErrorToast('Erro ao preparar impressão. Pressione Ctrl+P.')
+          setTimeout(cleanup, 3500)
+        }
+      }
+
+      let disparou = false
+      const tentarDisparar = () => {
+        if (disparou) return
+        disparou = true
+        disparar()
+      }
+
+      try {
+        iframeEl.addEventListener('load', tentarDisparar, { once: true, passive: true })
+      } catch {
+        // no-op listener
+      }
+      setTimeout(tentarDisparar, 3000)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erro desconhecido'
+      showErrorToast(`Erro ao preparar impressão: ${msg}`)
+    }
   }
 
   async function handleCSV() {

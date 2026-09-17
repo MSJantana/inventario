@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { getApiBaseUrl, setApiBaseUrl as saveApiBaseUrl, getAuthToken, setAuthToken as saveAuthToken } from '../services/auth'
-import { getValidityYears, setValidityYears as saveValidityYears, getBloquearEditarExcluirDoado, setBloquearEditarExcluirDoado as saveBloquearEditarExcluirDoado } from '../services/settings'
+import {
+  getValidityYears,
+  setValidityYears as saveValidityYears,
+  getBloquearEditarExcluirDoado,
+  setBloquearEditarExcluirDoado as saveBloquearEditarExcluirDoado,
+  getChromebookImportEnabled,
+  setChromebookImportEnabled as saveChromebookImportEnabled,
+} from '../services/settings'
 import { showSuccessToast } from '../utils/toast'
 
 export default function ConfigPage() {
@@ -9,6 +16,7 @@ export default function ConfigPage() {
   const [authToken, setAuthToken] = useState<string>(getAuthToken() || '')
   const [validityYears, setValidityYears] = useState<number>(getValidityYears())
   const [bloquearEditarExcluirDoado, setBloquearEditarExcluirDoado] = useState<boolean>(getBloquearEditarExcluirDoado())
+  const [chromebookImportEnabled, setChromebookImportEnabled] = useState<boolean>(getChromebookImportEnabled())
   const [showToken, setShowToken] = useState(false)
 
   const salvar = () => {
@@ -16,6 +24,7 @@ export default function ConfigPage() {
     saveAuthToken(authToken)
     saveValidityYears(validityYears)
     saveBloquearEditarExcluirDoado(bloquearEditarExcluirDoado)
+    saveChromebookImportEnabled(chromebookImportEnabled)
     showSuccessToast('Configurações salvas com sucesso!')
   }
 
@@ -70,7 +79,7 @@ export default function ConfigPage() {
             Equipamentos com data de aquisição anterior a este período serão destacados.
           </p>
         </div>
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 grid gap-3 grid-cols-1 md:grid-cols-2">
           <fieldset className="rounded-lg border border-gray-200 bg-gray-50/60 p-3 sm:p-4">
             <legend className="mb-2 text-sm font-medium text-gray-800">Segurança</legend>
             <label htmlFor="switch-doado" className="flex cursor-pointer items-start justify-between gap-4 sm:gap-6">
@@ -93,6 +102,32 @@ export default function ConfigPage() {
                 <span
                   aria-hidden
                   className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${bloquearEditarExcluirDoado ? 'translate-x-5' : 'translate-x-0.5'}`}
+                />
+              </button>
+            </label>
+          </fieldset>
+          <fieldset className="rounded-lg border border-gray-200 bg-gray-50/60 p-3 sm:p-4">
+            <legend className="mb-2 text-sm font-medium text-gray-800">Funcionalidades</legend>
+            <label htmlFor="switch-chromebook" className="flex cursor-pointer items-start justify-between gap-4 sm:gap-6">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium leading-6 text-gray-900">Habilitar importação Chromebook CSV</p>
+                <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                  Quando ativado, exibe os botões de <strong>Importar CSV Chromebook</strong> na tela de equipamentos
+                  e permite importar dados do Google Admin Console ChromeOS. Desative para ocultar essa funcionalidade.
+                </p>
+              </div>
+              <button
+                id="switch-chromebook"
+                type="button"
+                role="switch"
+                aria-checked={chromebookImportEnabled}
+                aria-label="Habilitar importação de arquivos Chromebook CSV"
+                onClick={() => setChromebookImportEnabled(!chromebookImportEnabled)}
+                className={`relative mt-0.5 shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 ${chromebookImportEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+              >
+                <span
+                  aria-hidden
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${chromebookImportEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}
                 />
               </button>
             </label>
