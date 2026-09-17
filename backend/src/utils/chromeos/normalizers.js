@@ -159,8 +159,7 @@ const DETECTAR_DATAS_POR_CONTEUDO = (linhaRaw) => {
   if (!linhaRaw || typeof linhaRaw !== 'object') return saida;
   const valores = Array.isArray(linhaRaw) ? linhaRaw.slice() : Object.values(linhaRaw);
   const datasComHora = [];
-  for (let i = 0; i < valores.length; i += 1) {
-    const raw = valores[i];
+  for (const raw of valores) {
     if (typeof raw !== 'string') continue;
     const s = raw.trim();
     if (!s) continue;
@@ -182,7 +181,7 @@ const DETECTAR_DATAS_POR_CONTEUDO = (linhaRaw) => {
   } else if (datasComHora.length >= 2) {
     datasComHora.sort((a, b) => a.t - b.t);
     saida.firstSync = datasComHora[0].s;
-    saida.lastSync = datasComHora[datasComHora.length - 1].s;
+    saida.lastSync = datasComHora.at(-1).s;
   }
   return saida;
 };
@@ -381,9 +380,14 @@ export const normalizarLinhaChromeOS = (linhaRaw, idx) => {
   if (!saida.memoryTotalRaw || !saida.storageTotalRaw) {
     try {
       const baseArray = Array.isArray(linhaRaw) ? linhaRaw.slice() : [];
-      const valores = baseArray.length > 0
-        ? baseArray
-        : (Array.isArray(normalizadaRaw) ? normalizadaRaw.slice() : Object.values(normalizadaRaw || {}));
+      let valores;
+      if (baseArray.length > 0) {
+        valores = baseArray;
+      } else if (Array.isArray(normalizadaRaw)) {
+        valores = normalizadaRaw.slice();
+      } else {
+        valores = Object.values(normalizadaRaw || {});
+      }
       const candidatos = [];
       for (let idx = 0; idx < valores.length; idx += 1) {
         const v = typeof valores[idx] === 'string' ? valores[idx].trim() : '';

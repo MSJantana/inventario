@@ -658,9 +658,13 @@ export default function App() {
     '/centro-midia': 'Centro de Midia',
   };
 
-  const whatsNewItems = [    
-    'Bug Fixed: Melhorias Internas no Sistema.',    
-    'Nova Feature: Importação de ChromeOS CSV para Equipamentos do Google Admin.',       
+  const whatsNewItems = [
+    'Nova Feature: Controle Global de Importação Chromebook CSV — agora pode ativar/desativar a importação em massa na tela Configurações (para todos usuários, salvo no banco de dados).',
+    'Nova Feature: Botão Imprimir relatório(s) de equipamentos sem popup bloqueador, usando overlay e iframe (Relatório equipamento singular e listagem plural em A4 paisagem).',
+    'Nova Feature: Badges coloridos por status no cartão de identificação do equipamento — todos 8 status (incluindo DOADO e DESCARTADO) + destaque vermelho para status VENCIDO.',
+    'Nova Feature: Badge DOADO no topo do cartão de identificação do equipamento para doados.',
+    'Nova Feature: Importação de ChromeOS CSV para Equipamentos do Google Admin.',
+    'Bug Fixed: Melhorias Internas no Sistema.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);

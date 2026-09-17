@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, Save, RotateCcw, AlertTriangle, Barcode, FileUp, 
 import Pagination from '../components/Pagination'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
-import { getValidityYears, getBloquearEditarExcluirDoado } from '../services/settings'
+import { getValidityYears, getBloquearEditarExcluirDoado, getChromebookImportEnabled } from '../services/settings'
 import { useAppStore } from '../store/useAppStore'
 import EquipmentIdCard from '../components/EquipmentIdCard'
 import {
@@ -532,6 +532,16 @@ export default function EquipamentosPage() {
   const winauditFileRef = useRef<HTMLInputElement | null>(null)
 
   const [importTab, setImportTab] = useState<ImportTab>('winaudit')
+  const chromebookImportEnabled = getChromebookImportEnabled()
+  const importTabComputed: ImportTab = useMemo(() => {
+    if (!chromebookImportEnabled) return 'winaudit'
+    return importTab
+  }, [importTab, chromebookImportEnabled])
+  useEffect(() => {
+    if (!chromebookImportEnabled && importTab === 'chromeos') {
+      setImportTab('winaudit')
+    }
+  }, [chromebookImportEnabled, importTab])
 
   const userRole = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
 
@@ -1150,41 +1160,48 @@ export default function EquipamentosPage() {
         <h2 className="mb-3 text-lg font-medium">Criar Equipamento</h2>
 
         {/* Abas: WinAudit x Chromebook CSV */}
-        <div role="tablist" aria-label="Método de importação" className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm font-medium">
-          <button
-            role="tab"
-            type="button"
-            aria-selected={importTab === 'winaudit'}
-            aria-controls="panel-winaudit"
-            id="tab-winaudit"
-            onClick={() => setImportTab('winaudit')}
-            className={`px-3 sm:px-4 py-1.5 rounded-md transition-colors ${
-              importTab === 'winaudit'
-                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
-                : 'text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            WinAudit (.html)
-          </button>
-          <button
-            role="tab"
-            type="button"
-            aria-selected={importTab === 'chromeos'}
-            aria-controls="panel-chromeos"
-            id="tab-chromeos"
-            onClick={() => setImportTab('chromeos')}
-            className={`px-3 sm:px-4 py-1.5 rounded-md transition-colors ${
-              importTab === 'chromeos'
-                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
-                : 'text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            Chromebook CSV (.csv)
-          </button>
-        </div>
+        {chromebookImportEnabled ? (
+          <div role="tablist" aria-label="Método de importação" className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm font-medium">
+            <button
+              role="tab"
+              type="button"
+              aria-selected={importTabComputed === 'winaudit'}
+              aria-controls="panel-winaudit"
+              id="tab-winaudit"
+              onClick={() => setImportTab('winaudit')}
+              className={`px-3 sm:px-4 py-1.5 rounded-md transition-colors ${
+                importTabComputed === 'winaudit'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              WinAudit (.html)
+            </button>
+            <button
+              role="tab"
+              type="button"
+              aria-selected={importTabComputed === 'chromeos'}
+              aria-controls="panel-chromeos"
+              id="tab-chromeos"
+              onClick={() => setImportTab('chromeos')}
+              className={`px-3 sm:px-4 py-1.5 rounded-md transition-colors ${
+                importTabComputed === 'chromeos'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              Chromebook CSV (.csv)
+            </button>
+          </div>
+        ) : (
+          <div className="mb-4 inline-flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <Info size={14} aria-hidden />
+            <span>A importação Chromebook CSV está desativada nas configurações do sistema.</span>
+          </div>
+        )}
 
         {/* Painel WinAudit */}
-        <section id="panel-winaudit" role="tabpanel" aria-labelledby="tab-winaudit" hidden={importTab !== 'winaudit'}>
+        <section id="panel-winaudit" role="tabpanel" aria-labelledby="tab-winaudit" hidden={importTabComputed !== 'winaudit'}>
         {/* Card info do arquivo (mostra durante upload E em wizard/review) */}
         {(winauditFluxo === 'uploading' || winauditFluxo === 'wizard' || winauditFluxo === 'review') && winauditFile && (
           <div className="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
@@ -1625,7 +1642,7 @@ export default function EquipamentosPage() {
 
         </section>
 
-        <section id="panel-chromeos" role="tabpanel" aria-labelledby="tab-chromeos" hidden={importTab !== 'chromeos'}>
+        <section id="panel-chromeos" role="tabpanel" aria-labelledby="tab-chromeos" hidden={importTabComputed !== 'chromeos'}>
           <ChromeosUploadPanel
             crosFluxo={crosFluxo}
             crosFile={crosFile}
@@ -1673,7 +1690,7 @@ export default function EquipamentosPage() {
           )}
         </section>
 
-        {!(importTab === 'chromeos' && crosFluxo !== 'idle') && (
+        {!(importTabComputed === 'chromeos' && crosFluxo !== 'idle') && (
         <form
           id="form-criar-equipamento"
           onSubmit={winauditFluxo === 'wizard' || winauditFluxo === 'review' ? confirmarImportacao : criarEquipamento}

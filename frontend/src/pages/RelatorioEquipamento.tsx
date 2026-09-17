@@ -261,8 +261,289 @@ export default function RelatorioEquipamentoPage() {
   const usuario = equipamento?.usuarioNome || 'Não atribuído'
   const escola = equipamento?.escola?.nome || 'Escola não definida'
 
-  const handlePrint = () => {
-    globalThis.print()
+  const handlePrint = async () => {
+    if (!equipamento) {
+      showErrorToast('Nenhum equipamento carregado para imprimir.')
+      return
+    }
+
+    let logoTopData: string | null = null
+    let logoBottomData: string | null = null
+    try {
+      const [a, b] = await Promise.all([toDataUrl(LogoAsrs), toDataUrl(LogoEa)])
+      logoTopData = a || null
+      logoBottomData = b || null
+    } catch {
+      logoTopData = null
+      logoBottomData = null
+    }
+
+    const cadastro = [
+      { label: 'Modelo', valor: equipamento.modelo || 'Não informado' },
+      { label: 'Número de série', valor: equipamento.serial || 'Não informado' },
+      { label: 'Número do patrimônio', valor: patrimonio },
+      { label: 'Data de aquisição', valor: formatDate(equipamento.dataAquisicao) || '-' },
+      { label: 'Setor', valor: setor },
+      { label: 'Usuário', valor: usuario },
+    ]
+
+    const historicoLinhas = historico.map((item) => ({
+      tipo: (item.tipoMovimento || 'SEM TIPO').replaceAll('_', ' '),
+      data: formatDateTime(item.dataMovimento),
+      origem: item.origem || 'Não informada',
+      destino: item.destino || 'Não informado',
+      responsavel: item.responsavel || item.usuario?.nome || 'Não informado',
+      descricao: item.observacoes || 'Sem observações registradas.',
+    }))
+
+    const statusPdf = statusLabel.replaceAll('_', ' ')
+
+    const logoTopHtml =
+      logoTopData
+        ? `<img src="${logoTopData}" alt="Logo topo" style="width:72px;height:28px;object-fit:contain;" />`
+        : `<div style="width:72px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;background-color:#050B1A;color:#fff;font-weight:700;font-size:11px;">ASRS</div>`
+
+    const logoBottomHtml =
+      logoBottomData
+        ? `<img src="${logoBottomData}" alt="Logo rodapé" style="width:72px;height:28px;object-fit:contain;margin-right:8px;" />`
+        : `<div style="width:72px;height:28px;margin-right:8px;display:flex;align-items:center;justify-content:center;border-radius:6px;background-color:#0f172a;color:#fff;font-weight:700;font-size:10px;">EA</div>`
+
+    const cadastroHtml = cadastro
+      .map(
+        (c) =>
+          `<div style="width:31%;min-height:70px;padding:10px;border-radius:10px;background-color:#f8fafc;border:1px solid #e2e8f0;break-inside:avoid;">
+             <p style="font-size:9px;color:#64748b;text-transform:uppercase;margin:0 0 6px 0;">${c.label}</p>
+             <p style="font-size:12px;font-weight:700;color:#0f172a;margin:0;word-break:break-word;">${String(c.valor).replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</p>
+           </div>`
+      )
+      .join('')
+
+    const historicoHtml =
+      historicoLinhas.length === 0
+        ? '<p style="font-size:9px;color:#64748b;">Nenhuma movimentação registrada.</p>'
+        : historicoLinhas
+            .map(
+              (h) =>
+                `<div style="margin-bottom:12px;padding:12px;border-radius:10px;background-color:#f8fafc;border:1px solid #e2e8f0;break-inside:avoid;">
+                   <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+                     <p style="font-size:10px;font-weight:700;color:#0f172a;margin:0;text-transform:uppercase;letter-spacing:0.4px;">${h.tipo.replaceAll('<', '&lt;')}</p>
+                     <p style="font-size:10px;color:#64748b;margin:0;">${h.data.replaceAll('<', '&lt;')}</p>
+                   </div>
+                   <div style="display:flex;gap:8px;margin-bottom:6px;">
+                     <div style="width:48%;">
+                       <p style="font-size:9px;color:#64748b;text-transform:uppercase;margin:0 0 4px 0;">Origem</p>
+                       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0;">${String(h.origem).replaceAll('<', '&lt;')}</p>
+                     </div>
+                     <div style="width:48%;">
+                       <p style="font-size:9px;color:#64748b;text-transform:uppercase;margin:0 0 4px 0;">Destino</p>
+                       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0;">${String(h.destino).replaceAll('<', '&lt;')}</p>
+                     </div>
+                   </div>
+                   <div style="display:flex;gap:8px;margin-bottom:6px;">
+                     <div style="width:48%;">
+                       <p style="font-size:9px;color:#64748b;text-transform:uppercase;margin:0 0 4px 0;">Responsável</p>
+                       <p style="font-size:11px;font-weight:700;color:#0f172a;margin:0;">${String(h.responsavel).replaceAll('<', '&lt;')}</p>
+                     </div>
+                   </div>
+                   <p style="font-size:9px;color:#64748b;text-transform:uppercase;margin:8px 0 4px 0;">Descrição</p>
+                   <p style="font-size:10.5px;color:#0f172a;margin:0;white-space:pre-wrap;">${String(h.descricao).replaceAll('<', '&lt;')}</p>
+                 </div>`
+            )
+            .join('')
+
+    const html = `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Relatório do equipamento - ${equipamentoNome.replaceAll('"', '&quot;')}</title>
+<style>
+  @page { size: A4; margin: 22px 22px 46px 22px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; color: #0f172a; background-color: #ffffff; }
+  body { padding: 0; }
+  .page { width: 100%; padding: 0; }
+  .header { margin: 0 0 18px 0; padding: 18px 20px; border-radius: 12px; background-color: #0f172a !important; color: #ffffff; break-inside: avoid; }
+  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .header-kicker { font-size: 10px; color: #94a3b8; letter-spacing: 1.2px; text-transform: uppercase; margin: 0; }
+  .header-title { margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #ffffff; }
+  .header-meta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 700; background-color: #1e293b !important; color: #e2e8f0; text-transform: uppercase; letter-spacing: 0.4px; }
+  .section { margin: 0 0 18px 0; padding: 18px 20px; border-radius: 12px; background-color: #ffffff !important; border: 1px solid #e2e8f0; break-inside: avoid; }
+  .section-title { margin: 0 0 14px 0; font-size: 16px; font-weight: 800; color: #0f172a; }
+  .grid { display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; }
+  .footer {
+    position: fixed;
+    left: 22px; right: 22px; bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid #cbd5e1;
+    font-size: 9px; color: #64748b;
+  }
+  .footer-left { display: flex; align-items: center; }
+  body, .header, .badge, .section {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  @media print {
+    html, body { background-color: #ffffff !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="header-top">
+      <p class="header-kicker">Relatório do equipamento</p>
+      ${logoTopHtml}
+    </div>
+    <h1 class="header-title">${equipamentoNome.replaceAll('<', '&lt;')}</h1>
+    <div class="header-meta">
+      <span class="badge">ID ${String(equipamento.id).replaceAll('<', '&lt;')}</span>
+      <span class="badge">${statusPdf.replaceAll('<', '&lt;')}</span>
+      <span class="badge">${String(escola).replaceAll('<', '&lt;')}</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Cadastro</h2>
+    <div class="grid">
+      ${cadastroHtml}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Histórico do equipamento</h2>
+    ${historicoHtml}
+  </div>
+</div>
+
+<div class="footer">
+  <div class="footer-left">
+    ${logoBottomHtml}
+    <span>Sistema de Inventário • Relatório do equipamento</span>
+  </div>
+  <span id="pg-info"></span>
+</div>
+</body>
+</html>`
+
+    const rootId = 'print-root-' + Date.now().toString(36)
+    const styleId = rootId + '-style'
+    const printRoot = document.createElement('div')
+    printRoot.id = rootId
+    printRoot.dataset.printRoot = '1'
+    Object.assign(printRoot.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '100vw',
+      height: '100vh',
+      margin: '0',
+      padding: '0',
+      backgroundColor: '#ffffff',
+      zIndex: '2147483647',
+      display: 'block',
+      overflow: 'hidden',
+      boxSizing: 'border-box',
+    })
+
+    const styleEl = document.createElement('style')
+    styleEl.id = styleId
+    styleEl.setAttribute('media', 'print')
+    styleEl.textContent = `
+      @media print {
+        html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+        body > *:not([data-print-root="1"]) { display: none !important; }
+        [data-print-root="1"],
+        [data-print-root="1"] iframe,
+        [data-print-root="1"] iframe html,
+        [data-print-root="1"] iframe body,
+        [data-print-root="1"] iframe .page {
+          position: static !important;
+          width: 100% !important;
+          height: auto !important;
+          max-width: none !important;
+          max-height: none !important;
+          border: none !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          display: block !important;
+          background: #fff !important;
+          z-index: 2147483647 !important;
+          visibility: visible !important;
+          overflow: visible !important;
+        }
+        [data-print-root="1"] iframe { width: 210mm !important; min-height: 297mm !important; }
+      }
+    `
+    document.head.appendChild(styleEl)
+
+    const iframeEl = document.createElement('iframe')
+    iframeEl.setAttribute('title', 'Relatório para impressão')
+    iframeEl.setAttribute('frameborder', '0')
+    iframeEl.setAttribute('marginheight', '0')
+    iframeEl.setAttribute('marginwidth', '0')
+    iframeEl.setAttribute('srcdoc', html)
+    Object.assign(iframeEl.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      border: 'none',
+      display: 'block',
+      background: '#ffffff',
+      boxSizing: 'border-box',
+    })
+
+    printRoot.appendChild(iframeEl)
+    document.body.appendChild(printRoot)
+
+    const cleanup = () => {
+      try {
+        if (printRoot.parentNode) printRoot.parentNode.removeChild(printRoot)
+      } catch {
+        // no-op
+      }
+      try {
+        if (styleEl.parentNode) styleEl.parentNode.removeChild(styleEl)
+      } catch {
+        // no-op
+      }
+    }
+
+    const disparar = () => {
+      try {
+        window.focus()
+        setTimeout(() => {
+          try {
+            window.print()
+            setTimeout(cleanup, 1500)
+          } catch {
+            showErrorToast('Não foi possível disparar a impressão. Pressione Ctrl+P.')
+            setTimeout(cleanup, 3000)
+          }
+        }, 1400)
+      } catch {
+        showErrorToast('Erro ao preparar impressão. Pressione Ctrl+P.')
+        setTimeout(cleanup, 3000)
+      }
+    }
+
+    let disparou = false
+    const tentarDisparar = () => {
+      if (disparou) return
+      disparou = true
+      disparar()
+    }
+
+    try {
+      iframeEl.addEventListener('load', tentarDisparar, { once: true, passive: true })
+    } catch {
+      // no-op
+    }
+    setTimeout(tentarDisparar, 2600)
   }
 
   async function handlePDF() {
