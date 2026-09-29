@@ -92,19 +92,19 @@ try {
     console.log('[migration] OK: CREATE TABLE IF NOT EXISTS ConfiguracaoGeral (idempotent)');
     await conn.execute(SEED_SQL);
     console.log("[migration] OK: INSERT IGNORE seed CHROMEBOOK_IMPORT_ENABLED=true (idempotent)");
-    const [modeRows] = await conn.execute("SHOW VARIABLES LIKE 'sql_mode'");
+    await conn.execute("SHOW VARIABLES LIKE 'sql_mode'");
     await conn.execute("SET SESSION sql_mode = REPLACE(@@session.sql_mode, 'NO_ZERO_DATE', '')");
     await conn.execute("SET SESSION sql_mode = REPLACE(@@session.sql_mode, 'NO_ZERO_IN_DATE', '')");
     const [afterMode] = await conn.execute("SHOW VARIABLES LIKE 'sql_mode'");
-    const strictOn = (afterMode && afterMode[0] && /STRICT_(ALL|TRADITIONAL)/i.test(String(afterMode[0].Value || '')));
+    const strictOn = /STRICT_(ALL|TRADITIONAL)/i.test(String(afterMode?.[0]?.Value ?? ''));
     const checkDate = strictOn
       ? "YEAR(`updatedAt`) = 0"
       : "(`updatedAt` IS NULL OR DATE(`updatedAt`) = '0000-00-00')";
-    console.log(`[migration] session sql_mode antes checagem updatedAt=${afterMode && afterMode[0] ? afterMode[0].Value : '?'}; strict=${strictOn}; predicate=${checkDate}`);
+    console.log(`[migration] session sql_mode antes checagem updatedAt=${afterMode?.[0]?.Value ?? '?'}; strict=${strictOn}; predicate=${checkDate}`);
     const upd = await conn.execute(
       `UPDATE \`ConfiguracaoGeral\` SET \`updatedAt\` = CURRENT_TIMESTAMP(3) WHERE \`chave\` = 'CHROMEBOOK_IMPORT_ENABLED' AND ${checkDate}`
     );
-    const updOk = upd && upd[0] && typeof upd[0].affectedRows === 'number' ? upd[0].affectedRows : 0;
+    const updOk = upd?.affectedRows ?? 0;
     if (updOk > 0) {
       console.log(`[migration] OK: updatedAt corrigido (linhas afetadas=${updOk})`);
     } else {

@@ -311,12 +311,49 @@ export default function RelatoriosEquipamentosPage() {
             ]
       )
 
-      const escape = (v: unknown): string =>
-        String(v ?? '')
+      const escape = (v: unknown): string => {
+        if (v == null) return ''
+        if (typeof v === 'string') return v
           .replaceAll('&', '&amp;')
           .replaceAll('<', '&lt;')
           .replaceAll('>', '&gt;')
           .replaceAll('"', '&quot;')
+        if (typeof v === 'number' || typeof v === 'boolean')
+          return String(v)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+        let text = ''
+        try {
+          text = JSON.stringify(v) ?? ''
+        } catch {
+          if (v instanceof Date) text = v.toISOString()
+          else if (Array.isArray(v)) text = v.map((x) => String(x ?? '')).join(', ')
+          else if (typeof v === 'object') {
+            try { text = Object.prototype.toString.call(v) } catch { text = '' }
+            if (text === '[object Object]' || !text) {
+              const parts: string[] = []
+              for (const k of Object.keys(v as Record<string, unknown>)) {
+                const val = (v as Record<string, unknown>)[k]
+                if (val == null) {
+                  parts.push(`${String(k)}=`)
+                } else if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+                  parts.push(`${String(k)}=${String(val)}`)
+                } else {
+                  try { parts.push(`${String(k)}=${JSON.stringify(val)}`) } catch { parts.push(String(k)) }
+                }
+              }
+              text = `{${parts.join(', ')}}`
+            }
+          } else text = String(v)
+        }
+        return text
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+      }
 
       const headerHtml = headers
         .map(
