@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useState, useRef } from 'react';
 import type { ComponentType, RefObject } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
-import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle, Building2, ClipboardList, ArrowRightLeft } from 'lucide-react';
+import { Monitor, Shuffle, School, Settings, LogIn, Menu, FileText, User, LogOut, ChevronDown, Image, AlertCircle, Building2, ClipboardList, ArrowRightLeft, BookOpen } from 'lucide-react';
 import LogoSystem from './assets/Logo_System.svg';
 import './index.css';
 import EquipamentosPage from './pages/Equipamentos';
@@ -14,7 +14,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.7';
+import { APP_VERSION } from './services/settings';
 
 const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
 const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
@@ -22,6 +22,7 @@ const RelatorioMovimentacoesPage = lazy(() => import('./pages/RelatorioMovimenta
 const AuditoriaPage = lazy(() => import('./pages/Auditoria'));
 const RelatorioEquipamentoPage = lazy(() => import('./pages/RelatorioEquipamento'));
 const CentroMidiaPage = lazy(() => import('./pages/CentroMidia'));
+const ManualSistemaPage = lazy(() => import('./pages/ManualSistema'));
 
 // ---------- Helpers ----------
 const navItems = [
@@ -29,6 +30,7 @@ const navItems = [
   { to: '/escolas', label: 'Escolas', Icon: School },
   // Relatórios virou NavDropdown abaixo (Equipamentos + Movimentações)
   { to: '/auditoria', label: 'Auditoria', Icon: ClipboardList },
+  { to: '/manual', label: 'Manual', Icon: BookOpen },
   { to: '/usuarios', label: 'Usuários', Icon: User },
 ];
 
@@ -744,6 +746,7 @@ export default function App() {
                 <Route path="/auditoria" element={<Suspense fallback={<RouteFallback />}><AuditoriaPage /></Suspense>} />
                 <Route path="/usuarios" element={<RoleGuard allowed={['ADMIN','GESTOR']}><UsuariosPage /></RoleGuard>} />
                 <Route path="/config" element={<RoleGuard allowed={['ADMIN','GESTOR']}><ConfigPage /></RoleGuard>} />
+                <Route path="/manual" element={<Suspense fallback={<RouteFallback />}><ManualSistemaPage /></Suspense>} />
                 <Route path="/centro-midia" element={<Suspense fallback={<RouteFallback />}><CentroMidiaPage /></Suspense>}/>
               </Route>
 
