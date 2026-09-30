@@ -1,6 +1,7 @@
 export const DEFAULT_VALIDITY_YEARS = 5;
 export const DEFAULT_BLOQUEAR_EDITAR_EXCLUIR_DOADO = true;
 export const DEFAULT_CHROMEBOOK_IMPORT_ENABLED = true;
+export const DEFAULT_EDITAR_ENABLED = false;
 
 export function getValidityYears(): number {
   const val = localStorage.getItem('equipmentValidityYears');
@@ -31,4 +32,14 @@ export function getChromebookImportEnabled(): boolean {
 
 export function setChromebookImportEnabled(enabled: boolean) {
   localStorage.setItem('chromebookImportEnabled', String(enabled));
+}
+
+export function getEditarEnabled(): boolean {
+  const val = localStorage.getItem('editarEnabled');
+  if (val === null) return DEFAULT_EDITAR_ENABLED;
+  return val === 'true';
+}
+
+export function setEditarEnabled(enabled: boolean) {
+  localStorage.setItem('editarEnabled', String(enabled));
 }

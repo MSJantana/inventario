@@ -117,12 +117,22 @@ const NOME_MES_PT = [
   ['dezembro', 'dez', 'dec'],
 ];
 
+const stringParaHexUtf16 = (valor, padZeros = 6) => {
+  const partes = []
+  for (let i = 0; i < valor.length; i += 1) {
+    const cp = valor.codePointAt(i) ?? 0
+    partes.push(cp.toString(16).padStart(padZeros, '0'))
+    if (cp > 0xffff) i += 1
+  }
+  return partes.join(' ')
+}
+
 const normalizarAnoDoisDigitos = (anoDois) => {
   const n = Number(anoDois);
   // WinAudit data de hardware: anos 80-99 = século XX, 00-40 = século XXI
   if (n >= 80 && n <= 99) return 1900 + n;
   if (n >= 0 && n <= 40) return 2000 + n;
-  return 2000 + n;
+  return 0;
 };
 
 const extrairMesPorNome = (texto) => {
@@ -327,7 +337,7 @@ const extrairAnoMesDia = (matchResult, ctx) => {
   if (!match) {
     return { ano: '', mes: '', dia: '' };
   }
-  if (match[1] && match[1].length === 4) {
+  if (match?.[1]?.length === 4) {
     return {
       ano: match[1],
       mes: String(match[2]).padStart(2, '0'),
@@ -335,7 +345,7 @@ const extrairAnoMesDia = (matchResult, ctx) => {
     };
   }
   // Ano com 4 dígitos em match[3] — formato D/M/AAAA ou M/D/AAAA
-  if (match[3] && match[3].length === 4) {
+  if (match?.[3]?.length === 4) {
     const primeiro = match[1] ? Number(match[1]) : 0;
     const segundo = match[2] ? Number(match[2]) : 0;
     // Caso 1: primeiro > 12 → OBRIGATORIAMENTE dia (DD/MM)
@@ -1019,7 +1029,7 @@ const montarDadosEquipamento = (camposNormalizados, escolaId, memoria, rawEntrie
           label: typeof e?.rawLabel === 'string' ? e.rawLabel : '',
           contexto: typeof e?.contexto === 'string' ? e.contexto : '',
           valor: typeof e?.valor === 'string' ? e.valor : '',
-          hex: typeof e?.valor === 'string' ? [...e.valor].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join(' ') : '',
+          hex: typeof e?.valor === 'string' ? stringParaHexUtf16(e.valor, 4) : '',
         }))
       : [],
   };
@@ -1116,7 +1126,7 @@ export const gerarPreview = async (input) => {
     const contextoStr = primeira && typeof primeira.contexto === 'string' ? primeira.contexto : '';
     const rawValor = primeira && typeof primeira.valor === 'string' ? primeira.valor : '';
     const hex = rawValor.length > 0
-      ? rawValor.split('').map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join(' ')
+      ? stringParaHexUtf16(rawValor, 4)
       : '';
     const msgContexto = contextoStr ? ' (' + contextoStr + ')' : '';
     const msgISO = dataInfo?.iso ? ' iso=' + dataInfo.iso : '';

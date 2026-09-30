@@ -14,7 +14,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.6';
+const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.7';
 
 const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
 const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
@@ -659,10 +659,13 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Nova Feature: Controle Global de Importação Chromebook CSV — agora pode ativar/desativar a importação em massa na tela Configurações (para todos usuários, salvo no banco de dados).',
-    'Nova Feature: Botão Imprimir relatório(s) de equipamentos sem popup bloqueador, usando overlay e iframe (Relatório equipamento singular e listagem plural em A4 paisagem).',
-    'Nova Feature: Badges coloridos por status no cartão de identificação do equipamento — todos 8 status (incluindo DOADO e DESCARTADO) + destaque vermelho para status VENCIDO.',
-    'Nova Feature: Badge DOADO no topo do cartão de identificação do equipamento para doados.',
+    'Nova Feature (Movimentações > Manutenção): botão 🖥️ Formatação — formulário com 2 campos de nome lado-a-lado: "Nome (antes da formatação)" preenchido automaticamente e READONLY + "Nome (após formatação)" editável e obrigatório; a tela registra o que mudou e atualiza o status do equipamento para FORMATADO; validação de segurança no backend restringe alterar APENAS campo nome (bloqueia status/modelo/serial por endpoint com erro 400 FORMATACAO_CAMPOS_EXTRA); endpoint protegido roles ADMIN/GESTOR/TECNICO. Aplicado nos bancos host 10.12.0.9 (produção) e 10.12.3.231 (homolog / dev).',
+    'Relatórios: Impressão multi-páginas agora REPETE cabeçalho (logo, título, filtros) e rodapé (assinatura) em TODAS as páginas; diminuiu células da grade para caber mais itens por folha; corrige página em branco e conteúdo cortado após quebra.',
+    'Toggle Configurações (Admin): ativar/desativar importação Chromebook CSV Google Admin de forma global, agora com validação também no backend (retorna 403 se desativado).',
+    'Correções: SonarLint (S6551/S7744/S3358/S3776/S7762/S6582/S7758) em impressão, toast, useChromeosImport e WinAuditImportService; ajustes diversificados de segurança e manutenibilidade.',
+    'Nova Feature: Botão Imprimir relatório(s) de equipamentos sem popup bloqueador, usando overlay + iframe (Relatório equipamento singular e listagem plural em A4 paisagem).',
+    'Nova Feature: Badges coloridos por status no cartão de identificação do equipamento + destaque vermelho para status VENCIDO.',
+    'Nova Feature: Badge DOADO no topo do cartão de identificação do equipamento.',
     'Nova Feature: Importação de ChromeOS CSV para Equipamentos do Google Admin.',
     'Bug Fixed: Melhorias Internas no Sistema.',
   ];

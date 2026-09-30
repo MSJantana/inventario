@@ -89,25 +89,61 @@ const CAMPOS_PERMITIDOS_OVERRIDE: ReadonlySet<ChromeOSCampoEditavel> = new Set([
   'dataAquisicao',
 ])
 
+const CAMPOS_OVERRIDE_NAO_NULO: ReadonlySet<ChromeOSCampoEditavel> = new Set([
+  'nome',
+  'modelo',
+  'serial',
+  'dataAquisicao',
+])
+
+const CAMPOS_OVERRIDE_NULLABLE: ReadonlySet<ChromeOSCampoEditavel> = new Set([
+  'escolaId',
+  'patrimonio',
+  'localizacao',
+  'fabricante',
+  'processador',
+  'memoria',
+  'usuarioNome',
+])
+
+const CAMPO_OVERRIDE_DATA: ChromeOSCampoEditavel = 'dataAquisicao'
+
+const overrideValorVazio = (key: ChromeOSCampoEditavel, val: unknown): boolean => {
+  if (val == null) return true
+  if (typeof val !== 'string') return false
+  if (val.length > 0) return false
+  if (key === CAMPO_OVERRIDE_DATA) return true
+  return CAMPOS_OVERRIDE_NULLABLE.has(key)
+}
+
+const aplicarOverrideNumaKey = (saida: Record<string, unknown>, key: ChromeOSCampoEditavel, val: unknown): void => {
+  if (overrideValorVazio(key, val)) {
+    if (CAMPOS_OVERRIDE_NULLABLE.has(key)) {
+      saida[key] = null
+      return
+    }
+    if (key === CAMPO_OVERRIDE_DATA) return
+    return
+  }
+  saida[key] = val
+}
+
 const mergeOverridesEmEquipamento = (
   base: ChromeOSNormalizedInput | null,
   overrides: Partial<ChromeOSNormalizedInput> | undefined,
 ): ChromeOSNormalizedInput | null => {
-  if (!base || !overrides || Object.keys(overrides).length === 0) return base
-  const saida: { -readonly [K in keyof ChromeOSNormalizedInput]: ChromeOSNormalizedInput[K] } = { ...base }
+  if (!base || !overrides) return base
+  const hasOverride = Object.keys(overrides).some((rawKey) => CAMPOS_PERMITIDOS_OVERRIDE.has(rawKey as ChromeOSCampoEditavel))
+  if (!hasOverride) return base
+  const saida: Record<string, unknown> = { ...(base as unknown as Record<string, unknown>) }
   for (const rawKey of Object.keys(overrides)) {
     const key = rawKey as ChromeOSCampoEditavel
     if (!CAMPOS_PERMITIDOS_OVERRIDE.has(key)) continue
-    const val = overrides[key]
-    if (key === 'dataAquisicao') {
-      if (typeof val === 'string' && val.length > 0) saida.dataAquisicao = val
-    } else if (key === 'escolaId' || key === 'patrimonio' || key === 'localizacao' || key === 'fabricante' || key === 'processador' || key === 'memoria' || key === 'usuarioNome') {
-      ;(saida as unknown as Record<string, unknown>)[key] = (val == null || (typeof val === 'string' && val.length === 0)) ? null : val
-    } else if (typeof val === 'string' && val.length > 0) {
-      ;(saida as unknown as Record<string, unknown>)[key] = val
+    if (CAMPOS_OVERRIDE_NAO_NULO.has(key) || CAMPOS_OVERRIDE_NULLABLE.has(key)) {
+      aplicarOverrideNumaKey(saida, key, overrides[key])
     }
   }
-  return saida as ChromeOSNormalizedInput
+  return saida as unknown as ChromeOSNormalizedInput
 }
 
 const serializarPatrimonioNome = (
@@ -120,6 +156,55 @@ const serializarPatrimonioNome = (
     patrimonio: equip.patrimonio || null,
   }
 }
+
+const buildOverridesAjustados = (
+  atuais: Partial<ChromeOSNormalizedInput> | undefined,
+  key: ChromeOSCampoEditavel,
+  value: unknown,
+): Partial<ChromeOSNormalizedInput> | undefined => {
+  const current = atuais ?? ({} as Partial<ChromeOSNormalizedInput>)
+  const result: Record<string, unknown> = { ...(current as unknown as Record<string, unknown>) }
+  if (overrideValorVazio(key, value)) {
+    delete result[key]
+  } else {
+    result[key] = value
+  }
+  const existeKey = Object.keys(result).some(
+    (k) => CAMPOS_PERMITIDOS_OVERRIDE.has(k as ChromeOSCampoEditavel),
+  )
+  return existeKey ? (result as unknown as Partial<ChromeOSNormalizedInput>) : undefined
+}
+
+const syncResolvedEscola = (
+  linha: PreviewRowDecorada,
+  overrides: Partial<ChromeOSNormalizedInput> | undefined,
+): PreviewRowDecorada => {
+  const novo: PreviewRowDecorada = { ...linha, overrides }
+  const equipEf = mergeOverridesEmEquipamento(linha.equipamento, overrides)
+  const escolaOverride = equipEf?.escolaId ?? null
+  if (!escolaOverride) return novo
+  return { ...novo, escolaResolvidaId: escolaOverride }
+}
+
+const syncNomePatrimonioNoOverride = (
+  linha: PreviewRowDecorada,
+  overridesIn: Partial<ChromeOSNormalizedInput> | undefined,
+): Partial<ChromeOSNormalizedInput> | undefined => {
+  const equipEf = mergeOverridesEmEquipamento(linha.equipamento, overridesIn)
+  const reSync = serializarPatrimonioNome(equipEf)
+  if (!reSync.nome && reSync.patrimonio === null) return overridesIn
+  const baseOver = overridesIn ?? ({} as Partial<ChromeOSNormalizedInput>)
+  const result: Record<string, unknown> = { ...(baseOver as unknown as Record<string, unknown>) }
+  if (reSync.nome && reSync.nome !== linha.equipamento?.nome) result.nome = reSync.nome
+  if (reSync.patrimonio !== null && reSync.patrimonio !== linha.equipamento?.patrimonio) {
+    result.patrimonio = reSync.patrimonio
+  }
+  const existeKey = Object.keys(result).some(
+    (k) => CAMPOS_PERMITIDOS_OVERRIDE.has(k as ChromeOSCampoEditavel),
+  )
+  return existeKey ? (result as unknown as Partial<ChromeOSNormalizedInput>) : undefined
+}
+
 
 export const useChromeosImport = ({
   escolaIdPadrao,
@@ -198,25 +283,10 @@ export const useChromeosImport = ({
       setCrosRows((ant) =>
         ant.map((r, i) => {
           if (i !== idx) return r
-          const novosOverrides: Partial<ChromeOSNormalizedInput> = { ...(r.overrides ?? undefined) }
-          if (value == null || (typeof value === 'string' && value.length === 0)) {
-            delete (novosOverrides as Record<string, unknown>)[key]
-          } else {
-            ;(novosOverrides as Record<string, unknown>)[key] = value
-          }
-          let novaLinha: PreviewRowDecorada = { ...r, overrides: Object.keys(novosOverrides).length ? novosOverrides : undefined }
-          if (key === 'escolaId') {
-            novaLinha = { ...novaLinha, escolaResolvidaId: typeof value === 'string' && value.length ? value : (novaLinha.escolaResolvidaId || null) }
-          }
-          const equipEf = mergeOverridesEmEquipamento(novaLinha.equipamento, novaLinha.overrides)
-          const reSync = serializarPatrimonioNome(equipEf)
-          if (reSync.nome || reSync.patrimonio) {
-            const finalOverrides: { -readonly [K in keyof Partial<ChromeOSNormalizedInput>]: Partial<ChromeOSNormalizedInput>[K] } = { ...(novaLinha.overrides ?? undefined) }
-            if (reSync.nome && reSync.nome !== r.equipamento?.nome) finalOverrides.nome = reSync.nome
-            if (reSync.patrimonio !== null && reSync.patrimonio !== r.equipamento?.patrimonio) finalOverrides.patrimonio = reSync.patrimonio
-            novaLinha = { ...novaLinha, overrides: Object.keys(finalOverrides).length ? finalOverrides : undefined }
-          }
-          return novaLinha
+          const overridesAjustados = buildOverridesAjustados(r.overrides, key, value)
+          const base = syncResolvedEscola(r, overridesAjustados)
+          const overridesFinal = syncNomePatrimonioNoOverride(base, base.overrides)
+          return { ...base, overrides: overridesFinal }
         }),
       )
     },
@@ -233,17 +303,8 @@ export const useChromeosImport = ({
       setCrosRows((ant) =>
         ant.map((r) => {
           if (!r.selecionado) return r
-          const overrides: Partial<ChromeOSNormalizedInput> = { ...(r.overrides ?? undefined) }
-          if (valor == null || (typeof valor === 'string' && valor.length === 0)) {
-            delete (overrides as Record<string, unknown>)[campo as string]
-          } else {
-            ;(overrides as Record<string, unknown>)[campo as string] = valor
-          }
-          let nova: PreviewRowDecorada = { ...r, overrides: Object.keys(overrides).length ? overrides : undefined }
-          if (campo === 'escolaId') {
-            nova = { ...nova, escolaResolvidaId: typeof valor === 'string' && valor.length ? valor : (nova.escolaResolvidaId || null) }
-          }
-          return nova
+          const overridesAjustados = buildOverridesAjustados(r.overrides, campo, valor)
+          return syncResolvedEscola(r, overridesAjustados)
         }),
       )
       showSuccessToast(`Valor aplicado em ${sel} linha(s) selecionada(s).`)

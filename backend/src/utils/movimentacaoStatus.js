@@ -8,6 +8,7 @@ export const TIPO_PARA_STATUS_ALVO = Object.freeze({
   MANUTENCAO: 'EM_MANUTENCAO',
   MANUTENCAO_ENVIO: 'EM_MANUTENCAO',
   MANUTENCAO_RETORNO: 'DISPONIVEL',
+  FORMATACAO: 'FORMATADO',
   EMPRESTIMO: 'EMPRESTADO',
   DEVOLUCAO: 'DISPONIVEL',
   DOACAO: 'DOADO',
@@ -17,16 +18,19 @@ export const TIPO_PARA_STATUS_ALVO = Object.freeze({
 
 export const TIPOS_QUE_PERMITEM_STATUS_QUALQUER_EXCETO_FINAL = Object.freeze(new Set(['AJUSTE']));
 
+const PERMITIDOS_FORMATACAO = Object.freeze(['DISPONIVEL','EM_USO','RESERVADO','FORMATADO']);
+
 export const REGRA_ESPECIAL = Object.freeze({
   MANUTENCAO_RETORNO: (statusAtual) => statusAtual === 'EM_MANUTENCAO',
   DEVOLUCAO: (statusAtual) => statusAtual === 'EMPRESTADO',
   MANUTENCAO_ENVIO: (statusAtual) => statusAtual !== 'EM_MANUTENCAO' && statusAtual !== 'EMPRESTADO',
   EMPRESTIMO: (statusAtual) => statusAtual !== 'EMPRESTADO' && statusAtual !== 'EM_MANUTENCAO',
+  FORMATACAO: (statusAtual) => PERMITIDOS_FORMATACAO.includes(statusAtual),
 });
 
 export const TIPOS_MOVIMENTO = Object.freeze(Object.keys(TIPO_PARA_STATUS_ALVO));
 export const STATUS_EQUIPAMENTO = Object.freeze([
-  'DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO',
+  'DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','FORMATADO','DOADO',
 ]);
 
 export function validarTransicaoStatus(statusAtual, tipoMovimento, opcoes) {

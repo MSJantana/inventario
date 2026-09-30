@@ -272,25 +272,97 @@ export default function RelatorioMovimentacoesPage() {
       const usuarioLbl = usuarioId === 'ALL'
         ? 'Todos'
         : usuarios.find((u) => u.id === usuarioId)?.nome || usuarioId
-      const periodoLbl = periodoInicio && periodoFim
-        ? `${formatDate(periodoInicio)} a ${formatDate(periodoFim)}`
-        : periodoInicio
-          ? `De ${formatDate(periodoInicio)}`
-          : periodoFim
-            ? `Até ${formatDate(periodoFim)}`
-            : 'Todo período'
+      let periodoLbl: string
+      if (periodoInicio && periodoFim) {
+        periodoLbl = `${formatDate(periodoInicio)} a ${formatDate(periodoFim)}`
+      } else if (periodoInicio) {
+        periodoLbl = `De ${formatDate(periodoInicio)}`
+      } else if (periodoFim) {
+        periodoLbl = `Até ${formatDate(periodoFim)}`
+      } else {
+        periodoLbl = 'Todo período'
+      }
+
+      let estornadoLbl: string
+      if (estornado === 'true') {
+        estornadoLbl = 'Sim'
+      } else if (estornado === 'false') {
+        estornadoLbl = 'Não'
+      } else {
+        estornadoLbl = ''
+      }
 
       const logoTopHtml = logoTopData
-        ? `<img src="${logoTopData}" alt="Logo ASRS" style="height:40px;object-fit:contain;" />`
-        : `<div style="height:40px;width:110px;display:flex;align-items:center;justify-content:center;border-radius:8px;background-color:#050B1A;color:#fff;font-weight:700;font-size:12px;">ASRS</div>`
+        ? `<img src="${logoTopData}" alt="Logo ASRS" style="height:28px;object-fit:contain;" />`
+        : `<div style="height:28px;width:80px;display:flex;align-items:center;justify-content:center;border-radius:8px;background-color:#050B1A;color:#fff;font-weight:700;font-size:10px;">ASRS</div>`
 
       const logoBottomHtml = logoBottomData
-        ? `<img src="${logoBottomData}" alt="Logo EA" style="height:40px;object-fit:contain;" />`
-        : `<div style="height:40px;width:110px;display:flex;align-items:center;justify-content:center;border-radius:8px;background-color:#0f172a;color:#fff;font-weight:700;font-size:11px;">EA</div>`
+        ? `<img src="${logoBottomData}" alt="Logo EA" style="height:28px;object-fit:contain;" />`
+        : `<div style="height:28px;width:80px;display:flex;align-items:center;justify-content:center;border-radius:8px;background-color:#0f172a;color:#fff;font-weight:700;font-size:10px;">EA</div>`
 
       const escape = (v: unknown): string => {
         if (v == null) return ''
-        const text = typeof v === 'string' ? v : String(v)
+        if (typeof v === 'string') {
+          return v
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+        }
+        if (typeof v === 'number' || typeof v === 'boolean') {
+          return String(v)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+        }
+        if (typeof v === 'bigint') {
+          return v.toString(10)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+        }
+        let text = ''
+        try {
+          text = JSON.stringify(v) ?? ''
+        } catch {
+          if (v instanceof Date) text = v.toISOString()
+          else if (Array.isArray(v)) {
+            const joined: string[] = []
+            for (const x of v) {
+              if (x == null) joined.push('')
+              else if (typeof x === 'string') joined.push(x)
+              else if (typeof x === 'number' || typeof x === 'boolean') joined.push(String(x))
+              else if (typeof x === 'bigint') joined.push(x.toString(10))
+              else if (typeof x === 'object') joined.push(JSON.stringify(x) ?? '')
+              else joined.push('')
+            }
+            text = joined.join(', ')
+          } else if (typeof v === 'symbol') {
+            text = v.description ?? ''
+          } else if (typeof v === 'function') {
+            text = v.name || ''
+          } else if (typeof v === 'object') {
+            try { text = Object.prototype.toString.call(v) } catch { text = '' }
+            if (text === '[object Object]' || !text) {
+              const parts: string[] = []
+              for (const k of Object.keys(v as Record<string, unknown>)) {
+                const val = (v as Record<string, unknown>)[k]
+                if (val == null) {
+                  parts.push(`${String(k)}=`)
+                } else if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+                  parts.push(`${String(k)}=${String(val)}`)
+                } else if (typeof val === 'bigint') {
+                  parts.push(`${String(k)}=${val.toString(10)}`)
+                } else {
+                  try { parts.push(`${String(k)}=${JSON.stringify(val)}`) } catch { parts.push(String(k)) }
+                }
+              }
+              text = `{${parts.join(', ')}}`
+            }
+          }
+        }
         return text
           .replaceAll('&', '&amp;')
           .replaceAll('<', '&lt;')
@@ -302,52 +374,124 @@ export default function RelatorioMovimentacoesPage() {
 
       const headerHtml = headers
         .map(
-          (h) =>
-            `<th style="padding:6px 8px;border:1px solid #cbd5e1;background-color:#1f2937 !important;color:#ffffff;font-size:9px;font-weight:700;text-align:left;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${escape(h)}</th>`
+          (h) => `<th>${escape(h)}</th>`
         )
         .join('')
 
-      const rowsHtml =
-        itens.length === 0
-          ? `<tr><td colspan="${headers.length}" style="padding:14px 10px;border:1px solid #e5e7eb;text-align:center;font-size:10px;color:#64748b;">Nenhuma movimentação encontrada com os filtros aplicados.</td></tr>`
-          : itens
-              .map((m, i) => {
-                const isZebra = i % 2 === 0
-                const baseBg = m.estornado ? '#fff1f2' : isZebra ? '#ffffff' : '#f9fafb'
-                const obs =
-                  m.observacoes ||
-                  (m.manutencao?.fornecedor ? `Manutenção: ${m.manutencao.fornecedor}` : '') ||
-                  (m.doacao?.beneficiarioNome ? `Doado para: ${m.doacao.beneficiarioNome}` : '') ||
-                  '-'
-                return (
-                  `<tr style="page-break-inside:avoid;background-color:${baseBg} !important;">` +
-                  [
-                    m.dataMovimento ? formatDate(m.dataMovimento) : '-',
-                    getTipoLabel(m.tipoMovimento) + (m.estornado ? ' ⚠' : ''),
-                    m.equipamento?.nome || '-',
-                    m.equipamento?.patrimonio || '-',
-                    m.equipamento?.serial || '-',
-                    m.escola?.nome || '-',
-                    m.usuario?.nome || '-',
-                    m.origem || '-',
-                    m.destino || '-',
-                    obs,
-                  ]
-                    .map(
-                      (cell, c) =>
-                        `<td style="padding:4px 8px;border:1px solid #e5e7eb;font-size:9px;vertical-align:top;word-break:break-word;text-align:left;${
-                          m.estornado ? 'color:#b91c1c !important;' : ''
-                        }${c === 0 || c === 1 ? 'white-space:nowrap;' : ''}">${escape(cell)}</td>`
-                    )
-                    .join('') +
-                  `</tr>`
-                )
-              })
-              .join('')
+      const REGISTROS_POR_PAGINA = 40
+      const totalGeral = itens.length
+      const totalDb = total
 
-      const totalHtml = `<tr style="background-color:#ffffff !important;">
-        <td colspan="${headers.length}" style="padding:6px 8px;border-top:2px solid #475569;font-size:9px;font-weight:700;color:#0f172a;">Total exibido: ${itens.length} de ${total} registro(s)</td>
-      </tr>`
+      const chunks: typeof itens[] = []
+      if (itens.length === 0) {
+        chunks.push([])
+      } else {
+        for (let i = 0; i < itens.length; i += REGISTROS_POR_PAGINA) {
+          chunks.push(itens.slice(i, i + REGISTROS_POR_PAGINA))
+        }
+      }
+
+      const montarLinhaMov = (m: (typeof itens)[number]): string => {
+        const baseBg = m.estornado ? '#fff1f2' : ''
+        const obs =
+          m.observacoes ||
+          (m.manutencao?.fornecedor ? `Manutenção: ${m.manutencao.fornecedor}` : '') ||
+          (m.doacao?.beneficiarioNome ? `Doado para: ${m.doacao.beneficiarioNome}` : '') ||
+          '-'
+        return (
+          `<tr style="${m.estornado ? `background-color:${baseBg} !important;` : ''}">` +
+          [
+            m.dataMovimento ? formatDate(m.dataMovimento) : '-',
+            getTipoLabel(m.tipoMovimento) + (m.estornado ? ' ⚠' : ''),
+            m.equipamento?.nome || '-',
+            m.equipamento?.patrimonio || '-',
+            m.equipamento?.serial || '-',
+            m.escola?.nome || '-',
+            m.usuario?.nome || '-',
+            m.origem || '-',
+            m.destino || '-',
+            obs,
+          ]
+            .map(
+              (cell, c) =>
+                `<td style="${
+                  m.estornado ? 'color:#b91c1c !important;' : ''
+                }${c === 0 || c === 1 ? 'white-space:nowrap;' : ''}">${escape(cell)}</td>`
+            )
+            .join('') +
+          `</tr>`
+        )
+      }
+
+      const montarTbodyHtmlMov = (chunk: typeof itens): string => {
+        if (chunk.length === 0) {
+          return `<tr><td colspan="${headers.length}" style="padding:10px 6px;border:1px solid #e5e7eb;text-align:center;font-size:9px;color:#64748b;">Nenhuma movimentação encontrada com os filtros aplicados.</td></tr>`
+        }
+        return chunk.map(montarLinhaMov).join('')
+      }
+
+      const montarTotalParcialHtmlMov = (partialCount: number): string => {
+        if (totalGeral === 0) {
+          return `<tr><td colspan="${headers.length}">Total exibido: 0 de ${totalDb} registro(s)</td></tr>`
+        }
+        const multiPagina = chunks.length > 1
+        return `<tr><td colspan="${headers.length}">${
+          multiPagina
+            ? `Página: ${partialCount} registro(s) &nbsp;|&nbsp; Exibido: ${totalGeral} de ${totalDb}`
+            : `Total exibido: ${totalGeral} de ${totalDb} registro(s)`
+        }</td></tr>`
+      }
+
+      const pagesHtml = chunks
+        .map((chunk, idx) => {
+          const primeiraPagina = idx === 0
+          const ultimaPagina = idx === chunks.length - 1
+          const tbodyHtml = montarTbodyHtmlMov(chunk)
+          const totalHtml = montarTotalParcialHtmlMov(chunk.length)
+          const breakStyle = primeiraPagina
+            ? ''
+            : 'page-break-before: always; break-before: page;'
+          const paginaExtraClasses = primeiraPagina ? 'page first-page' : ultimaPagina ? 'page last-page' : 'page'
+          const pageHtml =
+`  <div class="${paginaExtraClasses}" style="${breakStyle}">
+    <div class="header">
+      <div class="header-top">
+        <div style="flex:1;"></div>
+        ${logoTopHtml}
+      </div>
+      <h1>${escape(titulo)}</h1>
+      <p class="sub">Emitido em: ${escape(emitidoEm)}</p>
+      <div class="filters">
+        <p><strong>Filtros aplicados:</strong></p>
+        <p>Período: ${escape(periodoLbl)}</p>
+        <p>Escola: ${escape(escolaLbl)}</p>
+        <p>Tipo de movimento: ${escape(tipoLbl)}</p>
+        <p>Usuário: ${escape(usuarioLbl)}</p>
+        ${patrimonio.trim() ? `<p>Patrimônio: ${escape(patrimonio)}</p>` : ''}
+        ${serial.trim() ? `<p>Nº Série: ${escape(serial)}</p>` : ''}
+        ${estornadoLbl ? `<p>Estornadas: ${escape(estornadoLbl)}</p>` : ''}
+        ${chunks.length > 1 ? `<p>Página: <strong>${idx + 1}</strong> de <strong>${chunks.length}</strong></p>` : ''}
+      </div>
+    </div>
+
+    <div class="section">
+      <table>
+        <thead><tr>${headerHtml}</tr></thead>
+        <tbody>${tbodyHtml}</tbody>
+        <tfoot>${totalHtml}</tfoot>
+      </table>
+    </div>
+    <div class="footer">
+      ${logoBottomHtml}
+      <div>
+        <p>Relatório gerado pelo Sistema de Inventário</p>
+      </div>
+      <span style="font-size:9px;color:#64748b;">Total de registros: ${totalDb}</span>
+    </div>
+  </div>`
+          return pageHtml
+        })
+        .join('\n')
 
       const html = `<!doctype html>
 <html lang="pt-BR">
@@ -355,23 +499,82 @@ export default function RelatorioMovimentacoesPage() {
 <meta charset="utf-8" />
 <title>${escape(titulo)}</title>
 <style>
-  @page { size: A4 landscape; margin: 22px 18px 46px 18px; }
+  @page { size: A4 landscape; margin: 10mm 8mm 10mm 8mm; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; color: #0f172a; background-color: #ffffff; }
-  .page { width: 100%; padding: 0; }
-  .header { margin: 0 0 18px 0; position: relative; padding: 10px 0 14px 0; border-bottom: 2px solid #cbd5e1; }
+  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; color: #0f172a; background-color: #ffffff; height: auto; }
+  body > :last-child { page-break-after: avoid !important; break-after: avoid-page !important; }
+  .page { width: 100%; padding: 0; overflow: visible !important; page-break-inside: auto !important; break-inside: auto !important; display: block !important; visibility: visible !important; opacity: 1 !important; }
+  div.page + div.page { page-break-before: always !important; break-before: page !important; }
+  div.page.last-page { page-break-after: avoid !important; break-after: avoid-page !important; }
+  .header {
+    display: block !important; visibility: visible !important; opacity: 1 !important;
+    margin: 0 0 6px 0; position: relative; padding: 4px 0 6px 0; border-bottom: 2px solid #cbd5e1;
+  }
   .header-top { display:flex; justify-content:space-between; align-items:flex-start; }
-  .header h1 { margin: 0 0 6px 0; font-size: 20px; font-weight: 800; text-align: center; }
-  .header .sub { margin: 0 0 10px 0; text-align: center; font-size: 10px; color: #475569; }
-  .filters { font-size: 9px; color: #334155; line-height: 1.55; }
+  .header h1 { margin: 0 0 2px 0; font-size: 16px; font-weight: 800; text-align: center; }
+  .header .sub { margin: 0 0 4px 0; text-align: center; font-size: 8px; color: #475569; }
+  .filters { font-size: 7.5px; color: #334155; line-height: 1.25; }
   .filters strong { color: #0f172a; }
-  .section { margin: 0; }
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .filters p { margin: 1px 0; }
+  .section { margin: 0; break-inside: auto; page-break-inside: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 0;
+    font-size: 7.5px;
+  }
+  thead {
+    display: table-header-group !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  thead th {
+    padding: 2px 5px;
+    border: 1px solid #cbd5e1;
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    text-align: left;
+    font-size: 7.5px;
+    line-height: 1.1;
+    vertical-align: middle;
+  }
+  tbody tr { page-break-inside: avoid; break-inside: avoid; }
+  tbody tr:nth-child(even) td { background-color: #f9fafb !important; }
+  tbody tr:nth-child(odd) td  { background-color: #ffffff !important; }
+  tbody td {
+    padding: 1.5px 5px;
+    border: 1px solid #e2e8f0;
+    font-size: 7.5px;
+    line-height: 1.15;
+    vertical-align: top;
+    color: #0f172a;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  tfoot {
+    display: table-footer-group !important;
+    break-before: avoid !important;
+    page-break-before: avoid !important;
+  }
+  tfoot td {
+    padding: 2px 5px;
+    border-top: 2px solid #475569;
+    font-size: 7.5px;
+    font-weight: 700;
+    color: #0f172a;
+    background-color: #ffffff !important;
+  }
   .footer {
-    position: fixed; left: 18px; right: 18px; bottom: 16px;
+    width: 100%;
+    display: block !important; visibility: visible !important; opacity: 1 !important;
+    margin-top: 4px;
+    padding-top: 2px;
+    border-top: 1px solid #cbd5e1;
     display: flex; justify-content: space-between; align-items: center;
-    padding-top: 8px; border-top: 1px solid #cbd5e1;
-    font-size: 9px; color: #64748b;
+    font-size: 7.5px; color: #64748b;
+    page-break-inside: avoid; break-inside: avoid; page-break-before: avoid; break-before: avoid-page;
   }
   thead th, tfoot td, tbody tr td, .header h1 {
     -webkit-print-color-adjust: exact !important;
@@ -380,42 +583,7 @@ export default function RelatorioMovimentacoesPage() {
 </style>
 </head>
 <body>
-<div class="page">
-  <div class="header">
-    <div class="header-top">
-      <div style="flex:1;"></div>
-      ${logoTopHtml}
-    </div>
-    <h1>${escape(titulo)}</h1>
-    <p class="sub">Emitido em: ${escape(emitidoEm)}</p>
-    <div class="filters">
-      <p><strong>Filtros aplicados:</strong></p>
-      <p>Período: ${escape(periodoLbl)}</p>
-      <p>Escola: ${escape(escolaLbl)}</p>
-      <p>Tipo de movimento: ${escape(tipoLbl)}</p>
-      <p>Usuário: ${escape(usuarioLbl)}</p>
-      ${patrimonio.trim() ? `<p>Patrimônio: ${escape(patrimonio)}</p>` : ''}
-      ${serial.trim() ? `<p>Nº Série: ${escape(serial)}</p>` : ''}
-      ${estornado !== 'ALL' ? `<p>Estornadas: ${estornado === 'true' ? 'Sim' : 'Não'}</p>` : ''}
-    </div>
-  </div>
-
-  <div class="section">
-    <table>
-      <thead><tr>${headerHtml}</tr></thead>
-      <tbody>${rowsHtml}</tbody>
-      <tfoot>${totalHtml}</tfoot>
-    </table>
-  </div>
-</div>
-
-<div class="footer">
-  ${logoBottomHtml}
-  <div>
-    <p>Relatório gerado pelo Sistema de Inventário</p>
-  </div>
-  <span style="font-size:9px;color:#64748b;">Total de registros: ${total}</span>
-</div>
+${pagesHtml}
 </body>
 </html>`
 
@@ -474,40 +642,45 @@ export default function RelatorioMovimentacoesPage() {
       iframeEl.setAttribute('marginwidth', '0')
       iframeEl.setAttribute('srcdoc', html)
       Object.assign(iframeEl.style, {
-        position: 'absolute',
-        top: '0',
-        left: '0',
+        position: 'relative',
         width: '100%',
-        height: '100%',
+        height: 'auto',
+        minHeight: '100vh',
         border: 'none',
         display: 'block',
+        overflow: 'auto',
         background: '#ffffff',
         boxSizing: 'border-box',
+        margin: '0 auto',
       })
 
       printRoot.appendChild(iframeEl)
       document.body.appendChild(printRoot)
 
       const cleanup = () => {
-        try { if (printRoot.parentNode) printRoot.parentNode.removeChild(printRoot) } catch { /* no-op */ }
-        try { if (styleEl.parentNode) styleEl.parentNode.removeChild(styleEl) } catch { /* no-op */ }
+        try { if (printRoot.parentNode) printRoot.remove() } catch { /* no-op */ }
+        try { if (styleEl.parentNode) styleEl.remove() } catch { /* no-op */ }
       }
 
       const disparar = () => {
         try {
-          window.focus()
+          const win = iframeEl.contentWindow
+          if (!win) throw new Error('IFRAME_WINDOW')
+          try { win.focus() } catch { /* no-op */ }
           setTimeout(() => {
             try {
-              window.print()
-              setTimeout(cleanup, 1800)
+              try { win.print() } catch {
+                window.print()
+              }
+              setTimeout(cleanup, 2200)
             } catch {
               showErrorToast('Não foi possível disparar a impressão. Pressione Ctrl+P.')
-              setTimeout(cleanup, 3500)
+              setTimeout(cleanup, 4500)
             }
-          }, 1700)
+          }, 1800)
         } catch {
           showErrorToast('Erro ao preparar impressão. Pressione Ctrl+P.')
-          setTimeout(cleanup, 3500)
+          setTimeout(cleanup, 4500)
         }
       }
 
@@ -521,7 +694,7 @@ export default function RelatorioMovimentacoesPage() {
       try {
         iframeEl.addEventListener('load', tentarDisparar, { once: true, passive: true })
       } catch { /* no-op */ }
-      setTimeout(tentarDisparar, 3000)
+      setTimeout(tentarDisparar, 3500)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erro desconhecido'
       showErrorToast(`Erro ao preparar impressão: ${msg}`)

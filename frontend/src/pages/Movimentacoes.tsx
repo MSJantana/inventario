@@ -51,7 +51,7 @@ type EquipamentoOption = {
 }
 type EscolaOption = { id: string; nome: string; sigla?: string }
 
-const STATUS_EQUIPAMENTO_MOV: readonly string[] = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO'] as const
+const STATUS_EQUIPAMENTO_MOV: readonly string[] = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','FORMATADO','DOADO'] as const
 
 const LABEL_STATUS_EQUIPAMENTO_MOV: Readonly<Record<string, string>> = {
   DISPONIVEL: 'Disponível',
@@ -60,6 +60,7 @@ const LABEL_STATUS_EQUIPAMENTO_MOV: Readonly<Record<string, string>> = {
   DESCARTADO: 'Descartado',
   RESERVADO: 'Reservado',
   EMPRESTADO: 'Emprestado',
+  FORMATADO: 'Formatado',
   DOADO: 'Doado',
 } as const
 
@@ -70,6 +71,7 @@ const CLASSE_BADGE_STATUS_EDIT_MOV: Readonly<Record<string, string>> = {
   DESCARTADO: 'bg-gray-100 text-gray-900 border-gray-300',
   RESERVADO: 'bg-violet-100 text-violet-900 border-violet-200',
   EMPRESTADO: 'bg-indigo-100 text-indigo-900 border-indigo-200',
+  FORMATADO: 'bg-cyan-100 text-cyan-900 border-cyan-200',
   DOADO: 'bg-rose-100 text-rose-900 border-rose-200',
 } as const
 
@@ -109,6 +111,12 @@ const LAYOUT_POR_STATUS_MOV: Readonly<Record<string, RegraLayoutStatusMov>> = {
     tituloBadge: '🤝 Em empréstimo temporário',
     descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
     severidade: 'atencao',
+    camposEditaveis: ['descricao'],
+  },
+  FORMATADO: {
+    tituloBadge: '🖥️ Recém-formatado (pronto para atribuir)',
+    descricao: 'Para preservar a trilha de auditoria e o histórico de movimentações, apenas o campo Descrição pode ser ajustado nesta edição.',
+    severidade: 'info',
     camposEditaveis: ['descricao'],
   },
   DESCARTADO: {
@@ -152,7 +160,7 @@ function podeEditarCampoEditMov(campo: string, editaveis: readonly string[]): bo
 
 const TIPOS_COMPLETOS = [
   'ENTRADA','SAIDA','TRANSFERENCIA','MANUTENCAO','DESCARTE',
-  'MANUTENCAO_ENVIO','MANUTENCAO_RETORNO','EMPRESTIMO','DEVOLUCAO','DOACAO','AJUSTE',
+  'MANUTENCAO_ENVIO','MANUTENCAO_RETORNO','FORMATACAO','EMPRESTIMO','DEVOLUCAO','DOACAO','AJUSTE',
 ] as const
 
 type TipoMovimento = (typeof TIPOS_COMPLETOS)[number]
@@ -209,7 +217,8 @@ const TIPOS_FORMULARIO: OpcaoTipoFormulario[] = [
   { value: 'AJUSTE',            label: 'Ajuste',                      categoria: 'AJUSTES',    descricao: 'Corrigir dados (estorno/inconsistência)' },
 
   { value: 'MANUTENCAO_ENVIO',  label: '🔧 Envio para Manutenção',    categoria: 'MANUTENCAO', descricao: 'Envia equipamento para fornecedor/oficina', endpoint: '/api/movimentacoes/manutencao/envio' },
-  { value: 'MANUTENCAO_RETORNO',label: '🔩 Retorno de Manutenção',    categoria: 'MANUTENCAO', descricao: 'Equipamento volta de manutenção', endpoint: '/api/movimentacoes/manutencao/retorno', statusEquipamentoPermitidos: ['EM_MANUTENCAO'] },  
+  { value: 'MANUTENCAO_RETORNO',label: '🔩 Retorno de Manutenção',    categoria: 'MANUTENCAO', descricao: 'Equipamento volta de manutenção', endpoint: '/api/movimentacoes/manutencao/retorno', statusEquipamentoPermitidos: ['EM_MANUTENCAO'] },
+  { value: 'FORMATACAO',        label: '🖥️ Formatação',                categoria: 'MANUTENCAO', descricao: 'Atualiza nome do equipamento e marca como Formatado', endpoint: '/api/movimentacoes/formatacao', statusEquipamentoPermitidos: ['DISPONIVEL','EM_USO','RESERVADO','FORMATADO'] },
   { value: 'EMPRESTIMO',        label: '🤝 Empréstimo',                categoria: 'EMPRESTIMO', descricao: 'Saída temporária para terceiros/setores', endpoint: '/api/movimentacoes/emprestimo', statusEquipamentoPermitidos: ['DISPONIVEL','EM_USO'] },
   { value: 'DEVOLUCAO',         label: '↩️ Devolução de Empréstimo',   categoria: 'EMPRESTIMO', descricao: 'Retorno de empréstimo', endpoint: '/api/movimentacoes/devolucao', statusEquipamentoPermitidos: ['EMPRESTADO'] },
   { value: 'DOACAO',            label: '❤️ Doação',                    categoria: 'DOACAO',     descricao: 'Transferência definitiva para terceiro (terminal · retira do inventário)', terminal: true, apenasAdmin: true, endpoint: '/api/movimentacoes/doacao', statusEquipamentoPermitidos: ['DISPONIVEL','EM_USO'] },
@@ -283,6 +292,11 @@ type FormDevolucao = {
   observacoesInternas: string
 }
 
+type FormFormatacao = {
+  nomeAtual: string
+  nomeFormatado: string
+}
+
 const TIPO_BADGE_CLASSES: Readonly<Record<string, string>> = {
   ENTRADA: 'bg-green-100 text-green-800',
   SAIDA: 'bg-red-100 text-red-800',
@@ -290,6 +304,7 @@ const TIPO_BADGE_CLASSES: Readonly<Record<string, string>> = {
   MANUTENCAO: 'bg-yellow-100 text-yellow-800',
   MANUTENCAO_ENVIO: 'bg-yellow-100 text-yellow-900',
   MANUTENCAO_RETORNO: 'bg-yellow-200 text-yellow-900',
+  FORMATACAO: 'bg-cyan-100 text-cyan-900',
   EMPRESTIMO: 'bg-indigo-100 text-indigo-800',
   DEVOLUCAO: 'bg-indigo-200 text-indigo-900',
   DOACAO: 'bg-rose-100 text-rose-800',
@@ -374,6 +389,10 @@ function getDevolucaoInit(): FormDevolucao {
     movimentacaoSaidaId:'', dataDevolucaoEfetiva: formatarDateTimeLocal(),
     estadoConservacaoRetorno:'BOM', statusFinal:'DISPONIVEL', observacoesInternas:''
   }
+}
+
+function getFormatacaoInit(): FormFormatacao {
+  return { nomeAtual: '', nomeFormatado: '' }
 }
 
 // =============================================================================
@@ -569,6 +588,24 @@ const montarPayloadDevolucao = (ctx: ContextoBasePayload & { f: FormDevolucao })
   }
 }
 
+const montarPayloadFormatacao = (ctx: ContextoBasePayload & { f: FormFormatacao }): ResultadoPayload => {
+  const { f } = ctx
+  if (!f.nomeFormatado.trim()) return { ok: false, falha: 'Nome após a formatação é obrigatório.' }
+  return {
+    ok: true,
+    payload: {
+      equipamentoId: ctx.equipamentoId,
+      tipoMovimento: 'FORMATACAO',
+      origem: naoVazio(ctx.origem),
+      destino: naoVazio(ctx.destino),
+      observacoes: naoVazio(ctx.descricao),
+      ajusteEquipamento: {
+        nome: f.nomeFormatado.trim(),
+      },
+    },
+  }
+}
+
 type ContextoAjuste = ContextoBasePayload & {
   ajusteDirty: boolean
   snapshotAjuste: SnapshotAjusteEquipamento | null
@@ -685,6 +722,7 @@ type ContextoMontagem = ContextoBasePayload & {
   fDoacao: FormDoacao
   fEmprestimo: FormEmprestimo
   fDevolucao: FormDevolucao
+  fFormatacao: FormFormatacao
   doacaoStep: 1 | 2
   ajusteDirty: boolean
   snapshotAjuste: SnapshotAjusteEquipamento | null
@@ -711,6 +749,10 @@ const montarPayloadPorTipo = (opcao: OpcaoTipoFormulario, ctx: ContextoMontagem)
     }
     case 'MANUTENCAO_RETORNO': {
       const r = montarPayloadManutencaoRetorno({ ...base, f: ctx.fManutRetorno })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+    case 'FORMATACAO': {
+      const r = montarPayloadFormatacao({ ...base, f: ctx.fFormatacao })
       return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
     }
     case 'DOACAO': {
@@ -778,6 +820,7 @@ export default function MovimentacoesPage() {
   const [formDoacao, setFormDoacao] = useState<FormDoacao>(() => getDoacaoInit())
   const [formEmprestimo, setFormEmprestimo] = useState<FormEmprestimo>(() => getEmprestimoInit())
   const [formDevolucao, setFormDevolucao] = useState<FormDevolucao>(() => getDevolucaoInit())
+  const [formFormatacao, setFormFormatacao] = useState<FormFormatacao>(() => getFormatacaoInit())
   const [doacaoStep, setDoacaoStep] = useState<1 | 2>(1)
   const [countdownDoacao, setCountdownDoacao] = useState<number>(3)
 
@@ -816,6 +859,7 @@ export default function MovimentacoesPage() {
     setFormDoacao(getDoacaoInit())
     setFormEmprestimo(getEmprestimoInit())
     setFormDevolucao(getDevolucaoInit())
+    setFormFormatacao(getFormatacaoInit())
     setDoacaoStep(1)
     setCountdownDoacao(3)
   }
@@ -918,12 +962,13 @@ export default function MovimentacoesPage() {
   const rotuloFiltroEquipamentos = useMemo(() => {
     const t = opcaoTipoSelecionada?.value
     switch (t) {
-      case 'ENTRADA':            return 'Exibindo apenas equipamentos EM USO'
+      case 'ENTRADA':            return 'Exibindo equipamentos EM USO ou FORMATADOS'
       case 'SAIDA':              return 'Exibindo apenas equipamentos DISPONÍVEIS'
       case 'TRANSFERENCIA':      return 'Exibindo equipamentos exceto em manutenção e descartados'
       case 'DESCARTE':           return 'Exibindo todos os equipamentos'
       case 'MANUTENCAO_ENVIO':   return 'Exibindo equipamentos disponíveis / em uso (não em manutenção ou emprestados)'
       case 'MANUTENCAO_RETORNO': return 'Exibindo apenas equipamentos EM MANUTENÇÃO'
+      case 'FORMATACAO':         return 'Exibindo equipamentos elegíveis para formatação (não em manutenção, finais ou emprestados)'
       case 'EMPRESTIMO':         return 'Exibindo equipamentos disponíveis / em uso (não em manutenção ou emprestados)'
       case 'DEVOLUCAO':          return 'Exibindo apenas equipamentos EMPRESTADOS'
       case 'DOACAO':             return 'Exibindo equipamentos exceto doados e descartados'
@@ -938,7 +983,7 @@ export default function MovimentacoesPage() {
     const semStatusDefinido = (eq: EquipamentoOption) => !eq.status
     switch (t) {
       case 'ENTRADA':
-        return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'EM_USO')
+        return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'EM_USO' || eq.status === 'FORMATADO')
       case 'SAIDA':
         return equipamentos.filter(eq => semStatusDefinido(eq) || eq.status === 'DISPONIVEL')
       case 'TRANSFERENCIA':
@@ -947,6 +992,7 @@ export default function MovimentacoesPage() {
         return equipamentos
       case 'MANUTENCAO_ENVIO':
       case 'EMPRESTIMO':
+      case 'FORMATACAO':
         return equipamentos.filter(eq =>
           semStatusDefinido(eq) ||
           (eq.status !== 'EM_MANUTENCAO' && eq.status !== 'EMPRESTADO' && eq.status !== 'DESCARTADO' && eq.status !== 'DOADO')
@@ -1069,6 +1115,17 @@ export default function MovimentacoesPage() {
     }
   }, [opcaoTipoSelecionada, equipamentoId, extrairSnapshotAjuste, snapshotAjuste, ajusteEquip.id, ajusteDirty])
 
+  useEffect(() => {
+    if (opcaoTipoSelecionada?.value !== 'FORMATACAO') return
+    if (!equipamentoId) {
+      if (formFormatacao.nomeAtual !== '' || formFormatacao.nomeFormatado !== '') setFormFormatacao(getFormatacaoInit())
+      return
+    }
+    if (formFormatacao.nomeAtual) return
+    const eq = equipamentos.find(e => e.id === equipamentoId)
+    if (eq?.nome) setFormFormatacao({ nomeAtual: eq.nome, nomeFormatado: eq.nome })
+  }, [opcaoTipoSelecionada, equipamentoId, equipamentos, formFormatacao.nomeAtual, formFormatacao.nomeFormatado])
+
   const handleEquipamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value
     setEquipamentoId(selectedId)
@@ -1084,6 +1141,9 @@ export default function MovimentacoesPage() {
         setOrigem(selectedEquip.localizacao)
       } else {
         setOrigem('')
+      }
+      if (opcaoTipoSelecionada?.value === 'FORMATACAO' && selectedEquip?.nome) {
+        setFormFormatacao({ nomeAtual: selectedEquip.nome, nomeFormatado: selectedEquip.nome })
       }
     }
   }
@@ -1141,6 +1201,7 @@ export default function MovimentacoesPage() {
       fDoacao: formDoacao,
       fEmprestimo: formEmprestimo,
       fDevolucao: formDevolucao,
+      fFormatacao: formFormatacao,
       doacaoStep,
       ajusteDirty,
       snapshotAjuste,
@@ -1965,6 +2026,46 @@ export default function MovimentacoesPage() {
                 <div className="xl:col-span-2">
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="m_obsr">Observações gerais</label>
                   <textarea id="m_obsr" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200" value={formManutRetorno.observacoes} onChange={(e) => setFormManutRetorno({ ...formManutRetorno, observacoes: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {opcaoTipoSelecionada?.value === 'FORMATACAO' && (
+            <div className="xl:col-span-12 mt-4 overflow-hidden rounded-2xl border-2 border-cyan-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-cyan-200 bg-cyan-50/80 px-5 py-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-100 text-xl" aria-hidden>🖥️</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-cyan-900">Formatação</h3>
+                  <p className="text-xs text-cyan-800/80">Registre o nome <strong>antes</strong> e o nome <strong>após</strong> a formatação. Status passará para <strong>FORMATADO</strong>.</p>
+                </div>
+              </div>
+              <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                <div className="xl:col-span-4 rounded-xl border border-cyan-200 bg-cyan-50/60 p-4">
+                  <p className="flex items-start gap-2 text-xs font-medium text-cyan-900">
+                    <span aria-hidden>ℹ️</span>
+                    <span>Após confirmação, o equipamento receberá status <strong className="font-bold">FORMATADO</strong> e estará pronto para nova atribuição. Apenas o nome (campo "após formatação") será alterado no cadastro.</span>
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="fmt_origem" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Origem</label>
+                  <input id="fmt_origem" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-400" value={origem} readOnly title="Origem automática pela localização atual do equipamento" />
+                </div>
+                <div>
+                  <label htmlFor="fmt_destino" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600">Destino / Local pós-formatação</label>
+                  <input id="fmt_destino" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-400" value={destino} onChange={(e) => setDestino(e.target.value)} placeholder="Ex: Estoque de prontos, Laboratório, etc." />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="fmt_nome_atual">Nome (antes da formatação)</label>
+                  <input id="fmt_nome_atual" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-400" value={formFormatacao.nomeAtual} readOnly placeholder="Nome original do equipamento (preenchido automaticamente)" title="Nome original do equipamento — preenchido automaticamente" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="fmt_nome_formatado">Nome (após formatação) <span className="text-red-600">*</span></label>
+                  <input id="fmt_nome_formatado" className="w-full rounded-lg border border-cyan-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-200" value={formFormatacao.nomeFormatado} onChange={(e) => setFormFormatacao({ ...formFormatacao, nomeFormatado: e.target.value })} placeholder="Ex: Dell OptiPlex 7090 - Formatado Win11 Pro 24H2" />
+                </div>
+                <div className="xl:col-span-4">
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="fmt_obs">Observações (opcional)</label>
+                  <textarea id="fmt_obs" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-200" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Imagem usada, partição EFI, drivers instalados, softwares pré-instalados, serial de ativação Windows, etc." />
                 </div>
               </div>
             </div>
