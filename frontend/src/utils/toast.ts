@@ -125,12 +125,14 @@ export const showCustomToast = (
     style?: React.CSSProperties;
   }
 ) => {
+  const defaultStyle: React.CSSProperties = toastTheme.toastOptions?.style || {}
+  const overrideStyle: React.CSSProperties = options?.style || {}
   return toast(message, {
     duration: options?.duration || 4000,
     icon: options?.icon,
     style: {
-      ...(toastTheme.toastOptions?.style || {}),
-      ...options?.style,
+      ...defaultStyle,
+      ...overrideStyle,
     },
   });
 };

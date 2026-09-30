@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, Save, RotateCcw, AlertTriangle, Barcode, FileUp, 
 import Pagination from '../components/Pagination'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
-import { getValidityYears, getBloquearEditarExcluirDoado, getChromebookImportEnabled } from '../services/settings'
+import { getValidityYears, getBloquearEditarExcluirDoado, getChromebookImportEnabled, getEditarEnabled } from '../services/settings'
 import { useAppStore } from '../store/useAppStore'
 import EquipmentIdCard from '../components/EquipmentIdCard'
 import {
@@ -22,7 +22,7 @@ import ChromeosUploadPanel from '../components/chromeos/ChromeosUploadPanel'
 import ChromeosPreviewTable from '../components/chromeos/ChromeosPreviewTable'
 import ChromeosResultPanel from '../components/chromeos/ChromeosResultPanel'
 
-const STATUS_EQUIPAMENTO: readonly string[] = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO'] as const
+const STATUS_EQUIPAMENTO: readonly string[] = ['DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','FORMATADO','DOADO'] as const
 
 const LABEL_STATUS_EQUIPAMENTO: Readonly<Record<string, string>> = {
   DISPONIVEL: 'Disponível',
@@ -31,6 +31,7 @@ const LABEL_STATUS_EQUIPAMENTO: Readonly<Record<string, string>> = {
   DESCARTADO: 'Descartado',
   RESERVADO: 'Reservado',
   EMPRESTADO: 'Emprestado',
+  FORMATADO: 'Formatado',
   DOADO: 'Doado',
 } as const
 
@@ -41,6 +42,7 @@ const CLASSE_BADGE_STATUS_EDIT: Readonly<Record<string, string>> = {
   DESCARTADO: 'bg-gray-100 text-gray-900 border-gray-300',
   RESERVADO: 'bg-violet-100 text-violet-900 border-violet-200',
   EMPRESTADO: 'bg-indigo-100 text-indigo-900 border-indigo-200',
+  FORMATADO: 'bg-cyan-100 text-cyan-900 border-cyan-200',
   DOADO: 'bg-rose-100 text-rose-900 border-rose-200',
 } as const
 
@@ -87,6 +89,13 @@ const LAYOUT_POR_STATUS: Readonly<Record<string, RegraLayoutStatus>> = {
     severidade: 'atencao',
     statusPermitidosMudanca: ['EMPRESTADO','DISPONIVEL','EM_USO'],
     camposEditaveis: ['status','localizacao','processador','memoria','macaddress','fabricante','modelo','observacoes'],
+  },
+  FORMATADO: {
+    tituloBadge: '🖥️ Recém-formatado (pronto para atribuir)',
+    descricao: 'Equipamento recém-formatado e pronto para nova atribuição. Permite editar todos os dados de identificação para preparo.',
+    severidade: 'info',
+    statusPermitidosMudanca: ['FORMATADO','DISPONIVEL','EM_USO','EM_MANUTENCAO','RESERVADO','EMPRESTADO','DESCARTADO','DOADO'],
+    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','dataAquisicao','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
   },
   DESCARTADO: {
     tituloBadge: '🗑️ Descartado (terminal)',
@@ -586,11 +595,13 @@ export default function EquipamentosPage() {
   } = chromeos
 
   const bloquearEditarExcluirDoado = getBloquearEditarExcluirDoado()
+  const editarEnabled = getEditarEnabled()
   const statusDoEquipamento = (e: Equipamento): string => (e.statusEquipamento || e.status || '').toUpperCase()
   const eDoado = (e: Equipamento): boolean => statusDoEquipamento(e) === 'DOADO'
   const podeEditarEquipamentoBase = userRole === 'ADMIN' || userRole === 'GESTOR' || userRole === 'TECNICO'
   const podeExcluirEquipamentoBase = userRole === 'ADMIN' || userRole === 'GESTOR'
   const podeEditarEquipamentoFn = (e: Equipamento): boolean => {
+    if (!editarEnabled) return false
     if (!podeEditarEquipamentoBase) return false
     if (bloquearEditarExcluirDoado && eDoado(e)) return false
     return true
@@ -600,7 +611,7 @@ export default function EquipamentosPage() {
     if (bloquearEditarExcluirDoado && eDoado(e)) return false
     return true
   }
-  const podeEditarEquipamento = podeEditarEquipamentoBase
+  const podeEditarEquipamento = podeEditarEquipamentoBase && editarEnabled
   const podeExcluirEquipamento = podeExcluirEquipamentoBase
 
   const keyOfMapeamento = (row: WinAuditMapeamentoWizard, idx: number) => {
@@ -921,9 +932,12 @@ export default function EquipamentosPage() {
 
   function startEdit(e: Equipamento) {
     if (!podeEditarEquipamentoFn(e)) {
-      const msg = eDoado(e) && bloquearEditarExcluirDoado
-        ? 'Este equipamento está DOADO e não pode ser editado. Ajuste a configuração "Bloquear Editar e Excluir equipamentos Doados" para permitir.'
-        : 'Você não tem permissão para editar equipamentos.'
+      let msg = 'Você não tem permissão para editar equipamentos.'
+      if (!editarEnabled) {
+        msg = 'A edição de equipamentos está DESATIVADA. Ative "Habilitar botão Editar" nas Configurações para permitir ajustes.'
+      } else if (eDoado(e) && bloquearEditarExcluirDoado) {
+        msg = 'Este equipamento está DOADO e não pode ser editado. Ajuste a configuração "Bloquear Editar e Excluir equipamentos Doados" para permitir.'
+      }
       showWarningToast(msg)
       return
     }
@@ -1104,7 +1118,10 @@ export default function EquipamentosPage() {
           <div>
             <label htmlFor="filterStatus" className="mb-1 block text-sm font-medium">Status</label>
             <select id="filterStatus" className="w-full rounded border px-3 py-2" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1) }}>
-              {['ALL','DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO'].map(s => <option key={s} value={s}>{s === 'ALL' ? 'Todos' : s}</option>)}
+              {(['ALL', ...STATUS_EQUIPAMENTO] as readonly string[]).map((s: string) => {
+                const lbl = s === 'ALL' ? 'Todos' : (LABEL_STATUS_EQUIPAMENTO[s] || s)
+                return <option key={s} value={s}>{lbl}</option>
+              })}
             </select>
           </div>
           <div>

@@ -108,7 +108,7 @@ export const usuarioPodeAtuarNoEquipamento = (usuario, equipamento) => {
  */
 
 const STATUS_EQUIPAMENTO_VALIDOS = Object.freeze([
-  'DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','DOADO',
+  'DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','RESERVADO','EMPRESTADO','FORMATADO','DOADO',
 ]);
 
 const CAMPOS_PERMITIDOS_AJUSTE = Object.freeze([
@@ -233,6 +233,29 @@ const montarUpdateAjuste = (dadosMov) => {
   return updates;
 };
 
+const montarUpdateFormatacao = (dadosMov) => {
+  const updates = {};
+  const aj = dadosMov.ajusteEquipamento;
+  if (!aj || typeof aj !== 'object') {
+    throw classErrorApp('Campo ajusteEquipamento é obrigatório para formatação.', 400, 'FORMATACAO_CAMPOS_EXTRA');
+  }
+  const chaves = Object.keys(aj);
+  const possuiApenasNome = chaves.length === 1 && chaves[0] === 'nome';
+  if (!possuiApenasNome) {
+    throw classErrorApp(
+      'Formatação permite alterar apenas o nome do equipamento. Campos recebidos: ' + chaves.join(', ') + '.',
+      400,
+      'FORMATACAO_CAMPOS_EXTRA',
+    );
+  }
+  const nome = String(aj.nome || '').trim();
+  if (!nome) {
+    throw classErrorApp('Nome do equipamento é obrigatório para formatação.', 400, 'FORMATACAO_NOME_VAZIO');
+  }
+  updates.nome = nome;
+  return updates;
+};
+
 const montarUpdatePorTipo = (equipamentoAtual, tipoMovimento, dadosMov) => {
   switch (tipoMovimento) {
     case 'TRANSFERENCIA': return montarUpdateTransferencia(equipamentoAtual, dadosMov);
@@ -240,6 +263,7 @@ const montarUpdatePorTipo = (equipamentoAtual, tipoMovimento, dadosMov) => {
     case 'DEVOLUCAO': return montarUpdateDevolucao(equipamentoAtual);
     case 'SAIDA': return montarUpdateSaida(dadosMov);
     case 'AJUSTE': return montarUpdateAjuste(dadosMov);
+    case 'FORMATACAO': return montarUpdateFormatacao(dadosMov);
     default: return {};
   }
 };
@@ -711,6 +735,11 @@ export const criarTransferencia = async (body, usuario) => {
   }
   return criarMovimentacao(dados, usuario);
 };
+export const criarFormatacao = async (body, usuario) => {
+  const dados = normalizarDadosMov(body);
+  dados.tipoMovimento = 'FORMATACAO';
+  return criarMovimentacao(dados, usuario);
+};
 
 /**
  * Listar movimentações com filtros do relatório.
@@ -813,6 +842,7 @@ const MovimentacaoService = {
   criarDevolucao,
   criarDoacao,
   criarTransferencia,
+  criarFormatacao,
   listarMovimentacoesRelatorio,
   montarWhereFiltros,
   montarSnapshot,

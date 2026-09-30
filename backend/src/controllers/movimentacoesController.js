@@ -19,6 +19,7 @@ import {
   criarDevolucao,
   criarDoacao,
   criarTransferencia,
+  criarFormatacao,
   listarMovimentacoesRelatorio,
   montarWhereFiltros,
   getPrisma,
@@ -213,6 +214,7 @@ const handlerEspecializado = (fn) => async (req, res, next) => {
 
 export const postManutencaoEnvio = handlerEspecializado(criarManutencaoEnvio);
 export const postManutencaoRetorno = handlerEspecializado(criarManutencaoRetorno);
+export const postFormatacao = handlerEspecializado(criarFormatacao);
 export const postEmprestimo = handlerEspecializado(criarEmprestimo);
 export const postDevolucao = handlerEspecializado(criarDevolucao);
 export const postDoacao = handlerEspecializado(criarDoacao);
@@ -268,6 +270,7 @@ export default {
   excluirMovimentacao,
   postManutencaoEnvio,
   postManutencaoRetorno,
+  postFormatacao,
   postEmprestimo,
   postDevolucao,
   postDoacao,

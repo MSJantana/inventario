@@ -357,27 +357,34 @@ export default function RelatorioEquipamentoPage() {
 <meta charset="utf-8" />
 <title>Relatório do equipamento - ${equipamentoNome.replaceAll('"', '&quot;')}</title>
 <style>
-  @page { size: A4; margin: 22px 22px 46px 22px; }
+  @page { size: A4; margin: 14mm 14mm 14mm 14mm; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; color: #0f172a; background-color: #ffffff; }
+  html, body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; color: #0f172a; background-color: #ffffff; height: auto; }
   body { padding: 0; }
+  body > :last-child { page-break-after: avoid !important; break-after: avoid-page !important; }
   .page { width: 100%; padding: 0; }
-  .header { margin: 0 0 18px 0; padding: 18px 20px; border-radius: 12px; background-color: #0f172a !important; color: #ffffff; break-inside: avoid; }
-  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .header {
+    display: block !important; visibility: visible !important; opacity: 1 !important;
+    break-after: avoid-page !important; page-break-after: avoid !important;
+    margin: 0 0 12px 0; padding: 12px 16px; border-radius: 12px; background-color: #0f172a !important; color: #ffffff; break-inside: avoid;
+  }
+  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .header-kicker { font-size: 10px; color: #94a3b8; letter-spacing: 1.2px; text-transform: uppercase; margin: 0; }
-  .header-title { margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #ffffff; }
-  .header-meta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .header-title { margin: 6px 0 0 0; font-size: 20px; font-weight: 800; color: #ffffff; }
+  .header-meta { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
   .badge { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 700; background-color: #1e293b !important; color: #e2e8f0; text-transform: uppercase; letter-spacing: 0.4px; }
-  .section { margin: 0 0 18px 0; padding: 18px 20px; border-radius: 12px; background-color: #ffffff !important; border: 1px solid #e2e8f0; break-inside: avoid; }
-  .section-title { margin: 0 0 14px 0; font-size: 16px; font-weight: 800; color: #0f172a; }
-  .grid { display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; }
+  .section { margin: 0 0 12px 0; padding: 12px 16px; border-radius: 12px; background-color: #ffffff !important; border: 1px solid #e2e8f0; break-inside: avoid; }
+  .section-title { margin: 0 0 10px 0; font-size: 14px; font-weight: 800; color: #0f172a; }
+  .grid { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; }
   .footer {
-    position: fixed;
-    left: 22px; right: 22px; bottom: 16px;
-    display: flex; justify-content: space-between; align-items: center;
-    padding-top: 8px;
+    width: 100%;
+    display: block !important; visibility: visible !important; opacity: 1 !important;
+    margin-top: 14px;
+    padding-top: 6px;
     border-top: 1px solid #cbd5e1;
+    display: flex; justify-content: space-between; align-items: center;
     font-size: 9px; color: #64748b;
+    page-break-inside: avoid; break-inside: avoid; page-break-before: avoid; break-before: avoid-page; orphans: 6; widows: 6;
   }
   .footer-left { display: flex; align-items: center; }
   body, .header, .badge, .section {
@@ -416,14 +423,13 @@ export default function RelatorioEquipamentoPage() {
     <h2 class="section-title">Histórico do equipamento</h2>
     ${historicoHtml}
   </div>
-</div>
-
-<div class="footer">
-  <div class="footer-left">
-    ${logoBottomHtml}
-    <span>Sistema de Inventário • Relatório do equipamento</span>
+  <div class="footer">
+    <div class="footer-left">
+      ${logoBottomHtml}
+      <span>Sistema de Inventário • Relatório do equipamento</span>
+    </div>
+    <span id="pg-info"></span>
   </div>
-  <span id="pg-info"></span>
 </div>
 </body>
 </html>`
@@ -486,15 +492,16 @@ export default function RelatorioEquipamentoPage() {
     iframeEl.setAttribute('marginwidth', '0')
     iframeEl.setAttribute('srcdoc', html)
     Object.assign(iframeEl.style, {
-      position: 'absolute',
-      top: '0',
-      left: '0',
+      position: 'relative',
       width: '100%',
-      height: '100%',
+      height: 'auto',
+      minHeight: '100vh',
       border: 'none',
       display: 'block',
+      overflow: 'auto',
       background: '#ffffff',
       boxSizing: 'border-box',
+      margin: '0 auto',
     })
 
     printRoot.appendChild(iframeEl)
@@ -502,12 +509,12 @@ export default function RelatorioEquipamentoPage() {
 
     const cleanup = () => {
       try {
-        if (printRoot.parentNode) printRoot.parentNode.removeChild(printRoot)
+        if (printRoot.parentNode) printRoot.remove()
       } catch {
         // no-op
       }
       try {
-        if (styleEl.parentNode) styleEl.parentNode.removeChild(styleEl)
+        if (styleEl.parentNode) styleEl.remove()
       } catch {
         // no-op
       }

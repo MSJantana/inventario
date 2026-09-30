@@ -7,6 +7,7 @@ import {
   excluirMovimentacao,
   postManutencaoEnvio,
   postManutencaoRetorno,
+  postFormatacao,
   postEmprestimo,
   postDevolucao,
   postDoacao,
@@ -31,6 +32,7 @@ router.get('/relatorio', auth, getRelatorio);
 // Escopo de escola já validado no service (usuarioPodeAtuarNoEquipamento).
 router.post('/manutencao/envio', auth, csrfProtect, permitRoles('ADMIN', 'GESTOR', 'TECNICO'), postManutencaoEnvio);
 router.post('/manutencao/retorno', auth, csrfProtect, permitRoles('ADMIN', 'GESTOR', 'TECNICO'), postManutencaoRetorno);
+router.post('/formatacao', auth, csrfProtect, permitRoles('ADMIN', 'GESTOR', 'TECNICO'), postFormatacao);
 router.post('/emprestimo', auth, csrfProtect, permitRoles('ADMIN', 'GESTOR'), postEmprestimo);
 router.post('/devolucao', auth, csrfProtect, permitRoles('ADMIN', 'GESTOR', 'TECNICO'), postDevolucao);
 router.post('/doacao', auth, csrfProtect, permitRoles('ADMIN'), postDoacao); // Doação requer ADMIN
