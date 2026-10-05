@@ -611,7 +611,6 @@ export default function EquipamentosPage() {
     if (bloquearEditarExcluirDoado && eDoado(e)) return false
     return true
   }
-  const podeEditarEquipamento = podeEditarEquipamentoBase && editarEnabled
   const podeExcluirEquipamento = podeExcluirEquipamentoBase
 
   const keyOfMapeamento = (row: WinAuditMapeamentoWizard, idx: number) => {
@@ -1101,7 +1100,7 @@ export default function EquipamentosPage() {
           <h2 className="text-lg font-medium">Equipamentos</h2>
           <div className="flex items-center gap-2">
             {loading && <span className="text-sm text-gray-500">Carregando...</span>}
-            {!showCreate && podeEditarEquipamento && (
+            {!showCreate && podeEditarEquipamentoBase && (
               <button type="button" aria-label="Criar novo equipamento" className="rounded bg-green-600 px-3 py-1.5 text-white hover:bg-green-700 flex items-center gap-1" onClick={() => setShowCreate(true)}>
                 <Plus size={16} aria-hidden="true" />
                 <span>Criar equipamento</span>
