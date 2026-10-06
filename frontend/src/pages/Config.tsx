@@ -116,8 +116,7 @@ export default function ConfigPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium leading-6 text-gray-900">Habilitar botão Editar</p>
                 <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                  Quando <strong>desativado</strong> (padrão), os botões <strong>Editar</strong> são ocultados nas telas de
-                  Equipamentos e Movimentações. Ative apenas temporariamente para ajustes pontuais em registros existentes.
+                  Ligado por padrão, exibe os botões <strong>Editar</strong> nas telas de Equipamentos e Movimentações para os perfis autorizados. Desative para ocultá-los.
                 </p>
               </div>
               <button

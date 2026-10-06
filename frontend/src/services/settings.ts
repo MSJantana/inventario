@@ -1,7 +1,7 @@
 export const DEFAULT_VALIDITY_YEARS = 5;
 export const DEFAULT_BLOQUEAR_EDITAR_EXCLUIR_DOADO = true;
 export const DEFAULT_CHROMEBOOK_IMPORT_ENABLED = true;
-export const DEFAULT_EDITAR_ENABLED = false;
+export const DEFAULT_EDITAR_ENABLED = true;
 export const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.2.8';
 
 export function getValidityYears(): number {
