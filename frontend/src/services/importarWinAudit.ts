@@ -22,6 +22,11 @@ export async function confirmarImportacaoWinAudit(
   return resp.data as WinAuditConfirmarResponse
 }
 
+export async function atualizarEquipamentoWinAudit(previewId: string, fields: readonly string[]) {
+  const resp = await api.post('/api/equipamentos/importar/winaudit/atualizar', { previewId, fields })
+  return resp.data as { status: string; operation: string; equipamento: Readonly<Record<string, unknown>>; camposAtualizados: readonly { field: string; previousValue: string; newValue: string }[] }
+}
+
 export interface ImportarWinAuditService {
   readonly gerarPreview: typeof gerarPreviewWinAudit
   readonly confirmar: typeof confirmarImportacaoWinAudit

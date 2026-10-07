@@ -28,6 +28,13 @@ router.post(
   permitRoles('ADMIN', 'GESTOR', 'TECNICO'),
   winauditImportController.importarWinAuditConfirmar,
 );
+router.post(
+  '/importar/winaudit/atualizar',
+  auth,
+  csrfProtect,
+  permitRoles('ADMIN', 'GESTOR', 'TECNICO'),
+  winauditImportController.atualizarEquipamentoWinAudit,
+);
 router.get(
   '/importar/winaudit/logs',
   auth,

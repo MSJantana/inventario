@@ -10,6 +10,7 @@ import EquipmentIdCard from '../components/EquipmentIdCard'
 import {
   gerarPreviewWinAudit,
   confirmarImportacaoWinAudit,
+  atualizarEquipamentoWinAudit,
 } from '../services/importarWinAudit'
 import type {
   WinAuditPreviewResponse,
@@ -536,6 +537,7 @@ export default function EquipamentosPage() {
   const [winauditPreview, setWinauditPreview] = useState<WinAuditPreviewResponse | null>(null)
   const [winauditConfirming, setWinauditConfirming] = useState(false)
   const [winauditIgnorarDuplicidade, setWinauditIgnorarDuplicidade] = useState(false)
+  const [winauditSelectedFields, setWinauditSelectedFields] = useState<string[]>([])
   const [winauditWizardStep, setWinauditWizardStep] = useState<1 | 2 | 3>(1)
   const winauditWizardTimerRef = useRef<number | null>(null)
   const winauditFileRef = useRef<HTMLInputElement | null>(null)
@@ -771,6 +773,33 @@ export default function EquipamentosPage() {
       setWinauditFluxo('review')
       showInfoToast('Dados carregados. Revise e corrija as informações antes de confirmar.')
       window.setTimeout(() => nomeInputRef.current?.focus(), 50)
+      return
+    }
+    if (winauditPreview.existing) {
+      const selecionados = winauditSelectedFields
+      if (!selecionados.length) return
+      showConfirmToast(
+        'Confirmar atualização do equipamento? Os campos selecionados serão substituídos pelos dados encontrados no arquivo WinAudit. Os demais campos permanecerão inalterados.',
+        () => {
+          void (async () => {
+            try {
+              setWinauditConfirming(true)
+              const resultado = await atualizarEquipamentoWinAudit(winauditPreview.previewId, selecionados)
+              showSuccessToast(`Equipamento atualizado com sucesso. ${resultado.camposAtualizados.length} campos foram atualizados.`)
+              clearWinauditState()
+              setWinauditSelectedFields([])
+              setShowCreate(false)
+              await carregar()
+            } catch (e: unknown) {
+              showErrorToast(formatarMensagemErro(e, 'Falha ao atualizar equipamento.'))
+            } finally {
+              setWinauditConfirming(false)
+            }
+          })()
+        },
+        undefined,
+        { confirmText: 'Confirmar atualização', cancelText: 'Cancelar', duration: 15000 },
+      )
       return
     }
     if (!nome.trim() || !modelo.trim() || !serial.trim() || !dataAquisicao || !usuarioNome.trim()) {
@@ -1478,6 +1507,19 @@ export default function EquipamentosPage() {
               </div>
             </header>
 
+            {winauditPreview.existing && (
+              <section className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                <h4 className="font-semibold text-blue-950">{winauditPreview.hasChanges ? 'Atualizações encontradas' : 'Equipamento já cadastrado e atualizado'}</h4>
+                <p className="my-2 text-sm text-blue-900">{winauditPreview.hasChanges ? 'Revise as diferenças e escolha os campos que deseja atualizar.' : 'Os dados encontrados no arquivo WinAudit correspondem ao cadastro. Nenhuma atualização é necessária.'}</p>
+                <p className="mb-3 text-xs text-blue-900">{String(winauditPreview.currentEquipment?.nome ?? '')} · Patrimônio: {String(winauditPreview.currentEquipment?.patrimonio ?? '—')} · Serial: {String(winauditPreview.currentEquipment?.serial ?? '—')} · MAC: {String(winauditPreview.currentEquipment?.macaddress ?? '—')} · Status: {String(winauditPreview.currentEquipment?.status ?? '—')}</p>
+                <div className="overflow-x-auto rounded-lg border bg-white">
+                  <table className="min-w-full text-sm"><thead><tr className="bg-slate-100 text-left"><th className="p-2">Atualizar</th><th className="p-2">Campo</th><th className="p-2">Valor atual</th><th className="p-2">WinAudit</th><th className="p-2">Situação</th></tr></thead>
+                    <tbody>{(winauditPreview.fields ?? []).map((campo) => <tr key={campo.field} className="border-t"><td className="p-2">{campo.status !== 'UNCHANGED' && <input type="checkbox" aria-label={`Atualizar ${campo.label}`} checked={winauditSelectedFields.includes(campo.field)} onChange={(ev) => setWinauditSelectedFields((atual) => ev.target.checked ? [...atual, campo.field] : atual.filter((field) => field !== campo.field))} />}</td><td className="p-2">{campo.label}</td><td className="p-2">{campo.currentValue || '—'}</td><td className="p-2">{campo.importedValue}</td><td className="p-2">{campo.status === 'NEW' ? 'NOVO DADO' : campo.status === 'CHANGED' ? 'ALTERADO' : 'SEM ALTERAÇÃO'}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
             <div className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm mb-4">
               <div className="px-4 py-3 bg-amber-100/60 border-b border-amber-200 flex flex-wrap items-end justify-between gap-2">
                 <h4 className="text-sm font-semibold text-amber-900">Dados extraídos do arquivo</h4>
@@ -1800,13 +1842,14 @@ export default function EquipamentosPage() {
               type="submit"
               disabled={
                 winauditConfirming ||
-                (winauditFluxo === 'review' && winauditPreview?.bloqueioSerial && userRole !== 'ADMIN') ||
-                (winauditFluxo === 'review' && winauditPreview?.bloqueioSerial && !winauditIgnorarDuplicidade)
+                (winauditFluxo === 'review' && winauditPreview?.existing && (!winauditPreview.hasChanges || winauditSelectedFields.length === 0)) ||
+                (winauditFluxo === 'review' && !winauditPreview?.existing && winauditPreview?.bloqueioSerial && userRole !== 'ADMIN') ||
+                (winauditFluxo === 'review' && !winauditPreview?.existing && winauditPreview?.bloqueioSerial && !winauditIgnorarDuplicidade)
               }
               className="w-full sm:w-auto rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
             >
               <Save size={16} aria-hidden="true" />
-              <span>{LABEL_BOTAO_SUBMIT_POR_FLUXO[winauditFluxo]}</span>
+              <span>{winauditFluxo === 'review' && winauditPreview?.existing ? 'Atualizar dados' : LABEL_BOTAO_SUBMIT_POR_FLUXO[winauditFluxo]}</span>
             </button>
             {(winauditFluxo === 'review' || winauditFluxo === 'wizard') && (
               <button

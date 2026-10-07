@@ -1074,6 +1074,25 @@ const montarRespostaPreview = ({ log, dados, camposStatus, camposNaoEncontrados,
   };
 };
 
+const CAMPOS_WINAUDIT_ATUALIZAVEIS = Object.freeze([
+  ['nome', 'Nome'], ['usuarioNome', 'Nome do usuário'], ['fabricante', 'Fabricante'],
+  ['modelo', 'Modelo'], ['serial', 'Serial'], ['macaddress', 'MAC Address'],
+  ['processador', 'Processador'], ['memoria', 'Memória'],
+]);
+
+const valorImportavel = (valor) => {
+  if (typeof valor !== 'string') return '';
+  return valor.trim();
+};
+
+const compararEquipamentoExistente = (atual, dados) => CAMPOS_WINAUDIT_ATUALIZAVEIS.flatMap(([field, label]) => {
+  const importedValue = valorImportavel(field === 'macaddress' ? dados.macPrincipal : dados[field]);
+  if (!importedValue) return [];
+  const currentValue = atual[field] == null ? '' : String(atual[field]);
+  const status = currentValue.trim() === importedValue ? 'UNCHANGED' : currentValue.trim() ? 'CHANGED' : 'NEW';
+  return [{ field, label, currentValue, importedValue, status }];
+});
+
 export const gerarPreview = async (input) => {
   const {
     file,
@@ -1179,6 +1198,38 @@ export const gerarPreview = async (input) => {
   });
 
   const dados = montarDadosEquipamento(campos, escolaId, campos.memoria, ordenarEntriesDataAquisicao(extraidos.raw.DATA_AQUISICAO || []));
+
+  const selecionarIdInequivoco = (tipo) => {
+    const ids = [...new Set(duplicidades.duplicidades.filter((d) => d.tipo === tipo).map((d) => d.equipamentoId))];
+    return ids.length === 1 ? ids[0] : null;
+  };
+  const idEquipamentoExistente = selecionarIdInequivoco('serial')
+    || selecionarIdInequivoco('mac')
+    || selecionarIdInequivoco('nome');
+  let equipamentoExistente = null;
+  if (idEquipamentoExistente) {
+    equipamentoExistente = await prisma.equipamento.findUnique({ where: { id: idEquipamentoExistente } });
+  }
+
+  if (equipamentoExistente) {
+    const camposComparados = compararEquipamentoExistente(equipamentoExistente, dados);
+    await prisma.importacaoWinAudit.update({
+      where: { id: log.id },
+      data: { equipamentoId: equipamentoExistente.id, dadosBrutos: { ...(dadosBrutos || {}), dadosImportacao: dados } },
+    });
+    return {
+      ...montarRespostaPreview({ log, dados, camposStatus, camposNaoEncontrados: camposNaoEncontradosLista, avisos: avisosExtracao, duplicidades, extraidos, file }),
+      existing: true,
+      hasChanges: camposComparados.some((campo) => campo.status === 'NEW' || campo.status === 'CHANGED'),
+      currentEquipment: equipamentoExistente,
+      fields: camposComparados,
+    };
+  }
+
+  await prisma.importacaoWinAudit.update({
+    where: { id: log.id },
+    data: { dadosBrutos: { ...(dadosBrutos || {}), dadosImportacao: dados } },
+  });
 
   return montarRespostaPreview({
     log,
@@ -1448,6 +1499,53 @@ export const confirmarImportacao = async (input) => {
     bloqueioSerialSuperado,
     erros,
   });
+};
+
+export const atualizarEquipamentoWinAudit = async (input) => {
+  const { previewId, fields, usuario, prisma: prismaInput } = input || {};
+  const startTime = Date.now();
+  validarConfirmacaoInput(previewId);
+  if (!Array.isArray(fields) || fields.length === 0) throw Object.assign(new Error('Selecione ao menos um campo para atualizar.'), { statusCode: 400 });
+  const prisma = getPrisma(prismaInput);
+  const log = await validarPreviewExistente(prisma, previewId, usuario);
+  const ids = [...new Set((log.duplicidadesDetectadas || []).map((d) => d.equipamentoId).filter(Boolean))];
+  if (ids.length !== 1 || log.equipamentoId !== ids[0]) throw Object.assign(new Error('Não foi possível identificar um único equipamento existente.'), { statusCode: 409 });
+  const equipamento = await prisma.equipamento.findUnique({ where: { id: ids[0] } });
+  if (!equipamento) throw Object.assign(new Error('Equipamento não encontrado.'), { statusCode: 404 });
+  if (equipamento.escolaId && !hasSchoolAccess(usuario, equipamento.escolaId)) throw Object.assign(new Error('Usuário não tem acesso à escola deste equipamento.'), { statusCode: 403 });
+  const dados = log.dadosBrutos?.dadosImportacao;
+  if (!dados) throw Object.assign(new Error('Dados do preview indisponíveis. Gere o preview novamente.'), { statusCode: 409 });
+  const mapa = { nome: dados.nome, usuarioNome: dados.usuarioNome, fabricante: dados.fabricante, modelo: dados.modelo, serial: dados.serial, macaddress: dados.macPrincipal, processador: dados.processador, memoria: dados.memoria };
+  const permitidos = Object.keys(mapa);
+  if (fields.some((field) => !permitidos.includes(field))) throw Object.assign(new Error('Campo não permitido para atualização WinAudit.'), { statusCode: 400 });
+  const changes = {};
+  const historico = [];
+  for (const field of [...new Set(fields)]) {
+    const importedValue = valorImportavel(mapa[field]);
+    if (!importedValue) continue;
+    const currentValue = equipamento[field] == null ? '' : String(equipamento[field]);
+    if (currentValue.trim() === importedValue) continue;
+    changes[field] = importedValue;
+    historico.push({ field, previousValue: currentValue, newValue: importedValue, status: currentValue.trim() ? 'CHANGED' : 'NEW' });
+  }
+  if (!historico.length) throw Object.assign(new Error('Os campos selecionados não possuem alterações válidas.'), { statusCode: 409 });
+  if (changes.serial) {
+    const conflito = await prisma.equipamento.findFirst({ where: { serial: changes.serial, id: { not: equipamento.id } }, select: { id: true } });
+    if (conflito) throw Object.assign(new Error('O número de série encontrado já pertence a outro equipamento.'), { statusCode: 409 });
+  }
+  const resultado = await prisma.$transaction(async (tx) => {
+    const atualizado = await tx.equipamento.update({ where: { id: equipamento.id }, data: changes });
+    const logAtualizado = await tx.importacaoWinAudit.update({
+      where: { id: log.id }, data: {
+        status: STATUS_IMPORTACAO_ENUM.SUCESSO, equipamentoId: equipamento.id,
+        qtdCamposImportados: historico.length, duracaoMs: Date.now() - startTime,
+        camposEncontrados: { fields: historico.map((h) => h.field), operation: 'UPDATE' },
+        dadosBrutos: { ...(log.dadosBrutos || {}), updateHistory: historico, operation: 'UPDATE' },
+      },
+    });
+    return { atualizado, logAtualizado };
+  });
+  return { previewId: log.id, status: 'SUCESSO', operation: 'UPDATE', equipamento: resultado.atualizado, camposAtualizados: historico };
 };
 
 const PAGE_SIZE_MAX = 200;
@@ -1763,6 +1861,7 @@ export const obterLogPorId = async (input) => {
 export const WinAuditImportService = {
   gerarPreview,
   confirmarImportacao,
+  atualizarEquipamentoWinAudit,
   listarLogs,
   obterLogPorId,
   STATUS_CAMPO,
