@@ -61,6 +61,10 @@ export interface WinAuditPreviewResponse {
   readonly duplicidades: readonly WinAuditDuplicidadeEntry[]
   readonly possivelDuplicidade: boolean
   readonly bloqueioSerial: boolean
+  readonly existing?: boolean
+  readonly hasChanges?: boolean
+  readonly currentEquipment?: Readonly<Record<string, unknown>>
+  readonly fields?: readonly { readonly field: string; readonly label: string; readonly currentValue: string; readonly importedValue: string; readonly status: 'NEW' | 'CHANGED' | 'UNCHANGED' }[]
   readonly metadados?: {
     readonly labelsMatchCount?: number
     readonly tamanhoBytes?: number | null

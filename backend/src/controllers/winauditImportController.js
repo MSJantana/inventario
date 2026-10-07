@@ -204,6 +204,22 @@ export const importarWinAuditConfirmar = async (req, res, next) => {
   }
 };
 
+export const atualizarEquipamentoWinAudit = async (req, res, next) => {
+  try {
+    const resultado = await WinAuditImportService.atualizarEquipamentoWinAudit({
+      previewId: req.body?.previewId,
+      fields: req.body?.fields,
+      usuario: req.usuario,
+      prisma,
+    });
+    return res.status(200).json(resultado);
+  } catch (error) {
+    if (!error.code) error.code = 'WINAUDIT_UPDATE_ERROR';
+    if (!error.statusCode) error.statusCode = 500;
+    return next(error);
+  }
+};
+
 export const listarLogsImportacoes = async (req, res, next) => {
   try {
     const listagem = await WinAuditImportService.listarLogs({
@@ -240,6 +256,7 @@ export const obterLogImportacaoPorId = async (req, res, next) => {
 export default {
   importarWinAuditPreview,
   importarWinAuditConfirmar,
+  atualizarEquipamentoWinAudit,
   listarLogsImportacoes,
   obterLogImportacaoPorId,
 };
