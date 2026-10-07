@@ -18,6 +18,7 @@ import {
   TIPO_PARA_STATUS_ALVO as _TIPO_PARA_STATUS_ALVO,
   STATUS_FINAIS,
 } from '../utils/movimentacaoStatus.js';
+import { getAccessibleSchoolIds, hasSchoolAccess } from '../utils/schoolAccess.js';
 
 const { PrismaClient } = PrismaClientModule;
 let prismaCached;
@@ -95,7 +96,7 @@ export const usuarioPodeAtuarNoEquipamento = (usuario, equipamento) => {
   if (!equipamento.escolaId) {
     return { ok: false, status: 403, msg: 'Equipamento sem escola. Apenas ADMIN pode movimentar.' };
   }
-  if (usuario.escolaId && equipamento.escolaId === usuario.escolaId) return { ok: true, admin: false };
+  if (hasSchoolAccess(usuario, equipamento.escolaId)) return { ok: true, admin: false };
   return { ok: false, status: 403, msg: 'Escopo de escola violado: equipamento não pertence à sua unidade.' };
 };
 
@@ -807,8 +808,11 @@ export const listarMovimentacoesRelatorio = async (where, page, perPage) => {
 export const montarWhereFiltros = (filtros, usuario) => {
   const w = { AND: [] };
   const escolaId = filtros?.escolaId ? String(filtros.escolaId) : null;
-  if (usuario?.role !== 'ADMIN' && usuario?.escolaId) {
-    w.AND.push({ OR: [{ escolaId: usuario.escolaId }, { equipamento: { escolaId: usuario.escolaId } }] });
+  if (usuario?.role !== 'ADMIN') {
+    const escolaIds = getAccessibleSchoolIds(usuario);
+    w.AND.push(escolaIds.length
+      ? { OR: [{ escolaId: { in: escolaIds } }, { equipamento: { escolaId: { in: escolaIds } } }] }
+      : { id: '__sem_escola_acessivel__' });
   }
   if (escolaId) {
     w.AND.push({ OR: [{ escolaId }, { equipamento: { escolaId } }] });
