@@ -661,10 +661,7 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'WinAudit identifica equipamentos já cadastrados e compara os campos importáveis antes de atualizar.',
-    'Revise as diferenças, selecione os campos que deseja atualizar e confirme a operação pelo toast padrão do sistema.',
-    'Campos vazios do relatório não apagam dados existentes; sem diferenças, nenhum dado é alterado nem duplicado.',
-    'Bug resolvido: Botão "Criar equipamento" não depende mais de "Habilitar botão Editar"',    
+    'Equipamentos: a busca também localiza itens pelo número de série.',      
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
