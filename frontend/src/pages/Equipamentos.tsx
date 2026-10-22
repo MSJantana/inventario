@@ -68,28 +68,28 @@ const LAYOUT_POR_STATUS: Readonly<Record<string, RegraLayoutStatus>> = {
     descricao: 'Equipamento com usuário/setor definido. Ajustes permitidos em identificação e localização.',
     severidade: 'operacional',
     statusPermitidosMudanca: ['DISPONIVEL','EM_USO','EM_MANUTENCAO','RESERVADO','DESCARTADO','EMPRESTADO','DOADO'],
-    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
+    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','dataAquisicao','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
   },
   EM_MANUTENCAO: {
     tituloBadge: '🛾 Em fluxo de Manutenção / Oficina',
     descricao: 'Evite alterar identificação enquanto o equipamento está em manutenção. Campos de identidade bloqueados; apenas dados técnicos e observações editáveis.',
     severidade: 'atencao',
     statusPermitidosMudanca: ['EM_MANUTENCAO','DISPONIVEL','EM_USO','DESCARTADO'],
-    camposEditaveis: ['status','localizacao','processador','memoria','macaddress','fabricante','modelo','observacoes'],
+    camposEditaveis: ['status','dataAquisicao','localizacao','processador','memoria','macaddress','fabricante','modelo','observacoes'],
   },
   RESERVADO: {
     tituloBadge: 'Reservado (separado)',
     descricao: 'Equipamento reservado para uso futuro. Permite editar dados de identificação para preparo.',
     severidade: 'info',
     statusPermitidosMudanca: ['RESERVADO','DISPONIVEL','EM_USO','EM_MANUTENCAO','DESCARTADO','DOADO','EMPRESTADO'],
-    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
+    camposEditaveis: ['nome','patrimonio','usuarioNome','escolaId','tipo','status','modelo','serial','dataAquisicao','localizacao','fabricante','processador','memoria','macaddress','observacoes'],
   },
   EMPRESTADO: {
     tituloBadge: '🤝 Em empréstimo temporário',
     descricao: 'Bloqueia mudança de identificação. Permite apenas ajustes em localização, dados técnicos e observações enquanto durar o empréstimo. Para devolver: use a tela Movimentações → Devolução.',
     severidade: 'atencao',
     statusPermitidosMudanca: ['EMPRESTADO','DISPONIVEL','EM_USO'],
-    camposEditaveis: ['status','localizacao','processador','memoria','macaddress','fabricante','modelo','observacoes'],
+    camposEditaveis: ['status','dataAquisicao','localizacao','processador','memoria','macaddress','fabricante','modelo','observacoes'],
   },
   FORMATADO: {
     tituloBadge: '🖥️ Recém-formatado (pronto para atribuir)',
@@ -355,6 +355,7 @@ function filterEquipamento(e: Equipamento, texto: string, status: string): boole
   const nome = (e.nome || e.nomeEquipamento || '').toLowerCase()
   const matchesText = texto ? (
     nome.includes(texto) ||
+    (e.serial || '').toLowerCase().includes(texto) ||
     (e.usuarioNome || '').toLowerCase().includes(texto) ||
     (e.escola?.nome || '').toLowerCase().includes(texto) ||
     (e.escola?.sigla || '').toLowerCase().includes(texto)
@@ -1140,8 +1141,8 @@ export default function EquipamentosPage() {
         {error && <div className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">{error}</div>}
         <div className="mb-3 grid gap-2 sm:grid-cols-3">
           <div>
-            <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome, usuário ou sigla</label>
-            <input id="filterText" ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} placeholder="Digite nome do equipamento, usuário, escola ou sigla" />
+            <label htmlFor="filterText" className="mb-1 block text-sm font-medium">Filtrar por nome, serial, usuário ou sigla</label>
+            <input id="filterText" ref={buscarInputRef} className="w-full rounded border px-3 py-2" value={filterText} onChange={(e) => { setFilterText(e.target.value); setCurrentPage(1) }} placeholder="Digite nome, serial, usuário, escola ou sigla" />
           </div>
           <div>
             <label htmlFor="filterStatus" className="mb-1 block text-sm font-medium">Status</label>
