@@ -4,7 +4,7 @@ import { Plus, Pencil, Trash2, Save, RotateCcw, AlertTriangle, Barcode, FileUp, 
 import Pagination from '../components/Pagination'
 import api from '../lib/axios'
 import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
-import { getValidityYears, getBloquearEditarExcluirDoado, getChromebookImportEnabled, getEditarEnabled } from '../services/settings'
+import { getValidityYears, getBloquearEditarExcluirDoado, getEditarEnabled } from '../services/settings'
 import { useAppStore } from '../store/useAppStore'
 import EquipmentIdCard from '../components/EquipmentIdCard'
 import {
@@ -544,7 +544,23 @@ export default function EquipamentosPage() {
   const winauditFileRef = useRef<HTMLInputElement | null>(null)
 
   const [importTab, setImportTab] = useState<ImportTab>('winaudit')
-  const chromebookImportEnabled = getChromebookImportEnabled()
+  const [chromebookImportEnabled, setChromebookImportEnabled] = useState(false)
+  useEffect(() => {
+    let active = true
+    const carregarConfiguracao = () => {
+      api.get('/api/configuracoes/chromebook-import')
+        .then(({ data }) => { if (active) setChromebookImportEnabled(data.enabled === true) })
+        .catch(() => { if (active) setChromebookImportEnabled(false) })
+    }
+    carregarConfiguracao()
+    const intervalId = window.setInterval(carregarConfiguracao, 15000)
+    window.addEventListener('focus', carregarConfiguracao)
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', carregarConfiguracao)
+    }
+  }, [])
   const importTabComputed: ImportTab = useMemo(() => {
     if (!chromebookImportEnabled) return 'winaudit'
     return importTab
@@ -1239,12 +1255,7 @@ export default function EquipamentosPage() {
               Chromebook CSV (.csv)
             </button>
           </div>
-        ) : (
-          <div className="mb-4 inline-flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <Info size={14} aria-hidden />
-            <span>A importação Chromebook CSV está desativada nas configurações do sistema.</span>
-          </div>
-        )}
+        ) : null}
 
         {/* Painel WinAudit */}
         <section id="panel-winaudit" role="tabpanel" aria-labelledby="tab-winaudit" hidden={importTabComputed !== 'winaudit'}>

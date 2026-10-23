@@ -114,6 +114,7 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
   const escolaNome = equipamento.escola?.nome || 'Escola não definida';
   const usuario = equipamento.usuarioNome || 'Não atribuído';
   const modelo = equipamento.modelo || 'Modelo não especificado';
+  const serial = equipamento.serial?.trim() || '-';
   const patrimonio = equipamento.patrimonio?.trim() || '00000';
   const fabricante = equipamento.fabricante || '-';
   const processador = equipamento.processador || '-';
@@ -165,6 +166,11 @@ export default function EquipmentIdCard({ equipamento, onClose }: Readonly<Equip
             <div>
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">PATRIMÔNIO</p>
               <h3 className="text-xl font-semibold text-slate-800">{patrimonio}</h3>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">NÚMERO DE SÉRIE</p>
+              <h3 className="text-xl font-semibold text-slate-800">{serial}</h3>
             </div>
 
             <div>

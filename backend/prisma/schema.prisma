@@ -10,6 +10,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model ConfiguracaoGeral {
+  chave      String   @id @db.VarChar(120)
+  valor      Json
+  descricao  String?  @db.VarChar(255)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("ConfiguracaoGeral")
+}
+
 // Enums para Equipamento
 enum TipoEquipamento {
   COMPUTADOR

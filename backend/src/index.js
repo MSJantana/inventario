@@ -35,6 +35,7 @@ import movimentacoesRoutes from './routes/movimentacoes.js';
 import escolasRoutes from './routes/escolas.js';
 import relatoriosRoutes from './routes/relatorios.js';
 import centroMidiaRoutes from './routes/centroMidia.js';
+import configuracoesRoutes from './routes/configuracoes.js';
 import errorHandler from './middlewares/errorHandler.js';
 const app = express();
 app.disable('x-powered-by');
@@ -215,6 +216,7 @@ app.use('/api/movimentacoes', movimentacoesRoutes);
 app.use('/api/escolas', escolasRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
 app.use('/api/centro-midia', centroMidiaRoutes);
+app.use('/api/configuracoes', configuracoesRoutes);
 
 // Endpoint para emissão de CSRF token (requer autenticação)
 app.get('/api/csrf-token', auth, issueCsrfToken);

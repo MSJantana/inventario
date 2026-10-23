@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import api from '../lib/axios'
 import { Eye, EyeOff } from 'lucide-react'
 import { getApiBaseUrl, setApiBaseUrl as saveApiBaseUrl, getAuthToken, setAuthToken as saveAuthToken } from '../services/auth'
 import {
@@ -6,29 +7,43 @@ import {
   setValidityYears as saveValidityYears,
   getBloquearEditarExcluirDoado,
   setBloquearEditarExcluirDoado as saveBloquearEditarExcluirDoado,
-  getChromebookImportEnabled,
-  setChromebookImportEnabled as saveChromebookImportEnabled,
   getEditarEnabled,
   setEditarEnabled as saveEditarEnabled,
 } from '../services/settings'
-import { showSuccessToast } from '../utils/toast'
+import { showErrorToast, showSuccessToast } from '../utils/toast'
 
 export default function ConfigPage() {
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(getApiBaseUrl())
   const [authToken, setAuthToken] = useState<string>(getAuthToken() || '')
   const [validityYears, setValidityYears] = useState<number>(getValidityYears())
   const [bloquearEditarExcluirDoado, setBloquearEditarExcluirDoado] = useState<boolean>(getBloquearEditarExcluirDoado())
-  const [chromebookImportEnabled, setChromebookImportEnabled] = useState<boolean>(getChromebookImportEnabled())
+  const [chromebookImportEnabled, setChromebookImportEnabled] = useState<boolean>(false)
+  const [chromebookSettingLoaded, setChromebookSettingLoaded] = useState(false)
   const [editarEnabled, setEditarEnabled] = useState<boolean>(getEditarEnabled())
   const [showToken, setShowToken] = useState(false)
+  const isAdmin = localStorage.getItem('userRole') === 'ADMIN'
 
-  const salvar = () => {
+  useEffect(() => {
+    api.get('/api/configuracoes/chromebook-import')
+      .then(({ data }) => setChromebookImportEnabled(data.enabled === true))
+      .catch(() => showErrorToast('Não foi possível carregar a configuração de importação Chromebook.'))
+      .finally(() => setChromebookSettingLoaded(true))
+  }, [])
+
+  const salvar = async () => {
     saveApiBaseUrl(apiBaseUrl)
     saveAuthToken(authToken)
     saveValidityYears(validityYears)
     saveBloquearEditarExcluirDoado(bloquearEditarExcluirDoado)
-    saveChromebookImportEnabled(chromebookImportEnabled)
     saveEditarEnabled(editarEnabled)
+    if (chromebookSettingLoaded && isAdmin) {
+      try {
+        await api.put('/api/configuracoes/chromebook-import', { enabled: chromebookImportEnabled })
+      } catch {
+        showErrorToast('Não foi possível salvar a configuração de importação Chromebook.')
+        return
+      }
+    }
     showSuccessToast('Configurações salvas com sucesso!')
   }
 
@@ -150,6 +165,7 @@ export default function ConfigPage() {
                 type="button"
                 role="switch"
                 aria-checked={chromebookImportEnabled}
+                disabled={!chromebookSettingLoaded || !isAdmin}
                 aria-label="Habilitar importação de arquivos Chromebook CSV"
                 onClick={() => setChromebookImportEnabled(!chromebookImportEnabled)}
                 className={`relative mt-0.5 shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 ${chromebookImportEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
