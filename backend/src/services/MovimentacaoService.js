@@ -727,13 +727,19 @@ export const criarDoacao = async (body, usuario) => {
 export const criarTransferencia = async (body, usuario) => {
   const dados = normalizarDadosMov(body);
   dados.tipoMovimento = 'TRANSFERENCIA';
+  const prisma = getPrisma();
+
+  // Transferência INTERNA: escolaId não informado → mantém a escola atual do equipamento
   if (!dados.escolaId) {
-    if (dados.transferencia?.escolaIdDestino) {
-      dados.escolaId = String(dados.transferencia.escolaIdDestino);
-    } else {
-      throw classErrorApp('escolaId (destino) é obrigatório em transferência.', 400);
-    }
+    const equipamento = await prisma.equipamento.findUnique({ where: { id: dados.equipamentoId } });
+    if (!equipamento) throw classErrorApp('Equipamento não encontrado.', 404);
+    dados.escolaId = equipamento.escolaId;
+    return criarMovimentacao(dados, usuario);
   }
+
+  // Transferência ENTRE ESCOLAS: validar que a escola de destino existe
+  const escolaDestino = await prisma.escola.findUnique({ where: { id: dados.escolaId } });
+  if (!escolaDestino) throw classErrorApp('Escola de destino não encontrada.', 404);
   return criarMovimentacao(dados, usuario);
 };
 export const criarFormatacao = async (body, usuario) => {

@@ -1,5 +1,5 @@
-﻿# ðŸ“˜ Manual do UsuÃ¡rio â€” Novas Funcionalidades 7Inventory
-**Versão:** 1.2.9 | **Data:** 07/10/2026 | **Público:** Administradores, Gestores e Técnicos do sistema Inventário.
+﻿# 📘 Manual do Usuário — Novas Funcionalidades 7Inventory
+**Versão:** 1.3.2 | **Data:** 17/11/2026 | **Público:** Administradores, Gestores e Técnicos do sistema Inventário.
 
 ---
 
@@ -193,3 +193,49 @@ Ao importar um relatório WinAudit em HTML (.html ou .htm), o sistema verifica s
 - Sem diferenças, nenhum dado é alterado e não é criado um cadastro duplicado.
 - Patrimônio, escola, status, localização administrativa, observações e demais campos internos permanecem inalterados.
 - A operação atualiza o equipamento existente e registra os campos modificados no log de importação.
+
+---
+
+## 8. 🔄 Transferência de Equipamento — Interna ou Entre Escolas (v1.3.1)
+
+### O que mudou?
+Ao registrar uma movimentação do tipo **Transferência**, o sistema agora pergunta se é uma **transferência interna** (mesma escola) ou **entre escolas** (outra unidade). Dependendo da escolha, aparece um formulário diferente:
+
+- **Interna (formulário verde):** equipamento permanece na mesma escola. Origem é preenchida automaticamente com o nome da escola atual; destino é texto livre.
+- **Entre Escolas (formulário azul):** equipamento muda para outra unidade. Escola de Destino é obrigatória (combobox); origem é preenchida automaticamente com o nome da escola atual.
+
+Esse movimento altera a escola vinculada ao equipamento no cadastro (quando entre escolas), mantendo o histórico completo de auditoria (snapshot antes/depois).
+
+### Passo a passo
+1. Acesse **Movimentações → [Registrar Movimentação]**.
+2. Selecione o tipo **Transferência** (ícone 🔄, categoria Movimentações Básicas).
+3. Escolha o equipamento a ser transferido.
+4. O sistema exibe a pergunta **"Qual tipo de transferência?"**:
+   - **Interna (mesma escola)** → formulário VERDE: informe apenas o destino (texto livre) e observações opcionais.
+   - **Entre Escolas (outra unidade)** → formulário AZUL: selecione a Escola de Destino no combobox (obrigatório); preencha opcionalmente Localização, Setor e Responsável.
+5. Informe a Data e Descrição da transferência.
+6. Clique em **[Salvar Movimentação]**.
+
+### Regras
+- A **Escola de Destino é obrigatória** apenas no modo **Entre Escolas**. No modo Interna, a escola permanece inalterada.
+- Qualquer perfil (Admin, Gestor ou Técnico) pode transferir para qualquer escola cadastrada no sistema.
+- No modo Entre Escolas, o equipamento passará a pertencer à escola selecionada imediatamente após o salvamento.
+- O histórico de auditoria registra a escola de origem e a escola de destino.
+
+---
+
+## 9. 🔄 Recarregar reseta seletor de Transferência e melhorias gerais (v1.3.2)
+
+### O que mudou?
+- **Botão Recarregar:** ao clicar em Recarregar na tela de Registrar Movimentação, o seletor de tipo de transferência (INTERNA / ENTRE_ESCOLAS) é resetado para o estado inicial, evitando que uma seleção anterior persista indesejadamente.
+- **Segurança:** arquivos `.env` contendo segredos (JWT_SECRET, CSRF_SECRET, senhas de banco e email) foram removidos do versionamento Git e adicionados ao `.gitignore`. Eles devem ser informados apenas via ambiente/stack de deploy (Portainer ou variáveis de ambiente).
+- **Versão do frontend:** 1.3.2
+- **Versão do backend:** 1.1.10
+
+### Regras
+- O botão Recarregar limpa qualquer tipo de transferência selecionado, retornando ao estado inicial do formulário.
+- Os arquivos `.env` não devem ser commitados no repositório. Use o `.env` de referência ou informe as variáveis diretamente no ambiente de produção.
+
+---
+
+**Fim do manual. Obrigado por usar o 7Inventory!**

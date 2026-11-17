@@ -395,6 +395,21 @@ function getFormatacaoInit(): FormFormatacao {
   return { nomeAtual: '', nomeFormatado: '' }
 }
 
+type TipoTransferencia = 'INTERNA' | 'ENTRE_ESCOLAS' | null
+
+type FormTransferencia = {
+  tipo: TipoTransferencia
+  escolaIdDestino: string
+  localizacaoDestino: string
+  setorDestino: string
+  responsavelDestino: string
+  destino: string
+}
+
+function getTransferenciaInit(): FormTransferencia {
+  return { tipo: null, escolaIdDestino: '', localizacaoDestino: '', setorDestino: '', responsavelDestino: '', destino: '' }
+}
+
 // =============================================================================
 // Helpers de montagem de payload (funções puras em nível de módulo)
 // Objetivo: manter registrarMovimentoAvancado abaixo de S3776 (complexidade ≤ 15)
@@ -606,6 +621,34 @@ const montarPayloadFormatacao = (ctx: ContextoBasePayload & { f: FormFormatacao 
   }
 }
 
+const montarPayloadTransferencia = (ctx: ContextoBasePayload & { f: FormTransferencia }): ResultadoPayload => {
+  const { f } = ctx
+  if (!f.tipo) return { ok: false, falha: 'Selecione o tipo de transferência' }
+  if (f.tipo === 'ENTRE_ESCOLAS' && !f.escolaIdDestino) {
+    return { ok: false, falha: 'Selecione a escola de destino' }
+  }
+  return {
+    ok: true,
+    payload: {
+      equipamentoId: ctx.equipamentoId,
+      tipoMovimento: 'TRANSFERENCIA',
+      dataMovimento: ctx.data ? new Date(ctx.data).toISOString() : new Date().toISOString(),
+      origem: naoVazio(ctx.origem),
+      destino: f.tipo === 'INTERNA' ? naoVazio(f.destino) : naoVazio(ctx.destino),
+      observacoes: naoVazio(ctx.descricao),
+      escolaId: f.tipo === 'ENTRE_ESCOLAS' ? f.escolaIdDestino : undefined,
+      transferencia: f.tipo === 'ENTRE_ESCOLAS'
+        ? {
+          escolaIdDestino: f.escolaIdDestino,
+          localizacaoDestino: f.localizacaoDestino.trim() || null,
+          setorDestino: f.setorDestino.trim() || null,
+          responsavelDestino: f.responsavelDestino.trim() || null,
+        }
+        : undefined,
+    },
+  }
+}
+
 type ContextoAjuste = ContextoBasePayload & {
   ajusteDirty: boolean
   snapshotAjuste: SnapshotAjusteEquipamento | null
@@ -723,6 +766,8 @@ type ContextoMontagem = ContextoBasePayload & {
   fEmprestimo: FormEmprestimo
   fDevolucao: FormDevolucao
   fFormatacao: FormFormatacao
+  formTransferencia: FormTransferencia
+  tipoTransferencia: TipoTransferencia
   doacaoStep: 1 | 2
   ajusteDirty: boolean
   snapshotAjuste: SnapshotAjusteEquipamento | null
@@ -753,6 +798,10 @@ const montarPayloadPorTipo = (opcao: OpcaoTipoFormulario, ctx: ContextoMontagem)
     }
     case 'FORMATACAO': {
       const r = montarPayloadFormatacao({ ...base, f: ctx.fFormatacao })
+      return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
+    }
+    case 'TRANSFERENCIA': {
+      const r = montarPayloadTransferencia({ ...base, f: ctx.formTransferencia })
       return r.ok ? { tipo: 'ok', payload: r.payload } : { tipo: 'falha', mensagem: r.falha }
     }
     case 'DOACAO': {
@@ -821,6 +870,8 @@ export default function MovimentacoesPage() {
   const [formEmprestimo, setFormEmprestimo] = useState<FormEmprestimo>(() => getEmprestimoInit())
   const [formDevolucao, setFormDevolucao] = useState<FormDevolucao>(() => getDevolucaoInit())
   const [formFormatacao, setFormFormatacao] = useState<FormFormatacao>(() => getFormatacaoInit())
+  const [formTransferencia, setFormTransferencia] = useState<FormTransferencia>(() => getTransferenciaInit())
+  const [tipoTransferencia, setTipoTransferencia] = useState<TipoTransferencia>(null)
   const [doacaoStep, setDoacaoStep] = useState<1 | 2>(1)
   const [countdownDoacao, setCountdownDoacao] = useState<number>(3)
 
@@ -860,6 +911,8 @@ export default function MovimentacoesPage() {
     setFormEmprestimo(getEmprestimoInit())
     setFormDevolucao(getDevolucaoInit())
     setFormFormatacao(getFormatacaoInit())
+    setFormTransferencia(getTransferenciaInit())
+    setTipoTransferencia(null)
     setDoacaoStep(1)
     setCountdownDoacao(3)
   }
@@ -885,6 +938,8 @@ export default function MovimentacoesPage() {
   async function carregar() {
     setLoading(true)
     setError(null)
+    setTipoTransferencia(null)
+    setFormTransferencia(getTransferenciaInit())
     try {
       const resp = await api.get('/api/movimentacoes')
       setLista(resp.data || [])
@@ -1137,6 +1192,10 @@ export default function MovimentacoesPage() {
         const locNome = naoVazio(localizacao) ?? ''
         setOrigem(locNome)
         setDestino(locNome)
+      } else if (opcaoTipoSelecionada?.value === 'TRANSFERENCIA') {
+        // Origem sempre = nome da escola atual do equipamento
+        const origemNome = selectedEquip?.escolaNome ?? selectedEquip?.localizacao ?? ''
+        setOrigem(origemNome)
       } else if (selectedEquip?.localizacao) {
         setOrigem(selectedEquip.localizacao)
       } else {
@@ -1159,6 +1218,8 @@ export default function MovimentacoesPage() {
     setAjusteEquip(ajusteVazio())
     setAjusteDirty(false)
     setDepartamentoSel('EQUIPAMENTOS')
+    setTipoTransferencia(null)
+    setFormTransferencia(getTransferenciaInit())
     const opcaoPadrao = TIPOS_FORMULARIO.find(t => t.value === 'ENTRADA')
     setOpcaoTipoSelecionada(opcaoPadrao)
     resetarFormulariosEspecificos()
@@ -1202,6 +1263,8 @@ export default function MovimentacoesPage() {
       fEmprestimo: formEmprestimo,
       fDevolucao: formDevolucao,
       fFormatacao: formFormatacao,
+      formTransferencia,
+      tipoTransferencia,
       doacaoStep,
       ajusteDirty,
       snapshotAjuste,
@@ -1842,6 +1905,7 @@ export default function MovimentacoesPage() {
                               checked={ativo}
                               aria-label={`Selecionar tipo de movimentação: ${opc.label}`}
                               onChange={() => {
+                                if (opc.value !== 'TRANSFERENCIA') setTipoTransferencia(null)
                                 setOpcaoTipoSelecionada(opc)
                                 resetarFormulariosEspecificos()
                                 if (opc.value === 'AJUSTE' && !equipamentoId.trim()) {
@@ -2068,6 +2132,171 @@ export default function MovimentacoesPage() {
                   <textarea id="fmt_obs" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-200" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Imagem usada, partição EFI, drivers instalados, softwares pré-instalados, serial de ativação Windows, etc." />
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TRANSFERÊNCIA — seletor de tipo + formulários condicionais (VERDE interna / AZUL entre escolas) */}
+          {opcaoTipoSelecionada?.value === 'TRANSFERENCIA' && (
+            <div className="xl:col-span-12 mt-4">
+              {/* SELETOR DE TIPO DE TRANSFERÊNCIA */}
+              {!tipoTransferencia && (
+                <>
+                  <div className="overflow-hidden rounded-2xl border-2 border-blue-200 bg-white shadow-sm">
+                    <div className="flex items-center gap-3 border-b border-blue-200 bg-blue-50 px-5 py-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-xl" aria-hidden>🔄</span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-bold uppercase tracking-wide text-blue-900">Tipo de Transferência</h3>
+                        <p className="text-xs text-blue-800/80">Escolha se o equipamento muda de escola ou permanece na mesma unidade.</p>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 p-5 md:grid-cols-2">
+                      <label
+                        className="group relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border-2 p-3 transition-all duration-150 border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
+                      >
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          name="tipoTransferencia"
+                          value="INTERNA"
+                          checked={tipoTransferencia === 'INTERNA'}
+                          onChange={() => setTipoTransferencia('INTERNA')}
+                          aria-label="Selecionar transferência interna (mesma escola)"
+                        />
+                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 shadow-inner text-lg" aria-hidden>
+                          🏫
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm font-semibold text-emerald-900">Interna (mesma escola)</span>
+                          <p className="mt-0.5 text-xs text-emerald-600">Equipamento permanece na mesma unidade escolar.</p>
+                        </div>
+                      </label>
+                      <label
+                        className="group relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border-2 p-3 transition-all duration-150 border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
+                      >
+                        <input
+                          type="radio"
+                          className="sr-only"
+                          name="tipoTransferencia"
+                          value="ENTRE_ESCOLAS"
+                          checked={tipoTransferencia === 'ENTRE_ESCOLAS'}
+                          onChange={() => setTipoTransferencia('ENTRE_ESCOLAS')}
+                          aria-label="Selecionar transferência entre escolas"
+                        />
+                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 shadow-inner text-lg" aria-hidden>
+                          🔄
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm font-semibold text-blue-900">Entre Escolas (outra unidade)</span>
+                          <p className="mt-0.5 text-xs text-blue-600">Equipamento muda para outra unidade escolar.</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* FORMULÁRIO INTERNA (VERDE) */}
+              {tipoTransferencia === 'INTERNA' && (
+                <div className="overflow-hidden rounded-2xl border-2 border-emerald-200 bg-white shadow-sm">
+                  <div className="flex items-center gap-3 border-b border-emerald-200 bg-emerald-50/80 px-5 py-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-xl" aria-hidden>🏫</span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold uppercase tracking-wide text-emerald-900">Transferência Interna</h3>
+                      <p className="text-xs text-emerald-800/80">Equipamento permanece na mesma unidade escolar.</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="xl:col-span-4">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="ti_origem">
+                        Origem (automática)
+                      </label>
+                      <input id="ti_origem" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm" 
+                        value={origem} readOnly title="Nome da escola atual do equipamento" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="ti_destino">
+                        Destino <span className="text-red-600">*</span>
+                      </label>
+                      <input id="ti_destino" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-200" 
+                        value={formTransferencia.destino} 
+                        onChange={(e) => setFormTransferencia({ ...formTransferencia, destino: e.target.value })} 
+                        placeholder="Ex: Sala 101, Laboratório, Setor XYZ..." />
+                    </div>
+                    <div className="xl:col-span-4">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="ti_obs">Observações (opcional)</label>
+                      <textarea id="ti_obs" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-200" 
+                        value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* FORMULÁRIO ENTRE ESCOLAS (AZUL) */}
+              {tipoTransferencia === 'ENTRE_ESCOLAS' && (
+                <div className="overflow-hidden rounded-2xl border-2 border-blue-200 bg-white shadow-sm">
+                  <div className="flex items-center gap-3 border-b border-blue-200 bg-blue-50/80 px-5 py-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-xl" aria-hidden>🔄</span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold uppercase tracking-wide text-blue-900">Transferência entre Escolas</h3>
+                      <p className="text-xs text-blue-800/80">Mover equipamento para outra unidade escolar.</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="xl:col-span-2">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="te_escola">
+                        Escola de Destino <span className="text-red-600">*</span>
+                      </label>
+                      <select id="te_escola" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200" 
+                        value={formTransferencia.escolaIdDestino} 
+                        onChange={(e) => setFormTransferencia({ ...formTransferencia, escolaIdDestino: e.target.value })}>
+                        <option value="">Selecione a escola...</option>
+                        {escolasDisponiveis.map((escola) => (
+                          <option key={escola.id} value={escola.id}>{escola.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="xl:col-span-4">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="te_origem">
+                        Origem (automática)
+                      </label>
+                      <input id="te_origem" className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm" 
+                        value={origem} readOnly title="Nome da escola atual do equipamento" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="te_local">
+                        Localização na escola destino
+                      </label>
+                      <input id="te_local" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200" 
+                        value={formTransferencia.localizacaoDestino} 
+                        onChange={(e) => setFormTransferencia({ ...formTransferencia, localizacaoDestino: e.target.value })} 
+                        placeholder="Ex: Sala 101, Laboratório, Depósito" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="te_setor">
+                        Setor destino
+                      </label>
+                      <input id="te_setor" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200" 
+                        value={formTransferencia.setorDestino} 
+                        onChange={(e) => setFormTransferencia({ ...formTransferencia, setorDestino: e.target.value })} 
+                        placeholder="Ex: TI, Secretaria, Coordenação" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="te_resp">
+                        Responsável na escola destino
+                      </label>
+                      <input id="te_resp" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200" 
+                        value={formTransferencia.responsavelDestino} 
+                        onChange={(e) => setFormTransferencia({ ...formTransferencia, responsavelDestino: e.target.value })} 
+                        placeholder="Nome do responsável" />
+                    </div>
+                    <div className="xl:col-span-4">
+                      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor="te_obs">Observações (opcional)</label>
+                      <textarea id="te_obs" rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm transition focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200" 
+                        value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2389,7 +2618,7 @@ export default function MovimentacoesPage() {
           )}
 
           {/* FORM BÁSICO para tipos antigos (mantido para retrocompatibilidade) */}
-          {opcaoTipoSelecionada && ['ENTRADA','SAIDA','TRANSFERENCIA','DESCARTE','MANUTENCAO'].includes(opcaoTipoSelecionada.value) && (() => {
+          {opcaoTipoSelecionada && ['ENTRADA','SAIDA','DESCARTE','MANUTENCAO'].includes(opcaoTipoSelecionada.value) && (() => {
             const cor = (() => {
               switch (opcaoTipoSelecionada.categoria) {
                 case 'BASICOS':  return { border: 'border-emerald-200', header: 'bg-emerald-50/80 border-emerald-200', headerText: 'text-emerald-900', headerSub: 'text-emerald-800/80', headerIcon: 'bg-emerald-100', headerIconEmoji: '📦', focusRing: 'focus:ring-emerald-200', focusBorder: 'focus:border-emerald-400' }
