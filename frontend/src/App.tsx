@@ -661,7 +661,9 @@ export default function App() {
   };
 
   const whatsNewItems = [
-    'Equipamentos: a busca também localiza itens pelo número de série.',      
+    'Transferência de equipamento: tipos Interno (mesma escola) e Entre Escolas (outra unidade) com formulários específicos.',
+    'Botão Recarregar: reseta o seletor de tipo de transferência ao ser clicado.',
+    'Segurança: arquivos .env removidos do versionamento Git (adicionados ao .gitignore).',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
