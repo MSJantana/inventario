@@ -2159,7 +2159,7 @@ export default function MovimentacoesPage() {
                           name="tipoTransferencia"
                           value="INTERNA"
                           checked={tipoTransferencia === 'INTERNA'}
-                          onChange={() => setTipoTransferencia('INTERNA')}
+                          onChange={() => { setTipoTransferencia('INTERNA'); setFormTransferencia({ ...formTransferencia, tipo: 'INTERNA' }) }}
                           aria-label="Selecionar transferência interna (mesma escola)"
                         />
                         <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 shadow-inner text-lg" aria-hidden>
@@ -2179,7 +2179,7 @@ export default function MovimentacoesPage() {
                           name="tipoTransferencia"
                           value="ENTRE_ESCOLAS"
                           checked={tipoTransferencia === 'ENTRE_ESCOLAS'}
-                          onChange={() => setTipoTransferencia('ENTRE_ESCOLAS')}
+                          onChange={() => { setTipoTransferencia('ENTRE_ESCOLAS'); setFormTransferencia({ ...formTransferencia, tipo: 'ENTRE_ESCOLAS' }) }}
                           aria-label="Selecionar transferência entre escolas"
                         />
                         <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 shadow-inner text-lg" aria-hidden>
