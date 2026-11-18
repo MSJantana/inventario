@@ -573,7 +573,7 @@ export default function EquipamentosPage() {
 
   const userRole = (localStorage.getItem('userRole') as 'ADMIN' | 'GESTOR' | 'TECNICO' | 'USUARIO') || 'USUARIO'
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (): Promise<boolean> => {
     setLoading(true)
     setError(null)
     try {
@@ -581,8 +581,13 @@ export default function EquipamentosPage() {
       const data: Equipamento[] = resp.data || []
       setLista(data)
       setCurrentPage(1)
+      return true
     } catch (e: unknown) {
-      setError(formatarMensagemErro(e, 'Erro ao carregar equipamentos'))
+      const msg = formatarMensagemErro(e, 'Erro ao carregar equipamentos')
+      setError(msg)
+      console.error('Erro ao carregar equipamentos:', e)
+      showErrorToast(msg)
+      return false
     } finally {
       setLoading(false)
     }
@@ -596,6 +601,14 @@ export default function EquipamentosPage() {
       // silencioso; formulário ainda funciona sem escolas
     }
   }, [])
+
+  const handleRecarregar = useCallback(async () => {
+    const ok = await carregar()
+    await carregarEscolas()
+    if (ok) {
+      showSuccessToast('Lista de equipamentos atualizada')
+    }
+  }, [carregar, carregarEscolas])
 
   const chromeos = useChromeosImport({
     escolaIdPadrao: escolaId || null,
@@ -1874,9 +1887,15 @@ export default function EquipamentosPage() {
                 <span>{winauditFluxo === 'wizard' ? 'Descartar importação' : 'Voltar para importação manual'}</span>
               </button>
             )}
-            <button type="button" aria-label="Recarregar lista de equipamentos" onClick={carregar} className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 flex items-center gap-2">
-              <RotateCcw size={16} aria-hidden="true" />
-              <span>Recarregar</span>
+            <button
+              type="button"
+              aria-label="Recarregar lista de equipamentos"
+              onClick={handleRecarregar}
+              disabled={loading}
+              className="w-full sm:w-auto rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60 flex items-center gap-2"
+            >
+              <RotateCcw size={16} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
+              <span>{loading ? 'Recarregando...' : 'Recarregar'}</span>
             </button>
             <button
               type="button"
