@@ -935,7 +935,7 @@ export default function MovimentacoesPage() {
   const [editData, setEditData] = useState<string>('')
   const [editDescricao, setEditDescricao] = useState('')
 
-  async function carregar() {
+  const carregar = useCallback(async (): Promise<boolean> => {
     setLoading(true)
     setError(null)
     setTipoTransferencia(null)
@@ -943,12 +943,17 @@ export default function MovimentacoesPage() {
     try {
       const resp = await api.get('/api/movimentacoes')
       setLista(resp.data || [])
+      return true
     } catch (e: unknown) {
-      setError((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || (e as { message?: string })?.message || 'Erro ao carregar movimentações')
+      const msg = (e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || (e as { message?: string })?.message || 'Erro ao carregar movimentações'
+      setError(msg)
+      console.error('Erro ao carregar movimentações:', e)
+      showErrorToast(msg)
+      return false
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const carregarItens = useCallback(async () => {
     setFilterEquipType('ALL')
@@ -1004,6 +1009,14 @@ export default function MovimentacoesPage() {
       setEscolas([])
     }
   }, [])
+
+  const handleRecarregar = useCallback(async () => {
+    const ok = await carregar()
+    await carregarEscolas()
+    if (ok) {
+      showSuccessToast('Lista de movimentações atualizada')
+    }
+  }, [carregar, carregarEscolas])
 
   const tiposDisponiveis = useMemo(() => {
     const t = new Set(equipamentos.map(e => e.tipo).filter(Boolean))
@@ -1470,7 +1483,7 @@ export default function MovimentacoesPage() {
   const startIdx = (current - 1) * pageSize
   const pagina = filtrada.slice(startIdx, startIdx + pageSize)
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregar() }, [carregar])
   useEffect(() => { carregarItens() }, [carregarItens])
   useEffect(() => { carregarEscolas() }, [carregarEscolas])
 
@@ -2776,9 +2789,15 @@ export default function MovimentacoesPage() {
               <X size={16} />
               <span>Fechar</span>
             </button>
-            <button type="button" onClick={carregar} className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300">
-              <RotateCcw size={16} />
-              <span>Recarregar</span>
+            <button
+              type="button"
+              aria-label="Recarregar lista de movimentações"
+              onClick={handleRecarregar}
+              disabled={loading}
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-100 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              <RotateCcw size={16} className={loading ? 'animate-spin' : ''} />
+              <span>{loading ? 'Recarregando...' : 'Recarregar'}</span>
             </button>
             {(!(opcaoTipoSelecionada?.value === 'DOACAO' && doacaoStep === 2)) && (
               <button type="submit" className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">
