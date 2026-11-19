@@ -102,3 +102,51 @@ export function consumeSessionExpiredFlag(): boolean {
   return false;
 }
 
+export function clearAuthStorage(): void {
+  try {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('apiBaseUrl');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEscolaNome');
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+export async function logout(): Promise<{ ok: boolean; error?: string }> {
+  const token = getAuthToken();
+  if (!token) {
+    clearAuthStorage();
+    return { ok: true };
+  }
+
+  try {
+    const base = getApiBaseUrl();
+    const baseNorm = base.replace(/\/+$/, '');
+    const logoutUrl = baseNorm.endsWith('/api')
+      ? `${baseNorm}/usuarios/logout`
+      : `${baseNorm}/api/usuarios/logout`;
+
+    const resp = await fetch(logoutUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    // Mesmo que o backend retorne erro (ex: token já revogado),
+    // limpamos o storage local para forçar novo login.
+    clearAuthStorage();
+
+    if (!resp.ok) {
+      return { ok: false, error: `HTTP ${resp.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    clearAuthStorage();
+    return { ok: false, error: String(err) };
+  }
+}
+

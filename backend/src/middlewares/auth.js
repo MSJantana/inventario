@@ -15,7 +15,17 @@ const auth = async (req, res, next) => {
 
     // Verificar e decodificar o token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
+    // Verificar se o token foi revogado (logout)
+    if (decoded?.jti) {
+      const revoked = await prisma.revokedToken.findUnique({
+        where: { jti: decoded.jti },
+      });
+      if (revoked) {
+        return res.status(401).json({ error: 'Token revogado. Faça login novamente.' });
+      }
+    }
+
     // Verificar se o usuário existe
     const usuario = await prisma.usuario.findUnique({
       where: { id: decoded.id },
@@ -39,7 +49,7 @@ const auth = async (req, res, next) => {
       escolasPermitidas: getAccessibleSchoolIds(usuario),
     };
     req.token = token;
-    
+
     next();
   } catch (error) {
     res.status(401).json({ error: 'Token inválido ou expirado' });

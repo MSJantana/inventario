@@ -380,13 +380,16 @@ export const login = async (req, res, next) => {
       return res.status(400).json({ error: 'Credenciais inválidas' });
     }
 
+    // Gerar identificador único do JWT (jti) para permitir revogação (logout)
+    const jti = crypto.randomUUID();
+
     // Gerar token JWT
-    const payload = { id: usuario.id, email: usuario.email, role: usuario.role };
+    const payload = { id: usuario.id, email: usuario.email, role: usuario.role, jti };
     const secret = process.env.JWT_SECRET;
-    
+
     // Aceita string tipo "1h", "15m", "7d" ou número (segundos)
     const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
-    
+
     const token = jwt.sign(payload, secret, { expiresIn });
 
     res.json({
@@ -401,6 +404,43 @@ export const login = async (req, res, next) => {
         escolasAcesso: usuario.escolasAcesso,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Logout: revoga o JWT atual adicionando seu jti à blocklist
+export const logout = async (req, res, next) => {
+  try {
+    const token = req.token;
+    if (!token) {
+      return res.status(400).json({ error: 'Token não fornecido' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch {
+      // Token já expirado ou inválido: considera logout bem-sucedido
+      return res.status(200).json({ message: 'Logout realizado com sucesso' });
+    }
+
+    if (!decoded?.jti) {
+      return res.status(200).json({ message: 'Logout realizado com sucesso' });
+    }
+
+    // Mantém o token revogado até sua expiração natural
+    const expiresAt = decoded.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 3600000);
+
+    await prisma.revokedToken.create({
+      data: {
+        jti: decoded.jti,
+        userId: decoded.id,
+        expiresAt,
+      },
+    });
+
+    res.json({ message: 'Logout realizado com sucesso' });
   } catch (error) {
     next(error);
   }

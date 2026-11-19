@@ -294,6 +294,19 @@ model CentroMidia {
   updatedAt DateTime         @updatedAt
 }
 
+// Tokens revogados (logout / invalidez antecipada de JWT)
+model RevokedToken {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([jti])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 // Logs de importacao de arquivo WinAudit (auditoria + confirmacao de preview)
 model ImportacaoWinAudit {
   id                     String           @id @default(uuid())

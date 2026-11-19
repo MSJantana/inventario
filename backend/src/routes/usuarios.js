@@ -14,6 +14,9 @@ router.post('/redefinir-senha', usuariosController.redefinirSenha);
 // Criar usuário passa a ser responsabilidade do ADMIN
 router.post('/', auth, csrfProtect, permitRoles('ADMIN'), validarUsuario, usuariosController.criarUsuario);
 
+// Logout (revoga o JWT atual)
+router.post('/logout', auth, csrfProtect, usuariosController.logout);
+
 // Rotas protegidas
 router.get('/', auth, permitRoles('ADMIN'), usuariosController.listarUsuarios);
 router.get('/:id', auth, permitRoles('ADMIN'), usuariosController.obterUsuario);
