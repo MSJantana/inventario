@@ -57,67 +57,69 @@ export const recuperarSenha = async (req, res, next) => {
   try {
     const { email } = req.body;
 
-    // Verificar se o usuário existe
+    // Verificar se o usuário existe (sem vazar se existe ou não)
     const usuario = await prisma.usuario.findUnique({
       where: { email },
     });
 
-    if (!usuario) {
-      return res.status(404).json({ error: 'Email não cadastrado no sistema' });
-    }
+    let resetToken = null;
 
-    // Gerar token de recuperação (válido por 1 hora)
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hora
+    if (usuario) {
+      // Gerar token de recuperação (válido por 1 hora)
+      resetToken = crypto.randomBytes(20).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hora
 
-    // Salvar o token no banco de dados
-    await prisma.usuario.update({
-      where: { id: usuario.id },
-      data: {
+      // Salvar o token no banco de dados
+      await prisma.usuario.update({
+        where: { id: usuario.id },
+        data: {
+          resetToken,
+          resetTokenExpiry,
+        },
+      });
+
+      // Obter a URL base do frontend para gerar o link de recuperacao.
+      // Prioridade:
+      // 1. Variavel APP_PUBLIC_URL (producao / configuracao explicita)
+      // 2. Header X-Frontend-Origin (quando o frontend quiser sobrescrever)
+      // 3. Header Origin da requisicao (endereco do navegador em dev)
+      // 4. Header Referer da requisicao
+      // 5. Fallback para o host da requisicao (backend)
+      const frontendOrigin =
+        process.env.APP_PUBLIC_URL ||
+        req.get('X-Frontend-Origin') ||
+        req.get('Origin') ||
+        (() => {
+          const ref = req.get('Referer');
+          if (!ref) return undefined;
+          try {
+            const u = new URL(ref);
+            return `${u.protocol}//${u.host}`;
+          } catch {
+            return undefined;
+          }
+        })() ||
+        `${req.protocol}://${req.get('host')}`;
+      const baseUrl = frontendOrigin.replace(/\/$/, '');
+
+      // Enviar email com o link de recuperação
+      const emailEnviado = await enviarEmailRecuperacaoSenha(
+        email,
         resetToken,
-        resetTokenExpiry,
-      },
-    });
+        baseUrl
+      );
 
-    // Obter a URL base do frontend para gerar o link de recuperacao.
-    // Prioridade:
-    // 1. Variavel APP_PUBLIC_URL (producao / configuracao explicita)
-    // 2. Header X-Frontend-Origin (quando o frontend quiser sobrescrever)
-    // 3. Header Origin da requisicao (endereco do navegador em dev)
-    // 4. Header Referer da requisicao
-    // 5. Fallback para o host da requisicao (backend)
-    const frontendOrigin =
-      process.env.APP_PUBLIC_URL ||
-      req.get('X-Frontend-Origin') ||
-      req.get('Origin') ||
-      (() => {
-        const ref = req.get('Referer');
-        if (!ref) return undefined;
-        try {
-          const u = new URL(ref);
-          return `${u.protocol}//${u.host}`;
-        } catch {
-          return undefined;
-        }
-      })() ||
-      `${req.protocol}://${req.get('host')}`;
-    const baseUrl = frontendOrigin.replace(/\/$/, '');
-    
-    // Enviar email com o link de recuperação
-    const emailEnviado = await enviarEmailRecuperacaoSenha(
-      email, 
-      resetToken, 
-      baseUrl
-    );
-
-    if (!emailEnviado) {
-      return res.status(500).json({ error: 'Erro ao enviar email de recuperação' });
+      if (!emailEnviado) {
+        return res.status(500).json({ error: 'Erro ao enviar email de recuperação' });
+      }
     }
-    
-    res.json({ 
+
+    // SEMPRE retornar mensagem genérica, independentemente de o email existir ou não,
+    // para evitar enumeração de usuários.
+    res.json({
       message: 'Instruções de recuperação de senha foram enviadas para seu email',
-      // Em ambiente de desenvolvimento, retornamos o token para testes
-      ...(process.env.NODE_ENV !== 'production' && { token: resetToken })
+      // Em ambiente de desenvolvimento, retornamos o token apenas se o email existir
+      ...(process.env.NODE_ENV !== 'production' && resetToken && { token: resetToken }),
     });
   } catch (error) {
     next(error);
