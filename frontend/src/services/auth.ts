@@ -115,11 +115,44 @@ export function clearAuthStorage(): void {
   }
 }
 
+export async function getCsrfToken(): Promise<string | null> {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  try {
+    const base = getApiBaseUrl();
+    const baseNorm = base.replace(/\/+$/, '');
+    const csrfUrl = baseNorm.endsWith('/api')
+      ? `${baseNorm}/csrf-token`
+      : `${baseNorm}/api/csrf-token`;
+
+    const resp = await fetch(csrfUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data?.csrfToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function logout(): Promise<{ ok: boolean; error?: string }> {
   const token = getAuthToken();
   if (!token) {
     clearAuthStorage();
     return { ok: true };
+  }
+
+  let csrfToken: string | null = null;
+  try {
+    csrfToken = await getCsrfToken();
+  } catch {
+    /* ignore falha ao obter CSRF; ainda tentamos o logout */
   }
 
   try {
@@ -129,11 +162,16 @@ export async function logout(): Promise<{ ok: boolean; error?: string }> {
       ? `${baseNorm}/usuarios/logout`
       : `${baseNorm}/api/usuarios/logout`;
 
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+    };
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+
     const resp = await fetch(logoutUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
     });
 
     // Mesmo que o backend retorne erro (ex: token já revogado),
