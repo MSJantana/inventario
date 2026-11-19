@@ -4,12 +4,13 @@ import { validarUsuario } from '../middlewares/validacao.js';
 import auth from '../middlewares/auth.js';
 import { permitRoles } from '../middlewares/authorize.js';
 import { csrfProtect } from '../middlewares/csrf.js';
+import { loginLimiter, passwordRecoveryLimiter } from '../middlewares/rateLimiter.js';
 
 const router = express.Router();
 
-// Rotas públicas
-router.post('/login', usuariosController.login);
-router.post('/recuperar-senha', usuariosController.recuperarSenha);
+// Rotas públicas (com rate limiting para prevenção de brute force e enumeração)
+router.post('/login', loginLimiter, usuariosController.login);
+router.post('/recuperar-senha', passwordRecoveryLimiter, usuariosController.recuperarSenha);
 router.post('/redefinir-senha', usuariosController.redefinirSenha);
 // Criar usuário passa a ser responsabilidade do ADMIN
 router.post('/', auth, csrfProtect, permitRoles('ADMIN'), validarUsuario, usuariosController.criarUsuario);
