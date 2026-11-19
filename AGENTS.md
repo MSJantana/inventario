@@ -92,7 +92,7 @@ Definir antes de rodar a aplicação:
 - [ ] Migrar JWT de `localStorage` para cookie `HttpOnly/Secure/SameSite`
 - [ ] Adicionar cabeçalhos de segurança HTTP (HSTS, CSP, X-Frame-Options, nosniff)
 - [x] Implementar logout / invalidação de JWT (blocklist RevokedToken)
-- [ ] Corrigir enumeração de e-mail em recuperação de senha (retornar mensagem genérica)
+- [x] Corrigir enumeração de e-mail em recuperação de senha (retornar mensagem genérica)
 
 ---
 
