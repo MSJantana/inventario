@@ -88,7 +88,7 @@ Definir antes de rodar a aplicação:
 
 - [ ] Remover `.env-dev` do histórico — **feito** (arquivo removido do índice e histórico reescrito)
 - [ ] Rotacionar segredos expostos anteriormente (JWT_SECRET, CSRF_SECRET, senhas de banco e SMTP)
-- [ ] Adicionar rate limiting em `/login` e `/recuperar-senha`
+- [x] Adicionar rate limiting em `/login` e `/recuperar-senha`
 - [ ] Migrar JWT de `localStorage` para cookie `HttpOnly/Secure/SameSite`
 - [ ] Adicionar cabeçalhos de segurança HTTP (HSTS, CSP, X-Frame-Options, nosniff)
 - [x] Implementar logout / invalidação de JWT (blocklist RevokedToken)
