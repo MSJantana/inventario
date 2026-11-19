@@ -8,8 +8,8 @@ Este arquivo fornece contexto, instruções e diretrizes para agentes de IA que 
 
 **Sistema de Inventário de Equipamentos** — controle de patrimônio de equipamentos (computadores, notebooks, impressoras, projetores, tablets, monitores, roteadores, switches, etc.) distribuídos por escolas.
 
-- **Backend:** Node.js + Express (ES modules), Prisma ORM, MySQL 8. Porta `3002`.
-- **Frontend:** React + Vite, servido por nginx. Porta `80` (container) / `8080` (host).
+- **Backend:** Node.js + Express (ES modules), Prisma ORM, MySQL 8. Porta `3002`. Versão `1.1.11`.
+- **Frontend:** React + Vite, servido por nginx. Porta `80` (container) / `8080` (host). Versão `1.3.3`.
 - **Banco:** MySQL 8 via Docker (`docker-compose.yml`).
 - **Orquestração:** `docker-compose.yml`, `docker-compose.portainer.yml`, `Jenkinsfile`.
 

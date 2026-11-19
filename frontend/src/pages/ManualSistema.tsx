@@ -196,9 +196,12 @@ function Autenticacao() {
         <ItemLista>Abra o link, crie uma nova senha (mínimo 6 caracteres, confirmação) em <code>/reset-password</code>.</ItemLista>
       </ListaComMarcadores>
       <Paragrafo><Etiqueta cor="yellow"><AlertTriangle className="h-3 w-3 mr-1 inline" />Aviso</Etiqueta>&nbsp; Caso o link não chegue em até 5 minutos, verifique a caixa de spam ou contate seu gestor.</Paragrafo>
-    </>
-  )
-}
+      <Paragrafo><Etiqueta cor="green"><CheckCircle2 className="h-3 w-3 mr-1 inline" />Segurança</Etiqueta>&nbsp; A partir da versão 1.3.3, o sistema possui:</ItemLista>
+      <ListaComMarcadores>
+        <ItemLista><strong>Rate limiting:</strong> no máximo 10 tentativas de login e 5 de recuperação de senha por IP por minuto.</ItemLista>
+        <ItemLista><strong>Logout com invalidação de token:</strong> ao clicar em “Sair”, o token JWT é revogado imediatamente e não pode mais ser usado.</ItemLista>
+        <ItemLista><strong>Sem enumeração de e-mails:</strong> a recuperação de senha retorna sempre a mesma mensagem, independentemente de o e-mail estar cadastrado ou não.</ItemLista>
+      </ListaComMarcadores>
 
 function Permissoes() {
   return (

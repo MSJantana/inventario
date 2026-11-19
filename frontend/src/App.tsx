@@ -664,6 +664,9 @@ export default function App() {
     'Transferência de equipamento: tipos Interno (mesma escola) e Entre Escolas (outra unidade) com formulários específicos.',
     'Botão Recarregar: reseta o seletor de tipo de transferência ao ser clicado.',
     'Segurança: arquivos .env removidos do versionamento Git (adicionados ao .gitignore).',
+    'Segurança: logout com invalidação de JWT (blocklist RevokedToken) — o token é revogado ao sair.',
+    'Segurança: rate limiting em login e recuperação de senha (máx. 10 e 5 tentagens por IP por minuto).',
+    'Segurança: recuperação de senha retorna mensagem genérica, evitando enumeração de e-mails.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
