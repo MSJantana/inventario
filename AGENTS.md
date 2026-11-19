@@ -91,7 +91,7 @@ Definir antes de rodar a aplicação:
 - [ ] Adicionar rate limiting em `/login` e `/recuperar-senha`
 - [ ] Migrar JWT de `localStorage` para cookie `HttpOnly/Secure/SameSite`
 - [ ] Adicionar cabeçalhos de segurança HTTP (HSTS, CSP, X-Frame-Options, nosniff)
-- [ ] Implementar logout / invalidação de JWT
+- [x] Implementar logout / invalidação de JWT (blocklist RevokedToken)
 - [ ] Corrigir enumeração de e-mail em recuperação de senha (retornar mensagem genérica)
 
 ---
