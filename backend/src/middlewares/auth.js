@@ -17,12 +17,19 @@ const auth = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Verificar se o token foi revogado (logout)
+    // Se a tabela RevokedToken ainda não existir (migração não aplicada),
+    // não bloqueamos o acesso: apenas registramos o erro e seguimos.
     if (decoded?.jti) {
-      const revoked = await prisma.revokedToken.findUnique({
-        where: { jti: decoded.jti },
-      });
-      if (revoked) {
-        return res.status(401).json({ error: 'Token revogado. Faça login novamente.' });
+      try {
+        const revoked = await prisma.revokedToken.findUnique({
+          where: { jti: decoded.jti },
+        });
+        if (revoked) {
+          return res.status(401).json({ error: 'Token revogado. Faça login novamente.' });
+        }
+      } catch (dbError) {
+        // Tabela pode não existir ainda ou banco indisponível: não bloquear token por isso
+        console.error('[auth] Erro ao consultar RevokedToken:', dbError?.message || dbError);
       }
     }
 
