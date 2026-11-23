@@ -280,6 +280,284 @@ paths:
       responses:
         '201':
           description: Escola criada
+  /api/escolas/{id}:
+    get:
+      tags: [Escolas]
+      summary: Obter escola por ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Escola encontrada
+    put:
+      tags: [Escolas]
+      summary: Atualizar escola
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Escola atualizada
+    delete:
+      tags: [Escolas]
+      summary: Excluir escola
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Escola excluída
+  /api/movimentacoes:
+    get:
+      tags: [Movimentações]
+      summary: Listar movimentações
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de movimentações
+    post:
+      tags: [Movimentações]
+      summary: Criar movimentação
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                equipamentoId:
+                  type: string
+                tipoMovimento:
+                  type: string
+                origem:
+                  type: string
+                destino:
+                  type: string
+                escolaId:
+                  type: string
+                dataMovimento:
+                  type: string
+                  format: date-time
+                observacoes:
+                  type: string
+              required:
+                - equipamentoId
+                - tipoMovimento
+                - dataMovimento
+      responses:
+        '201':
+          description: Movimentação criada
+  /api/movimentacoes/{id}:
+    get:
+      tags: [Movimentações]
+      summary: Obter movimentação por ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Movimentação encontrada
+    put:
+      tags: [Movimentações]
+      summary: Atualizar movimentação
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Movimentação atualizada
+    delete:
+      tags: [Movimentações]
+      summary: Excluir/estornar movimentação
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Movimentação estornada/excluída
+  /api/movimentacoes/relatorio:
+    get:
+      tags: [Movimentações, Relatórios]
+      summary: Relatório de movimentações
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Relatório gerado
+  /api/relatorios/equipamentos:
+    get:
+      tags: [Relatórios]
+      summary: Relatório de equipamentos em PDF
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: PDF gerado
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+  /api/centro-midia:
+    get:
+      tags: [Centro de Mídia]
+      summary: Listar itens de centro de mídia
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de itens de centro de mídia
+    post:
+      tags: [Centro de Mídia]
+      summary: Criar item de centro de mídia
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      responses:
+        '201':
+          description: Item criado
+  /api/centro-midia/{id}:
+    get:
+      tags: [Centro de Mídia]
+      summary: Obter item de centro de mídia por ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item encontrado
+    put:
+      tags: [Centro de Mídia]
+      summary: Atualizar item de centro de mídia
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item atualizado
+    delete:
+      tags: [Centro de Mídia]
+      summary: Excluir item de centro de mídia
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item excluído
+  /api/configuracoes/chromebook-import:
+    get:
+      tags: [Configurações]
+      summary: Verificar se importação Chromebook está habilitada
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Status da configuração
+    put:
+      tags: [Configurações]
+      summary: Ativar/desativar importação Chromebook
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      responses:
+        '200':
+          description: Configuração atualizada
+  /api/equipamentos/importar/winaudit/preview:
+    post:
+      tags: [Equipamentos]
+      summary: Preview da importação WinAudit
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      responses:
+        '200':
+          description: Preview gerado
+  /api/equipamentos/importar/winaudit/confirmar:
+    post:
+      tags: [Equipamentos]
+      summary: Confirmar importação WinAudit
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      responses:
+        '200':
+          description: Importação confirmada
+  /api/equipamentos/importar/chromeos/preview:
+    post:
+      tags: [Equipamentos]
+      summary: Preview da importação ChromeOS CSV
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      responses:
+        '200':
+          description: Preview gerado
+  /api/equipamentos/importar/chromeos/confirmar:
+    post:
+      tags: [Equipamentos]
+      summary: Confirmar importação ChromeOS CSV
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      responses:
+        '200':
+          description: Importação confirmada
 components:
   securitySchemes:
     bearerAuth:
