@@ -44,13 +44,15 @@ frontend/
 ## 3. Regras de segurança críticas (NÃO alterar sem revisão)
 
 1. **Nunca commitar arquivos `.env`.** Segredos (`JWT_SECRET`, `CSRF_SECRET`, `DATABASE_URL`, senhas SMTP, etc.) devem ser injetados via variáveis de ambiente ou Docker secrets. O `.env-dev` já foi removido do histórico do Git.
-2. **Rotas de autenticação precisam de rate limiting.** `/api/usuarios/login` e `/api/usuarios/recuperar-senha` ainda não possuem proteção contra brute force (passo pendente — curto prazo).
+2. **Rate limiting em rotas de autenticação.** `/api/usuarios/login` (máx. 10 tentativas/IP/min) e `/api/usuarios/recuperar-senha` (máx. 5 tentativas/IP/min) possuem proteção contra brute force via `express-rate-limit` (`backend/src/middlewares/rateLimiter.js`).
 3. **CSRF token obrigatório** em métodos não-idempotentes (POST/PUT/PATCH/DELETE) em rotas autenticadas. Middleware: `backend/src/middlewares/csrf.js`.
 4. **CORS restrito** a origens permitidas (`CORS_ALLOWED_ORIGINS`). Localhost/redes privadas são permitidas apenas em desenvolvimento.
 5. **Senhas sempre hasheadas** com `bcryptjs` (fator 10). Nunca armazenar senha em texto claro.
 6. **JWT expira em 1h** (`JWT_EXPIRES_IN`). Atualmente armazenado em `localStorage` no frontend (risco conhecido — migração para cookie `HttpOnly/Secure/SameSite` pendente).
-7. **Controle de acesso por RBAC** (`ADMIN`, `GESTOR`, `TECNICO`, `USUARIO`) + escopo multi-escola via `backend/src/utils/schoolAccess.js`.
-8. **Erros não devem vazar stack traces em produção.** O `errorHandler.js` controla isso via variável `isDev` / `LOG_STACK`.
+7. **Logout com invalidação de JWT.** O logout revoga o `jti` do token na tabela `RevokedToken` (blocklist), tornando o token inválido antes da expiração natural. Middleware `auth.js` consulta a blocklist a cada requisição.
+8. **Recuperação de senha sem enumeração de e-mail.** A rota `/api/usuarios/recuperar-senha` retorna sempre a mesma mensagem genérica, independentemente de o e-mail existir ou não.
+9. **Controle de acesso por RBAC** (`ADMIN`, `GESTOR`, `TECNICO`, `USUARIO`) + escopo multi-escola via `backend/src/utils/schoolAccess.js`.
+10. **Erros não devem vazar stack traces em produção.** O `errorHandler.js` controla isso via variável `isDev` / `LOG_STACK`.
 
 ---
 
@@ -86,7 +88,7 @@ Definir antes de rodar a aplicação:
 
 ## 6. Pendências conhecidas (roadmap de segurança)
 
-- [ ] Remover `.env-dev` do histórico — **feito** (arquivo removido do índice e histórico reescrito)
+- [x] Remover `.env-dev` do histórico — **feito** (arquivo removido do índice e histórico reescrito)
 - [ ] Rotacionar segredos expostos anteriormente (JWT_SECRET, CSRF_SECRET, senhas de banco e SMTP)
 - [x] Adicionar rate limiting em `/login` e `/recuperar-senha`
 - [ ] Migrar JWT de `localStorage` para cookie `HttpOnly/Secure/SameSite`
@@ -111,6 +113,83 @@ Definir antes de rodar a aplicação:
 3. Aplique middlewares na ordem: `auth` → `csrfProtect` (se não-idempotente) → `permitRoles(...)` → validação → controller.
 4. Valide entrada com middlewares em `backend/src/middlewares/validacao.js` ou crie um novo.
 5. Não exporte segredos nem logs de dados sensíveis (senhas, tokens, CPF/CNPJ).
+
+---
+
+Última atualização: 19 de novembro de 2026.
+
+---
+
+## 9. Roadmap de melhorias futuras (para estudo)
+
+Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase e prioridade. Serve como base para planejamento de futuras atualizações.
+
+### Fase 1 — Segurança Crítica
+
+| # | Item | Problema | Impacto | Esforço |
+|---|------|----------|---------|---------|
+| 1.1 | Rotacionar segredos expostos | `JWT_SECRET`, `CSRF_SECRET`, senhas de banco e SMTP estiveram commitados no histórico antigo do Git | Alto | Médio |
+| 1.2 | Prevenir commit de `.env` | Sem hook automatizado para bloquear arquivos com segredos | Alto | Baixo |
+| 1.3 | Migrar JWT de `localStorage` para cookie `HttpOnly/Secure/SameSite` | Token acessível por XSS via `localStorage` | Alto | Alto |
+| 1.4 | Rate limiting em `/login` e `/recuperar-senha` | **Implementado** (express-rate-limit) | Médio | Baixo |
+
+### Fase 2 — Segurança Alta
+
+| # | Item | Problema | Impacto | Esforço |
+|---|------|----------|---------|---------|
+| 2.1 | Cabeçalhos de segurança HTTP | Ausência de HSTS, X-Frame-Options, CSP, nosniff, Referrer-Policy | Médio | Baixo |
+| 2.2 | Logout invalida sessão em todos os dispositivos | Não há `tokenVersion` por usuário; token roubado dura até 1h | Médio | Médio |
+| 2.3 | Enumeração de usuários em outros endpoints | Rotas de consulta confirmam existência sem rate limiting | Médio | Médio |
+| 2.4 | Upload de arquivos HTML (WinAudit) | Risco de XSS se arquivos forem servidos como HTML | Médio | Médio |
+
+### Fase 3 — Segurança Média
+
+| # | Item | Problema | Impacto | Esforço |
+|---|------|----------|---------|---------|
+| 3.1 | Logs de consultas Prisma em desenvolvimento | Queries com parâmetros sensíveis logadas | Médio | Baixo |
+| 3.2 | Healthcheck expõe informações internas | Retorna `dbHost` e `dbIsDev` | Baixo/Médio | Baixo |
+| 3.3 | Política de senha forte | Sem exigência de complexidade | Médio | Médio |
+| 3.4 | Upload de arquivos HTML (WinAudit) | Risco de XSS se servidos no domínio do frontend | Médio | Médio |
+
+### Fase 4 — DevOps e Infraestrutura
+
+| # | Item | Problema | Impacto | Esforço |
+|---|------|----------|---------|---------|
+| 4.1 | Build do Docker quebrado no CI | Sem validação de build antes do merge | Alto | Baixo |
+| 4.2 | Banco de dados exposto na rede | Porta 3306 publicada no Docker Compose | Alto | Médio |
+| 4.3 | Backup automático do banco | Sem estratégia de backup | Alto | Médio |
+| 4.4 | Validação de variáveis de ambiente | Sem validação obrigatória na inicialização | Médio | Baixo |
+
+### Fase 5 — Qualidade de Código
+
+| # | Item | Problema | Impacto | Esforço |
+|---|------|----------|---------|---------|
+| 5.1 | Duplicação de upload (WinAudit e ChromeOS) | Código repetido no `upload.js` | Médio | Médio |
+| 5.2 | `auth.js` consulta banco em toda requisição | Carga desnecessária no MySQL | Médio | Médio |
+| 5.3 | Validação de e-mail regex simples | Pode aceitar/rejeitar casos extremos incorretamente | Baixo | Baixo |
+
+### Fase 6 — Testes e Qualidade de Software
+
+| # | Item | Problema | Impacto | Esforço |
+|---|------|----------|---------|---------|
+| 6.1 | Não há testes automatizados | Sem testes unitários, integração ou E2E | Alto | Alto |
+| 6.2 | Não há contrato de API | Sem OpenAPI/Swagger nem testes de contrato | Médio | Médio |
+
+### Fase 7 — Monitoramento e Observabilidade
+
+| # | Item | Problema | Impacto | Esforço |
+|---|------|----------|---------|---------|
+| 7.1 | Não há alertas de erro | Sem integração com Sentry ou similar | Médio | Médio |
+| 7.2 | Não há métricas de uso | Sem rastreamento de endpoints ou tempo de resposta | Baixo | Médio |
+| 7.3 | Logs não centralizados | Logs locais, sem correlação distribuída | Médio | Médio |
+
+### Fase 8 — Experiência do Usuário (UX/UI)
+
+| # | Item | Problema | Impacto | Esforço |
+|---|------|----------|---------|---------|
+| 8.1 | Não há "lembrar de mim" | JWT expira em 1h para todos | Baixo | Médio |
+| 8.2 | Não há tela de perfil do usuário | Usuário não pode editar próprios dados | Médio | Médio |
+| 8.3 | Confirmação de exclusão crítica | Exclusão imediata sem confirmação dupla | Baixo | Baixo |
 
 ---
 
