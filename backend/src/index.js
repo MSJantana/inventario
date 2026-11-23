@@ -270,7 +270,8 @@ app.get('/', (req, res) => {
 });
 
 // Iniciar servidor apenas se executado diretamente (não em testes)
-if (import.meta.url === process.argv[1]) {
+const isMainModule = process.argv[1] && process.argv[1].endsWith('index.js');
+if (isMainModule) {
   const parsedPort = Number.parseInt(process.env.PORT || '3002', 10);
   const PORT = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3002;
   app.listen(PORT, '0.0.0.0', () => {
