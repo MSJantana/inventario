@@ -30,6 +30,256 @@ tags:
     description: Configurações globais do sistema
   - name: Utilitários
     description: CSRF token, healthcheck
+paths:
+  /api/health:
+    get:
+      tags: [Utilitários]
+      summary: Verifica saúde da API e conexão com banco
+      responses:
+        '200':
+          description: API está funcionando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  db:
+                    type: string
+  /api/csrf-token:
+    get:
+      tags: [Utilitários, Autenticação]
+      summary: Emite token CSRF (requer autenticação)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token CSRF emitido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csrfToken:
+                    type: string
+                  expiresIn:
+                    type: integer
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/usuarios/login:
+    post:
+      tags: [Autenticação]
+      summary: Login de usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                senha:
+                  type: string
+              required:
+                - email
+                - senha
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/usuarios/recuperar-senha:
+    post:
+      tags: [Autenticação]
+      summary: Solicitar recuperação de senha por email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required:
+                - email
+      responses:
+        '200':
+          description: Instruções enviadas (resposta genérica para prevenir enumeração)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /api/usuarios/redefinir-senha:
+    post:
+      tags: [Autenticação]
+      summary: Redefinir senha com token de recuperação
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                novaSenha:
+                  type: string
+              required:
+                - token
+                - novaSenha
+      responses:
+        '200':
+          description: Senha redefinida com sucesso
+        '400':
+          description: Token inválido ou expirado
+  /api/usuarios:
+    get:
+      tags: [Autenticação]
+      summary: Listar usuários (apenas ADMIN)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de usuários
+        '403':
+          description: Acesso negado
+    post:
+      tags: [Autenticação]
+      summary: Criar usuário (apenas ADMIN)
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Usuario'
+      responses:
+        '201':
+          description: Usuário criado
+        '403':
+          description: Acesso negado
+  /api/usuarios/logout:
+    post:
+      tags: [Autenticação]
+      summary: Logout (revoga o JWT)
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      responses:
+        '200':
+          description: Logout realizado com sucesso
+  /api/equipamentos:
+    get:
+      tags: [Equipamentos]
+      summary: Listar equipamentos (com escopo por escola)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de equipamentos
+    post:
+      tags: [Equipamentos]
+      summary: Criar equipamento
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Equipamento'
+      responses:
+        '201':
+          description: Equipamento criado
+  /api/equipamentos/{id}:
+    get:
+      tags: [Equipamentos]
+      summary: Obter equipamento por ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Equipamento encontrado
+    put:
+      tags: [Equipamentos]
+      summary: Atualizar equipamento
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Equipamento'
+    delete:
+      tags: [Equipamentos]
+      summary: Excluir equipamento
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Equipamento excluído
+  /api/escolas:
+    get:
+      tags: [Escolas]
+      summary: Listar escolas
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de escolas
+    post:
+      tags: [Escolas]
+      summary: Criar escola
+      security:
+        - bearerAuth: []
+        - csrfHeader: []
+      responses:
+        '201':
+          description: Escola criada
 components:
   securitySchemes:
     bearerAuth:
