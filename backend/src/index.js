@@ -37,6 +37,7 @@ import relatoriosRoutes from './routes/relatorios.js';
 import centroMidiaRoutes from './routes/centroMidia.js';
 import configuracoesRoutes from './routes/configuracoes.js';
 import errorHandler from './middlewares/errorHandler.js';
+import { setupSwagger } from './openapi/swagger-ui.js';
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', true);
@@ -221,6 +222,11 @@ app.use('/api/configuracoes', configuracoesRoutes);
 // Endpoint para emissão de CSRF token (requer autenticação)
 app.get('/api/csrf-token', auth, issueCsrfToken);
 
+// Documentação OpenAPI/Swagger (apenas em desenvolvimento)
+if (process.env.NODE_ENV !== 'production') {
+  setupSwagger(app);
+}
+
 // Healthcheck (inclui verificação de banco com Prisma)
 app.get('/api/health', async (req, res) => {
   try {
@@ -263,13 +269,14 @@ app.get('/', (req, res) => {
   res.json({ message: 'API do Sistema de Inventário de Equipamentos' });
 });
 
-// Iniciar servidor
-const parsedPort = Number.parseInt(process.env.PORT || '3002', 10);
-const PORT = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3002;
-app.listen(PORT, '0.0.0.0', () => {
-  logger.info({ port: PORT, host: '0.0.0.0' }, '[server] listening');
-});
-
+// Iniciar servidor apenas se executado diretamente (não em testes)
+if (import.meta.url === process.argv[1]) {
+  const parsedPort = Number.parseInt(process.env.PORT || '3002', 10);
+  const PORT = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3002;
+  app.listen(PORT, '0.0.0.0', () => {
+    logger.info({ port: PORT, host: '0.0.0.0' }, '[server] listening');
+  });
+}
 
 // Tratamento de erros do Prisma
 const SLOW_MS = Number.parseInt(process.env.LOG_QUERY_SLOW_MS || '0', 10);
@@ -287,5 +294,5 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Exportar o cliente Prisma
-export { prisma };
+// Exportar o cliente Prisma e o app Express
+export { prisma, app };
