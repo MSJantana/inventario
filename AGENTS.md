@@ -173,7 +173,7 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 | # | Item | Problema | Impacto | Esforço |
 |---|------|----------|---------|---------|
 | 6.1 | Não há testes automatizados | Sem testes unitários, integração ou E2E | Alto | Alto |
-| 6.2 | Não há contrato de API | Sem OpenAPI/Swagger nem testes de contrato | Médio | Médio |
+| 6.2 | Não há contrato de API | **Implementado** (OpenAPI/Swagger em `/api-docs` + testes de contrato em `backend/tests/contract/`) | Médio | Médio |
 
 ### Fase 7 — Monitoramento e Observabilidade
 
