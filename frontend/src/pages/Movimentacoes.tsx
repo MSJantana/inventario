@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import Pagination from '../components/Pagination'
 import { Plus, Pencil, Trash2, Save, RotateCcw, X, Filter, ExternalLink } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, showConfirmToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast } from '../utils/toast'
 import { useAppStore } from '../store/useAppStore'
 import { getBloquearEditarExcluirDoado } from '../services/settings'
+import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog'
 
 type Mov = {
   id: string
@@ -846,6 +847,8 @@ export default function MovimentacoesPage() {
   const [lista, setLista] = useState<Mov[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
+  const [excluindoNome, setExcluindoNome] = useState('')
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([])
   const [escolas, setEscolas] = useState<EscolaOption[]>([])
   const [departamentoSel, setDepartamentoSel] = useState<'EQUIPAMENTOS' | 'CENTRO_MIDIA'>('EQUIPAMENTOS')
@@ -1381,7 +1384,21 @@ export default function MovimentacoesPage() {
     }
   }
 
-  async function excluirMov(id: string) {
+  async function executarExclusaoMov(id: string) {
+    try {
+      await api.delete(`/api/movimentacoes/${id}`)
+      showSuccessToast('Movimentação excluída')
+      setLista((prev) => prev.filter((m) => m.id !== id))
+      setExcluindoId(null)
+      setExcluindoNome('')
+    } catch (e: unknown) {
+      showErrorToast((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao excluir movimentação')
+      setExcluindoId(null)
+      setExcluindoNome('')
+    }
+  }
+
+  function confirmarExclusaoMov(id: string) {
     const mov = lista.find(m => m.id === id)
     if (mov && !podeExcluirMovBaseFn(mov)) {
       const msg = equipamentoEDoado(mov) && bloquearEditarExcluirDoado
@@ -1390,13 +1407,8 @@ export default function MovimentacoesPage() {
       showWarningToast(msg)
       return
     }
-    try {
-      await api.delete(`/api/movimentacoes/${id}`)
-      showSuccessToast('Movimentação excluída')
-      setLista((prev) => prev.filter((m) => m.id !== id))
-    } catch (e: unknown) {
-      showErrorToast((e as { response?: { data?: { error?: string } }; message?: string })?.response?.data?.error || 'Falha ao excluir movimentação')
-    }
+    setExcluindoNome(mov?.equipamento?.nome || mov?.equipamento?.serial || 'movimentação')
+    setExcluindoId(id)
   }
 
   async function handleXLSX() {
@@ -1645,7 +1657,7 @@ export default function MovimentacoesPage() {
                         </button>
                       )}
                       {podeExcluirMovBaseFn(m) && (
-                        <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))} aria-label={`Excluir (estornar) a movimentação de ${eqLabel}`}>
+                        <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => confirmarExclusaoMov(m.id)} aria-label={`Excluir (estornar) a movimentação de ${eqLabel}`}>
                           <Trash2 size={16} aria-hidden />
                           <span>Excluir</span>
                         </button>
@@ -1732,7 +1744,7 @@ export default function MovimentacoesPage() {
                     </button>
                   )}
                   {podeExcluirMovBaseFn(m) && (
-                    <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta movimentação?', () => excluirMov(m.id))} aria-label={`Excluir movimentação de ${eqFmt.titulo}`}>
+                    <button type="button" className="flex-1 rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 text-xs flex items-center justify-center gap-1" onClick={() => confirmarExclusaoMov(m.id)} aria-label={`Excluir movimentação de ${eqFmt.titulo}`}>
                       <Trash2 size={14} aria-hidden />
                       <span>Excluir</span>
                     </button>
@@ -2894,7 +2906,20 @@ export default function MovimentacoesPage() {
           })()}
         </section>
       )}
-      
+
+      {excluindoId && (
+        <ConfirmDeleteDialog
+          open
+          itemName={excluindoNome}
+          itemType="movimentação"
+          onConfirm={() => executarExclusaoMov(excluindoId!)}
+          onCancel={() => {
+            setExcluindoId(null)
+            setExcluindoNome('')
+          }}
+        />
+      )}
+
     </div>
   )
 }

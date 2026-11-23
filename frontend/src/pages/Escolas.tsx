@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pencil, Trash2, Save, X } from 'lucide-react'
-import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
 import api from '../lib/axios'
+import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog'
 
 type Escola = {
   id: string
@@ -67,6 +68,8 @@ export default function EscolasPage() {
   const [lista, setLista] = useState<Escola[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
+  const [excluindoNome, setExcluindoNome] = useState('')
   // filtros e paginação
   const [filterText, setFilterText] = useState('')
   const [pageSize, setPageSize] = useState(5)
@@ -237,7 +240,7 @@ export default function EscolasPage() {
                       <Pencil size={16} aria-hidden />
                       <span>Editar</span>
                     </button>
-                    <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))} aria-label={`Excluir a escola ${e.nome}`}>
+                    <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => confirmarExclusaoEscola(e.id)} aria-label={`Excluir a escola ${e.nome}`}>
                       <Trash2 size={16} aria-hidden />
                       <span>Excluir</span>
                     </button>
@@ -287,7 +290,7 @@ export default function EscolasPage() {
               <button 
                 type="button"
                 className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1" 
-                onClick={() => showConfirmToast('Tem certeza que deseja excluir esta escola?', () => excluirEscola(e.id))}
+                onClick={() => confirmarExclusaoEscola(e.id)}
                 aria-label={`Excluir a escola ${e.nome}`}
               >
                 <Trash2 size={14} aria-hidden />
@@ -554,14 +557,24 @@ export default function EscolasPage() {
     }
   }
 
-  async function excluirEscola(id: string) {
+  async function executarExclusaoEscola(id: string) {
     try {
       await api.delete(`/api/escolas/${id}`)
-          showSuccessToast('Escola excluída')
+      showSuccessToast('Escola excluída')
       await carregar()
+      setExcluindoId(null)
+      setExcluindoNome('')
     } catch (e: unknown) {
-          showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir escola')
+      showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir escola')
+      setExcluindoId(null)
+      setExcluindoNome('')
     }
+  }
+
+  function confirmarExclusaoEscola(id: string) {
+    const escola = lista.find((e) => e.id === id)
+    setExcluindoNome(escola?.nome || 'escola')
+    setExcluindoId(id)
   }
   function cancelCreate() {
     setShowCreate(false)
@@ -576,4 +589,17 @@ export default function EscolasPage() {
     setDiretor('')
     setObservacoes('')
   }
+
+  return (
+    <ConfirmDeleteDialog
+      open={excluindoId !== null}
+      itemName={excluindoNome}
+      itemType="escola"
+      onConfirm={() => executarExclusaoEscola(excluindoId!)}
+      onCancel={() => {
+        setExcluindoId(null)
+        setExcluindoNome('')
+      }}
+    />
+  )
 }

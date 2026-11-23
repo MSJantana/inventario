@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pencil, Trash2, Save, RotateCcw, Plus, Eye, EyeOff, Building2 } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
+import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog'
 
 type UsuarioEscolaAcesso = {
   escolaId: string
@@ -51,6 +52,8 @@ export default function UsuariosPage() {
   const [escolas, setEscolas] = useState<Escola[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
+  const [excluindoNome, setExcluindoNome] = useState('')
 
   // Estados para formulário de criação
   const [showCreate, setShowCreate] = useState(false)
@@ -197,21 +200,25 @@ export default function UsuariosPage() {
 
 
 
-  async function confirmarExclusaoUsuario(id: string) {
+  async function executarExclusaoUsuario(id: string) {
     try {
       await api.delete(`/api/usuarios/${id}`)
       showSuccessToast('Usuário excluído com sucesso!')
       setUsuarios((prev) => prev.filter((u) => u.id !== id))
+      setExcluindoId(null)
+      setExcluindoNome('')
     } catch (e: unknown) {
       const errorMsg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
       showErrorToast(errorMsg || 'Erro ao excluir usuário')
+      setExcluindoId(null)
+      setExcluindoNome('')
     }
   }
 
-  function excluirUsuario(id: string) {
-    showConfirmToast('Tem certeza que deseja excluir este usuário?', () => {
-      void confirmarExclusaoUsuario(id)
-    })
+  function confirmarExclusaoUsuario(id: string) {
+    const usuario = usuarios.find((u) => u.id === id)
+    setExcluindoNome(usuario?.nome || 'usuário')
+    setExcluindoId(id)
   }
 
   function iniciarEdicao(usuario: Usuario) {
@@ -724,6 +731,20 @@ export default function UsuariosPage() {
           </div>
         </dialog>
       )}
+
+      {excluindoId && (
+        <ConfirmDeleteDialog
+          open
+          itemName={excluindoNome}
+          itemType="usuário"
+          onConfirm={() => executarExclusaoUsuario(excluindoId!)}
+          onCancel={() => {
+            setExcluindoId(null)
+            setExcluindoNome('')
+          }}
+        />
+      )}
+
     </div>
   )
 }

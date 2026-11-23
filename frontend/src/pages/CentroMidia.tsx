@@ -3,8 +3,9 @@ import Pagination from '../components/Pagination'
 import CentroMidiaIdCard from '../components/CentroMidiaIdCard'
 import { Plus, Pencil, Trash2, Save, RotateCcw, Barcode } from 'lucide-react'
 import api from '../lib/axios'
-import { showSuccessToast, showErrorToast, showWarningToast, showConfirmToast } from '../utils/toast'
+import { showSuccessToast, showErrorToast, showWarningToast } from '../utils/toast'
 import { useAppStore } from '../store/useAppStore'
+import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog'
 
 type Item = {
   id: string
@@ -27,6 +28,8 @@ export default function CentroMidiaPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
+  const [excluindoNome, setExcluindoNome] = useState('')
 
   const [filterText, setFilterText] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
@@ -175,11 +178,15 @@ export default function CentroMidiaPage() {
     }
   }
 
-  async function excluirItem(id: string) {
+  async function executarExclusaoItem(id: string) {
     try {
       await api.delete(`/api/centro-midia/${id}`)
       showSuccessToast('Item excluído')
-      await carregar()
+      const next = lista.filter(i => i.id !== id)
+      setLista(next)
+      writeLocal(next)
+      setExcluindoId(null)
+      setExcluindoNome('')
     } catch (e: unknown) {
       const status = (e as { response?: { status?: number } })?.response?.status
       if (status === 404) {
@@ -187,11 +194,18 @@ export default function CentroMidiaPage() {
         setLista(next)
         writeLocal(next)
         showSuccessToast('Item excluído (armazenado localmente)')
-        await carregar()
       } else {
         showErrorToast((e as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Falha ao excluir item')
       }
+      setExcluindoId(null)
+      setExcluindoNome('')
     }
+  }
+
+  function confirmarExclusaoItem(id: string) {
+    const item = lista.find((i) => i.id === id)
+    setExcluindoNome(item?.nome || 'item')
+    setExcluindoId(id)
   }
 
   const filtrada = lista.filter((i) => {
@@ -280,7 +294,7 @@ export default function CentroMidiaPage() {
                         <Pencil size={16} aria-hidden />
                         <span>Editar</span>
                       </button>
-                      <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => showConfirmToast('Tem certeza que deseja excluir este item?', () => excluirItem(i.id))} aria-label={`Excluir o item ${i.nome || 'de mídia'}`}>
+                      <button type="button" className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1" onClick={() => confirmarExclusaoItem(i.id)} aria-label={`Excluir o item ${i.nome || 'de mídia'}`}>
                         <Trash2 size={16} aria-hidden />
                         <span>Excluir</span>
                       </button>
@@ -410,6 +424,20 @@ export default function CentroMidiaPage() {
           onClose={() => setSelectedItem(null)}
         />
       )}
+
+      {excluindoId && (
+        <ConfirmDeleteDialog
+          open
+          itemName={excluindoNome}
+          itemType="item de mídia"
+          onConfirm={() => executarExclusaoItem(excluindoId!)}
+          onCancel={() => {
+            setExcluindoId(null)
+            setExcluindoNome('')
+          }}
+        />
+      )}
+
     </div>
   )
 }

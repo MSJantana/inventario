@@ -7,6 +7,7 @@ import { showSuccessToast, showErrorToast, showInfoToast, showWarningToast, show
 import { getValidityYears, getBloquearEditarExcluirDoado, getEditarEnabled } from '../services/settings'
 import { useAppStore } from '../store/useAppStore'
 import EquipmentIdCard from '../components/EquipmentIdCard'
+import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog'
 import {
   gerarPreviewWinAudit,
   confirmarImportacaoWinAudit,
@@ -505,6 +506,8 @@ export default function EquipamentosPage() {
   const [lista, setLista] = useState<Equipamento[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
+  const [excluindoNome, setExcluindoNome] = useState('')
   const [showCreate, setShowCreate] = useState(false)
 
   // Filtros e paginação
@@ -1075,13 +1078,17 @@ export default function EquipamentosPage() {
     }
   }
 
-  async function excluirEquipamento(id: string) {
+  async function executarExclusao(id: string) {
     try {
       await api.delete(`/api/equipamentos/${id}`)
       showSuccessToast('Equipamento excluído')
       setLista((prev) => prev.filter((e) => e.id !== id))
+      setExcluindoId(null)
+      setExcluindoNome('')
     } catch (e: unknown) {
       showErrorToast(formatarMensagemErro(e, 'Falha ao excluir equipamento'))
+      setExcluindoId(null)
+      setExcluindoNome('')
     }
   }
 
@@ -1095,7 +1102,8 @@ export default function EquipamentosPage() {
       showWarningToast(msg)
       return
     }
-    showConfirmToast('Tem certeza que deseja excluir este equipamento?', () => excluirEquipamento(id))
+    setExcluindoNome(equip?.nome || equip?.nomeEquipamento || 'equipamento')
+    setExcluindoId(id)
   }
 
   const setExpiredCount = useAppStore((state) => state.setExpiredCount)
@@ -2182,6 +2190,20 @@ export default function EquipamentosPage() {
       {selectedEquipamento && (
         <EquipmentIdCard equipamento={selectedEquipamento} onClose={() => setSelectedEquipamento(null)} />
       )}
+
+      {excluindoId && (
+        <ConfirmDeleteDialog
+          open
+          itemName={excluindoNome}
+          itemType="equipamento"
+          onConfirm={() => executarExclusao(excluindoId!)}
+          onCancel={() => {
+            setExcluindoId(null)
+            setExcluindoNome('')
+          }}
+        />
+      )}
+
     </div>
   )
 }
