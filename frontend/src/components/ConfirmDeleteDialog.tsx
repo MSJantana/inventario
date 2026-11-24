@@ -10,7 +10,7 @@ type ConfirmDeleteDialogProps = {
   closeOnConfirm?: boolean
 }
 
-export function ConfirmDeleteDialog({
+function ConfirmDeleteDialog({
   open,
   itemName,
   itemType,
@@ -106,3 +106,5 @@ export function ConfirmDeleteDialog({
     </dialog>
   )
 }
+
+export default ConfirmDeleteDialog
