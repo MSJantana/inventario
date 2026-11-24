@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Trash2, XCircle, AlertTriangle } from 'lucide-react'
+import { XCircle, AlertTriangle } from 'lucide-react'
 
 type ConfirmDeleteDialogProps = {
   open: boolean

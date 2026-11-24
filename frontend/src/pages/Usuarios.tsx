@@ -215,11 +215,7 @@ export default function UsuariosPage() {
     }
   }
 
-  function confirmarExclusaoUsuario(id: string) {
-    const usuario = usuarios.find((u) => u.id === id)
-    setExcluindoNome(usuario?.nome || 'usuário')
-    setExcluindoId(id)
-  }
+
 
   function iniciarEdicao(usuario: Usuario) {
     // Abrir o formulário de criação com os dados do usuário para edição
@@ -542,7 +538,7 @@ export default function UsuariosPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => excluirUsuario(usuario.id)}
+                        onClick={() => executarExclusaoUsuario(usuario.id)}
                         aria-label={`Excluir o usuário ${usuario.nome}`}
                         className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700 flex items-center gap-1"
                       >
@@ -624,7 +620,7 @@ export default function UsuariosPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => excluirUsuario(usuario.id)}
+                  onClick={() => executarExclusaoUsuario(usuario.id)}
                   aria-label={`Excluir o usuário ${usuario.nome}`}
                   className="flex-1 bg-red-600 text-white px-3 py-2 rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center justify-center gap-1"
                 >
