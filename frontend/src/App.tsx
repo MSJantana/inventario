@@ -669,6 +669,8 @@ export default function App() {
     'Segurança: recuperação de senha retorna mensagem genérica, evitando enumeração de e-mails.',
     'Segurança: confirmação de exclusão em equipamentos, usuários, escolas, centro de mídia e movimentações — exige digitar "CONFIRMAR" para prosseguir.',
     'Segurança: validação de contrato de API (OpenAPI/Swagger em /api-docs + testes de contrato).',
+    'Segurança: cabeçalhos de segurança HTTP (HSTS, X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy).',
+    'Segurança: banco de dados não exposto na rede — acessível apenas internamente via rede Docker.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);

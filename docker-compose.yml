@@ -10,8 +10,7 @@ services:
       MYSQL_DATABASE: ${DATABASE_NAME}
       MYSQL_USER: ${DATABASE_USER}
       MYSQL_PASSWORD: ${DATABASE_PASSWORD}
-    ports:
-      - "${MYSQL_PORT:-3306}:3306" # opcional para acessar via host
+    # Porta 3306 não exposta ao host - acessível apenas internamente via rede Docker
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:

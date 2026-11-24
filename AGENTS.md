@@ -8,8 +8,8 @@ Este arquivo fornece contexto, instruções e diretrizes para agentes de IA que 
 
 **Sistema de Inventário de Equipamentos** — controle de patrimônio de equipamentos (computadores, notebooks, impressoras, projetores, tablets, monitores, roteadores, switches, etc.) distribuídos por escolas.
 
-- **Backend:** Node.js + Express (ES modules), Prisma ORM, MySQL 8. Porta `3002`. Versão `1.1.12`.
-- **Frontend:** React + Vite, servido por nginx. Porta `80` (container) / `8080` (host). Versão `1.3.4`.
+- **Backend:** Node.js + Express (ES modules), Prisma ORM, MySQL 8. Porta `3002`. Versão `1.1.13`.
+- **Frontend:** React + Vite, servido por nginx. Porta `80` (container) / `8080` (host). Versão `1.3.5`.
 - **Banco:** MySQL 8 via Docker (`docker-compose.yml`).
 - **Orquestração:** `docker-compose.yml`, `docker-compose.portainer.yml`, `Jenkinsfile`.
 
@@ -137,7 +137,7 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 
 | # | Item | Problema | Impacto | Esforço |
 |---|------|----------|---------|---------|
-| 2.1 | Cabeçalhos de segurança HTTP | Ausência de HSTS, X-Frame-Options, CSP, nosniff, Referrer-Policy | Médio | Baixo |
+| 2.1 | Cabeçalhos de segurança HTTP | **Implementado** (HSTS, X-Frame-Options, CSP, nosniff, Referrer-Policy no nginx.conf) | Médio | Baixo |
 | 2.2 | Logout invalida sessão em todos os dispositivos | Não há `tokenVersion` por usuário; token roubado dura até 1h | Médio | Médio |
 | 2.3 | Enumeração de usuários em outros endpoints | Rotas de consulta confirmam existência sem rate limiting | Médio | Médio |
 | 2.4 | Upload de arquivos HTML (WinAudit) | Risco de XSS se arquivos forem servidos como HTML | Médio | Médio |
@@ -156,7 +156,7 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 | # | Item | Problema | Impacto | Esforço |
 |---|------|----------|---------|---------|
 | 4.1 | Build do Docker quebrado no CI | Sem validação de build antes do merge | Alto | Baixo |
-| 4.2 | Banco de dados exposto na rede | Porta 3306 publicada no Docker Compose | Alto | Médio |
+| 4.2 | Banco de dados exposto na rede | **Implementado** — porta 3306 não publicada no docker-compose.yml | Alto | Médio |
 | 4.3 | Backup automático do banco | Sem estratégia de backup | Alto | Médio |
 | 4.4 | Validação de variáveis de ambiente | Sem validação obrigatória na inicialização | Médio | Baixo |
 
