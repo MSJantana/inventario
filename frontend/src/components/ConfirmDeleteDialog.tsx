@@ -51,8 +51,8 @@ function ConfirmDeleteDialog({
         if (e.target === e.currentTarget) onCancel()
       }}
     >
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-md" />
+      <div className="relative w-full max-w-md rounded-xl border border-red-200 bg-white p-6 shadow-2xl ring-1 ring-red-900/10">
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-red-50 p-2">
             <AlertTriangle className="h-6 w-6 text-red-600" />
