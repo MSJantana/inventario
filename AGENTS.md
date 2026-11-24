@@ -8,8 +8,8 @@ Este arquivo fornece contexto, instruções e diretrizes para agentes de IA que 
 
 **Sistema de Inventário de Equipamentos** — controle de patrimônio de equipamentos (computadores, notebooks, impressoras, projetores, tablets, monitores, roteadores, switches, etc.) distribuídos por escolas.
 
-- **Backend:** Node.js + Express (ES modules), Prisma ORM, MySQL 8. Porta `3002`. Versão `1.1.11`.
-- **Frontend:** React + Vite, servido por nginx. Porta `80` (container) / `8080` (host). Versão `1.3.3`.
+- **Backend:** Node.js + Express (ES modules), Prisma ORM, MySQL 8. Porta `3002`. Versão `1.1.12`.
+- **Frontend:** React + Vite, servido por nginx. Porta `80` (container) / `8080` (host). Versão `1.3.4`.
 - **Banco:** MySQL 8 via Docker (`docker-compose.yml`).
 - **Orquestração:** `docker-compose.yml`, `docker-compose.portainer.yml`, `Jenkinsfile`.
 
@@ -116,7 +116,7 @@ Definir antes de rodar a aplicação:
 
 ---
 
-Última atualização: 19 de novembro de 2026.
+Última atualização: 24 de novembro de 2026.
 
 ---
 
@@ -189,8 +189,8 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 |---|------|----------|---------|---------|
 | 8.1 | Não há "lembrar de mim" | JWT expira em 1h para todos | Baixo | Médio |
 | 8.2 | Não há tela de perfil do usuário | Usuário não pode editar próprios dados | Médio | Médio |
-| 8.3 | Confirmação de exclusão crítica | Exclusão imediata sem confirmação dupla | Baixo | Baixo |
+| 8.3 | Confirmação de exclusão crítica | **Implementado** — exclusão exige digitar "CONFIRMAR" para prosseguir | Baixo | Baixo |
 
 ---
 
-Última atualização: 19 de novembro de 2026.
+Última atualização: 24 de novembro de 2026.

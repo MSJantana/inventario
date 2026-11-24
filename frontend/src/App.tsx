@@ -667,6 +667,8 @@ export default function App() {
     'Segurança: logout com invalidação de JWT (blocklist RevokedToken) — o token é revogado ao sair.',
     'Segurança: rate limiting em login e recuperação de senha (máx. 10 e 5 tentagens por IP por minuto).',
     'Segurança: recuperação de senha retorna mensagem genérica, evitando enumeração de e-mails.',
+    'Segurança: confirmação de exclusão em equipamentos, usuários, escolas, centro de mídia e movimentações — exige digitar "CONFIRMAR" para prosseguir.',
+    'Segurança: validação de contrato de API (OpenAPI/Swagger em /api-docs + testes de contrato).',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
