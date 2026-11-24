@@ -45,12 +45,11 @@ function ConfirmDeleteDialog({
   if (!open) return null
 
   return (
-    <dialog
+    <div
       className="fixed inset-0 z-[60] flex items-center justify-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel()
       }}
-      style={{ display: open ? 'flex' : 'none' }}
     >
       <div className="fixed inset-0 bg-black/60 backdrop-blur-md" />
       <div className="mx-auto w-full max-w-md rounded-xl border border-red-200 bg-white p-6 shadow-2xl ring-1 ring-red-900/10 text-center">
@@ -81,7 +80,7 @@ function ConfirmDeleteDialog({
               spellCheck={false}
               autoComplete="off"
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-xs text-gray-500">
               O texto deve ser escrito exatamente como mostrado acima.
             </p>
           </div>
@@ -104,7 +103,7 @@ function ConfirmDeleteDialog({
           </button>
         </div>
       </div>
-    </dialog>
+    </div>
   )
 }
 
