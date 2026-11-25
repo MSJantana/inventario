@@ -14,7 +14,7 @@ import ResetPassword from './pages/ResetPassword';
 import { useAppStore } from './store/useAppStore';
 import api from './lib/axios';
 import { isExpired } from './utils/validity';
-import { APP_VERSION } from './services/settings';
+import { APP_VERSION, IS_DEV_ENVIRONMENT } from './services/settings';
 
 const MovimentacoesPage = lazy(() => import('./pages/Movimentacoes'));
 const RelatoriosEquipamentosPage = lazy(() => import('./pages/RelatoriosEquipamentos'));
@@ -307,6 +307,11 @@ function Header({
             <span className="sr-only">7Inventory</span>
           </a>
           <span className="inline-flex items-center rounded bg-white/10 px-2 py-0.5 text-xs text-gray-300" aria-label={`Versão ${version} do sistema`}>v{version}</span>
+          {IS_DEV_ENVIRONMENT && (
+            <span className="inline-flex items-center rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 font-bold border border-amber-300 ml-1" aria-label="Ambiente de desenvolvimento">
+              DESENVOLVIMENTO
+            </span>
+          )}
           <nav aria-label="Navegação principal" className="hidden md:flex items-center gap-4">
             <NavLinks />
           </nav>
@@ -599,20 +604,6 @@ export default function App() {
     };
   }, [setAuthTokenState]);
 
-  const [dbIsDev, setDbIsDev] = useState(false);
-  const [dbHost, setDbHost] = useState<string | null>(null);
-
-  useEffect(() => {
-    api.get('/api/health').then((resp) => {
-      const payload = resp?.data ?? {};
-      setDbIsDev(Boolean(payload.dbIsDev));
-      setDbHost(typeof payload.dbHost === 'string' ? payload.dbHost : null);
-    }).catch(() => {
-      setDbIsDev(false);
-      setDbHost(null);
-    });
-  }, []);
-
   const expiredCount = useAppStore((state) => state.expiredCount);
   const setExpiredCount = useAppStore((state) => state.setExpiredCount);
   const maintenanceCount = useAppStore((state) => state.maintenanceCount);
@@ -722,15 +713,6 @@ export default function App() {
                 <p className="text-xs text-gray-500">{isEquipmentReportRoute ? 'Relatório do Equipamento' : (routeLabels[location.pathname] || 'Página')}</p>
               </div>
               <div className="flex items-center gap-4">
-                {dbIsDev && (
-                  <span
-                    role="alert"
-                    aria-label={dbHost ? `Conectado ao banco de dados de desenvolvimento - ${dbHost}` : 'Conectado ao banco de dados de desenvolvimento'}
-                    className="text-red-400 font-bold ml-3"
-                  >
-                    (Conectado ao banco de dados de desenvolvimento{dbHost ? ` - ${dbHost}` : ''})
-                  </span>
-                )}
               </div>
             </div>
 
@@ -761,6 +743,11 @@ export default function App() {
             </Routes>
           </main>
           <footer role="contentinfo" className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-sm py-1 flex items-center justify-end px-6">
+            {IS_DEV_ENVIRONMENT && (
+              <span className="text-xs text-amber-800 bg-amber-100 px-2 py-1 rounded border border-amber-300 mr-4" role="alert">
+                Ambiente de desenvolvimento - banco de dados de homologação/desenvolvimento
+              </span>
+            )}
             <img src={LogoSystem} alt="" aria-hidden className="h-14" />
           </footer>
         </>
