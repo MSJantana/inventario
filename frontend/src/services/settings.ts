@@ -4,7 +4,14 @@ export const DEFAULT_CHROMEBOOK_IMPORT_ENABLED = true;
 export const DEFAULT_EDITAR_ENABLED = true;
 export const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string) || '1.3.5';
 
-export const IS_DEV_ENVIRONMENT = import.meta.env.DEV || (import.meta.env.VITE_API_BASE_URL as string | undefined)?.includes('localhost') || (import.meta.env.VITE_API_BASE_URL as string | undefined)?.includes('127.0.0.1') || (import.meta.env.VITE_API_BASE_URL as string | undefined)?.includes('10.12.3.231');
+export const IS_DEV_ENVIRONMENT = (() => {
+  if (import.meta.env.DEV) return true;
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.includes('10.12.3.231');
+  }
+  return false;
+})();
 
 export function getValidityYears(): number {
   const val = localStorage.getItem('equipmentValidityYears');
