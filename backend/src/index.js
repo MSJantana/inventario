@@ -231,31 +231,7 @@ if (process.env.NODE_ENV !== 'production') {
 app.get('/api/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    const dbUrl = process.env.DATABASE_URL || '';
-    let dbHost = null;
-    try {
-      const parsed = new URL(dbUrl);
-      dbHost = parsed.hostname || null;
-    } catch {}
-
-    const hostsEnv = process.env.DB_DEV_HOSTS || '';
-    const fromEnv = hostsEnv
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const safeDefaults = [
-      'mysql',
-      'db',
-      'mariadb',
-      'postgres',
-      'localhost',
-      '127.0.0.1',
-      '10.12.3.231',
-    ];
-    const devHosts = Array.from(new Set([...fromEnv, ...safeDefaults]));
-    const dbIsDev = dbHost ? devHosts.includes(dbHost) : false;
-    res.json({ status: 'ok', db: 'ok', dbHost, dbIsDev });
+    res.json({ status: 'ok', db: 'ok' });
   } catch (err) {
     res.status(500).json({ status: 'error', db: 'error', error: err.message });
   }
@@ -282,11 +258,7 @@ if (isMainModule) {
 // Tratamento de erros do Prisma
 const SLOW_MS = Number.parseInt(process.env.LOG_QUERY_SLOW_MS || '0', 10);
 
-if (process.env.NODE_ENV !== 'production') {
-  prisma.$on('query', (e) => {
-    logger.info({ duration: e.duration, query: e.query, params: e.params || undefined }, 'Prisma query');
-  });
-} else if (SLOW_MS > 0) {
+if (SLOW_MS > 0) {
   // Em produção, logar apenas consultas lentas se habilitado via LOG_QUERY_SLOW_MS
   prisma.$on('query', (e) => {
     if (e.duration >= SLOW_MS) {
