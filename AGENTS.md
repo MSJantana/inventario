@@ -146,8 +146,8 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 
 | # | Item | Problema | Impacto | Esforço |
 |---|------|----------|---------|---------|
-| 3.1 | Logs de consultas Prisma em desenvolvimento | Queries com parâmetros sensíveis logadas | Médio | Baixo |
-| 3.2 | Healthcheck expõe informações internas | Retorna `dbHost` e `dbIsDev` | Baixo/Médio | Baixo |
+| 3.1 | Logs de consultas Prisma em desenvolvimento | **Implementado** — logging de queries removido | Médio | Baixo |
+| 3.2 | Healthcheck expõe informações internas | **Implementado** — resposta simplificada sem dbHost/dbIsDev | Baixo/Médio | Baixo |
 | 3.3 | Política de senha forte | Sem exigência de complexidade | Médio | Médio |
 | 3.4 | Upload de arquivos HTML (WinAudit) | Risco de XSS se servidos no domínio do frontend | Médio | Médio |
 
