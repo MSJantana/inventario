@@ -128,8 +128,8 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 
 | # | Item | Problema | Impacto | Esforço |
 |---|------|----------|---------|---------|
-| 1.1 | Rotacionar segredos expostos | `JWT_SECRET`, `CSRF_SECRET`, senhas de banco e SMTP estiveram commitados no histórico antigo do Git | Alto | Médio |
-| 1.2 | Prevenir commit de `.env` | Sem hook automatizado para bloquear arquivos com segredos | Alto | Baixo |
+| 1.1 | Rotacionar segredos expostos | **Implementado** — JWT_SECRET, CSRF_SECRET, senhas de banco e SMTP rotacionados | Alto | Médio |
+| 1.2 | Prevenir commit de `.env` | **Implementado** — `.gitignore` bloqueia arquivos `.env`, `.gitignore` no backend também | Alto | Baixo |
 | 1.3 | Migrar JWT de `localStorage` para cookie `HttpOnly/Secure/SameSite` | Token acessível por XSS via `localStorage` | Alto | Alto |
 | 1.4 | Rate limiting em `/login` e `/recuperar-senha` | **Implementado** (express-rate-limit) | Médio | Baixo |
 
