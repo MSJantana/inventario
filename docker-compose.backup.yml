@@ -2,11 +2,23 @@ version: "3.9"
 
 services:
   backup:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.backup
+    image: msoftsantana/inventario-backup-service:latest
     container_name: inventario-backup
     restart: on-failure
+    environment:
+      - MYSQL_HOST=10.12.0.9
+      - MYSQL_PORT=3306
+      - MYSQL_USER=inventario_app
+      - MYSQL_PASSWORD=SENHA_DO_BANCO
+      - MYSQL_DATABASE=inventario
+      - BACKUP_DIR=/backup/inventario
+      - BACKUP_RETENTION_MONTHS=3
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=seu-email@gmail.com
+      - SMTP_PASSWORD=sua-senha-de-app
+      - SMTP_FROM=seu-email@gmail.com
+      - SMTP_TO=admin@empresa.com
     volumes:
       - inventario-backup-data:/backup/inventario
       - inventario-backup-logs:/var/log/backup
