@@ -1,0 +1,50 @@
+FROM debian:bookworm-slim
+
+LABEL maintainer="inventario"
+LABEL description="Backup automático do banco de dados MySQL do Sistema de Inventário"
+
+# Instalar pacotes necessários
+RUN apt-get update && apt-get install -y \
+    mysql-client \
+    cron \
+    mailutils \
+    gzip \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Criar diretórios
+RUN mkdir -p /app /backup/inventario /var/log/backup
+
+# Copiar scripts
+COPY scripts/backup.sh /app/backup.sh
+COPY scripts/restore.sh /app/restore.sh
+COPY scripts/entrypoint.sh /app/entrypoint.sh
+
+# Tornar scripts executáveis
+RUN chmod +x /app/backup.sh /app/restore.sh /app/entrypoint.sh
+
+# Configurar cron
+COPY scripts/backup-cron /etc/cron.d/backup-cron
+RUN chmod 0644 /etc/cron.d/backup-cron
+RUN crontab /etc/cron.d/backup-cron
+
+# Variáveis de ambiente padrão
+ENV MYSQL_HOST=10.12.0.9
+ENV MYSQL_PORT=3306
+ENV MYSQL_USER=inventario_app
+ENV MYSQL_PASSWORD=
+ENV MYSQL_DATABASE=inventario
+ENV BACKUP_DIR=/backup/inventario
+ENV BACKUP_RETENTION_MONTHS=3
+ENV SMTP_HOST=smtp.gmail.com
+ENV SMTP_PORT=587
+ENV SMTP_USER=
+ENV SMTP_PASSWORD=
+ENV SMTP_FROM=
+ENV SMTP_TO=
+
+# Volume para backups e logs
+VOLUME ["/backup/inventario", "/var/log/backup"]
+
+# Entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]

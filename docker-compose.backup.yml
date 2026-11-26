@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  backup:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backup
+    container_name: inventario-backup
+    restart: on-failure
+    env_file:
+      - backend/.env.backup
+    volumes:
+      - inventario-backup-data:/backup/inventario
+      - inventario-backup-logs:/var/log/backup
+    networks:
+      - inventario-backup-net
+
+volumes:
+  inventario-backup-data:
+  inventario-backup-logs:
+
+networks:
+  inventario-backup-net:
+    driver: bridge

@@ -157,7 +157,7 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 |---|------|----------|---------|---------|
 | 4.1 | Build do Docker quebrado no CI | Sem validação de build antes do merge | Alto | Baixo |
 | 4.2 | Banco de dados exposto na rede | **Implementado** — porta 3306 não publicada no docker-compose.yml | Alto | Médio |
-| 4.3 | Backup automático do banco | Sem estratégia de backup | Alto | Médio |
+| 4.3 | Backup automático do banco | **Implementado** — container Debian no Portainer, mysqldump remoto, retenção 3 meses, email via Gmail | Alto | Médio |
 | 4.4 | Validação de variáveis de ambiente | Sem validação obrigatória na inicialização | Médio | Baixo |
 
 ### Fase 5 — Qualidade de Código
