@@ -116,7 +116,7 @@ Definir antes de rodar a aplicação:
 
 ---
 
-Última atualização: 25 de novembro de 2026.
+Última atualização: 26 de novembro de 2026.
 
 ---
 
@@ -193,4 +193,51 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 
 ---
 
-Última atualização: 25 de novembro de 2026.
+## 9. Backup do Banco de Dados — Configuração no Portainer
+
+O backup do banco de dados roda em um container Docker dedicado (`backend/docker-compose.backup.yml`) que executa `mysqldump` remoto no banco `10.12.0.9`.
+
+### Como Configurar no Portainer
+
+As variáveis de ambiente devem ser injetadas diretamente na interface do Portainer, não via arquivo `.env`.
+
+#### Variáveis de Ambiente Necessárias
+
+| Variável | Exemplo | Descrição |
+|----------|---------|-----------|
+| `MYSQL_HOST` | `10.12.0.9` | Host do banco MySQL |
+| `MYSQL_PORT` | `3306` | Porta do MySQL |
+| `MYSQL_USER` | `inventario_app` | Usuário do banco |
+| `MYSQL_PASSWORD` | `sua_senha` | Senha do banco |
+| `MYSQL_DATABASE` | `inventario` | Nome do banco |
+| `BACKUP_DIR` | `/backup/inventario` | Diretório dos backups locais |
+| `BACKUP_RETENTION_MONTHS` | `3` | Meses de retenção dos backups |
+| `SMTP_HOST` | `smtp.gmail.com` | Servidor SMTP |
+| `SMTP_PORT` | `587` | Porta SMTP |
+| `SMTP_USER` | `seu-email@gmail.com` | Email remetente |
+| `SMTP_PASSWORD` | `sua-senha-de-app` | Senha de app do Gmail |
+| `SMTP_FROM` | `seu-email@gmail.com` | Email de origem |
+| `SMTP_TO` | `admin@empresa.com` | Email de destino dos alertas |
+
+### Passos para Deploy
+
+1. No Portainer, vá em **Stacks** → **Add Stack**
+2. Nomeie a stack como `inventario-backup`
+3. Escolha o arquivo `docker-compose.backup.yml`
+4. Adicione as variáveis de ambiente listadas acima na seção **Environment variables**
+5. Clique em **Deploy the stack**
+
+### Comandos Úteis
+
+```bash
+# Executar backup manualmente
+docker exec inventario-backup /app/backup.sh
+
+# Ver logs do backup
+docker logs -f inventario-backup
+
+# Restaurar um backup (exemplo)
+docker exec inventario-backup /app/restore.sh /backup/inventario/inventario-2026-11-25.sql.gz
+```
+
+Última atualização: 26 de novembro de 2026.

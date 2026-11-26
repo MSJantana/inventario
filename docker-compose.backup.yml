@@ -7,8 +7,6 @@ services:
       dockerfile: Dockerfile.backup
     container_name: inventario-backup
     restart: on-failure
-    env_file:
-      - backend/.env.backup
     volumes:
       - inventario-backup-data:/backup/inventario
       - inventario-backup-logs:/var/log/backup
