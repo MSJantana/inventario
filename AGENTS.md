@@ -155,7 +155,7 @@ Este roadmap reúne melhorias identificadas para o sistema, organizadas por fase
 
 | # | Item | Problema | Impacto | Esforço |
 |---|------|----------|---------|---------|
-| 4.1 | Build do Docker quebrado no CI | Sem validação de build antes do merge | Alto | Baixo |
+| 4.1 | Build do Docker quebrado no CI | **Implementado** — CI/CD com GitHub Actions para backup (docker-compose.backup.yml) | Alto | Baixo |
 | 4.2 | Banco de dados exposto na rede | **Implementado** — porta 3306 não publicada no docker-compose.yml | Alto | Médio |
 | 4.3 | Backup automático do banco | **Implementado** — container Debian no Portainer, mysqldump remoto, retenção 3 meses, email via Gmail | Alto | Médio |
 | 4.4 | Validação de variáveis de ambiente | Sem validação obrigatória na inicialização | Médio | Baixo |
