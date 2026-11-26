@@ -662,6 +662,9 @@ export default function App() {
     'Segurança: validação de contrato de API (OpenAPI/Swagger em /api-docs + testes de contrato).',
     'Segurança: cabeçalhos de segurança HTTP (HSTS, X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy).',
     'Segurança: banco de dados não exposto na rede — acessível apenas internamente via rede Docker.',
+    'Backup automático: rotina diária às 02:00 via container Debian no Portainer, com mysqldump remoto, compactação gzip e retenção de 3 meses.',
+    'Backup automático: notificação por email via Gmail em caso de sucesso ou falha.',
+    'Backup automático: scripts de backup e restauração disponíveis em backend/scripts/ e documentação em backend/docs/BACKUP.md.',
   ];
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);

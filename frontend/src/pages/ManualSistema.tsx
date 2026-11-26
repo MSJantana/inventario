@@ -201,6 +201,8 @@ function Autenticacao() {
         <ItemLista><strong>Rate limiting:</strong> no máximo 10 tentativas de login e 5 de recuperação de senha por IP por minuto.</ItemLista>
         <ItemLista><strong>Logout com invalidação de token:</strong> ao clicar em “Sair”, o token JWT é revogado imediatamente e não pode mais ser usado.</ItemLista>
         <ItemLista><strong>Sem enumeração de e-mails:</strong> a recuperação de senha retorna sempre a mesma mensagem, independentemente de o e-mail estar cadastrado ou não.</ItemLista>
+        <ItemLista><strong>Confirmação de exclusão:</strong> para excluir equipamentos, usuários, escolas, centro de mídia e movimentações, é necessário digitar “CONFIRMAR” para evitar exclusões acidentais.</ItemLista>
+        <ItemLista><strong>Backup automático:</strong> a partir da versão 1.3.6, o sistema possui rotina diária de backup às 02:00 via container Docker dedicado, com mysqldump remoto, compactação gzip e retenção de 3 meses. Notificações por email via Gmail em caso de sucesso ou falha.</ItemLista>
       </ListaComMarcadores>
     </>
   )

@@ -1,5 +1,31 @@
 # inventario_asrs
 
+# Versão 1.3.6
+    - Segurança: cabeçalhos de segurança HTTP (HSTS, X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy).
+    - Segurança: banco de dados não exposto na rede — acessível apenas internamente via rede Docker.
+    - Backup automático: rotina diária às 02:00 via container Debian no Portainer, com mysqldump remoto, compactação gzip e retenção de 3 meses.
+    - Backup automático: notificação por email via Gmail em caso de sucesso ou falha.
+    - Backup automático: scripts de backup e restauração disponíveis em backend/scripts/ e documentação em backend/docs/BACKUP.md.
+    - Documentação: README e manual atualizados com informações de backup.
+
+# Versão 1.3.5
+    - Segurança: logout com invalidação de JWT (blocklist RevokedToken) — o token é revogado ao sair.
+    - Segurança: rate limiting em login e recuperação de senha (máx. 10 e 5 tentativas por IP por minuto).
+    - Segurança: recuperação de senha retorna mensagem genérica, evitando enumeração de e-mails.
+    - Segurança: confirmação de exclusão em equipamentos, usuários, escolas, centro de mídia e movimentações — exige digitar "CONFIRMAR" para prosseguir.
+    - Segurança: validação de contrato de API (OpenAPI/Swagger em /api-docs + testes de contrato).
+    - Segurança: cabeçalhos de segurança HTTP (HSTS, X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy).
+    - Segurança: banco de dados não exposto na rede — acessível apenas internamente via rede Docker.
+    - Correção: build do Docker corrigido (JSX no ManualSistema.tsx).
+    - Documentação: AGENTS.md criado com diretrizes e regras de segurança do repositório.
+    - Versão do frontend atualizada para 1.3.5.
+    - Versão do backend atualizada para 1.1.14.
+
+# Versão 1.3.4
+    - Segurança: arquivos .env removidos do versionamento Git (adicionados ao .gitignore).
+    - Versão do frontend atualizada para 1.3.4.
+    - Versão do backend atualizada para 1.1.13.
+
 # Versão 1.3.3
     - Segurança: arquivos .env removidos do versionamento Git (adicionados ao .gitignore).
     - Segurança: logout com invalidação de JWT (blocklist RevokedToken) — o token é revogado ao sair.
