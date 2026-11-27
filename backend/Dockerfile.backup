@@ -4,12 +4,14 @@ LABEL maintainer="inventario"
 LABEL description="Backup automático do banco de dados MySQL do Sistema de Inventário"
 
 # Instalar pacotes necessários
-RUN apt-get update && apt-get install -y \
-    mysql-client \
-    cron \
-    mailutils \
-    gzip \
-    ca-certificates \
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        mysql-client \
+        cron \
+        mailutils \
+        gzip \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Criar diretórios
