@@ -5,9 +5,11 @@ LABEL description="Backup automático do banco de dados MySQL do Sistema de Inve
 
 # Instalar pacotes necessários
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
+RUN echo "deb http://deb.debian.org/debian bookworm main" > /etc/apt/sources.list \
+    && echo "deb http://deb.debian.org/debian bookworm-updates main" >> /etc/apt/sources.list \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
-        mysql-client \
+        mariadb-client \
         cron \
         mailutils \
         gzip \
